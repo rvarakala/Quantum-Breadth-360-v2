@@ -1417,6 +1417,17 @@ async def startup_event():
         # Pre-warm in background so first dashboard load is fast
         asyncio.create_task(_prewarm_breadth())
 
+    # 3. Insider trading — ensure tables + auto-sync last 7 days
+    try:
+        _ensure_insider_tables()
+        logger.info("✅ Insider trading tables ready")
+        asyncio.create_task(_auto_sync_insider())
+    except Exception as e:
+        logger.warning(f"Insider table init failed: {e}")
+
+    # 4. Start daily insider sync scheduler (runs at ~6:30 PM IST / 1 PM UTC)
+    asyncio.create_task(_insider_daily_scheduler())
+
 async def _prewarm_breadth():
     """Pre-compute breadth in background so first load is instant."""
     try:
@@ -1427,6 +1438,67 @@ async def _prewarm_breadth():
             logger.info(f"✅ Pre-warm done: India breadth cached ({result.get('universe_size',0)} stocks)")
     except Exception as e:
         logger.warning(f"Pre-warm failed: {e}")
+
+
+async def _auto_sync_insider():
+    """Auto-sync last 7 days of insider trades on startup."""
+    await asyncio.sleep(15)  # wait for server to finish starting
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            executor, lambda: sync_insider_data(days_back=7)
+        )
+        if result.get("status") == "ok":
+            logger.info(f"✅ Insider auto-sync: {result.get('stored', 0)} trades from last 7 days")
+        else:
+            logger.info(f"⏭ Insider auto-sync: {result.get('message', 'No data')} — use CSV import")
+    except Exception as e:
+        logger.warning(f"Insider auto-sync failed: {e}")
+
+
+async def _insider_daily_scheduler():
+    """
+    Background scheduler: auto-fetch insider data daily at ~6:30 PM IST.
+    NSE publishes PIT disclosures throughout the day, most arrive by 6 PM.
+    Also runs every 6 hours as a fallback.
+    """
+    import pytz
+    INTERVAL_HOURS = 6  # fallback: sync every 6 hours
+
+    await asyncio.sleep(60)  # initial delay
+
+    while True:
+        try:
+            # Check if it's a good time to sync (after market hours IST)
+            try:
+                ist = pytz.timezone("Asia/Kolkata")
+                now_ist = datetime.now(ist)
+                hour = now_ist.hour
+                is_weekday = now_ist.weekday() < 5
+                # Best window: 6-8 PM IST on weekdays
+                if is_weekday and 18 <= hour <= 20:
+                    logger.info("🔄 Insider daily scheduler: syncing (6-8 PM IST window)...")
+                    loop = asyncio.get_event_loop()
+                    result = await loop.run_in_executor(
+                        executor, lambda: sync_insider_data(days_back=3)
+                    )
+                    if result.get("status") == "ok":
+                        logger.info(f"✅ Insider daily sync: {result.get('stored', 0)} new trades")
+                    else:
+                        logger.debug(f"Insider daily sync: {result.get('message', 'no data')}")
+            except ImportError:
+                # pytz not installed — just sync every INTERVAL_HOURS
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    executor, lambda: sync_insider_data(days_back=3)
+                )
+                if result.get("status") == "ok":
+                    logger.info(f"✅ Insider periodic sync: {result.get('stored', 0)} new trades")
+        except Exception as e:
+            logger.warning(f"Insider scheduler error: {e}")
+
+        # Sleep for INTERVAL_HOURS
+        await asyncio.sleep(INTERVAL_HOURS * 3600)
 
 
 @app.post("/api/cache/clear-breadth")

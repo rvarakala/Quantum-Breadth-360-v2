@@ -9,3 +9,4 @@ beautifulsoup4==4.12.3
 lxml==5.1.0
 tradingview-screener>=3.0.0
 tradingview-scraper>=0.3.0
+pytz
