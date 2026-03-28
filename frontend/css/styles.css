@@ -3579,3 +3579,37 @@ select option:checked {
   .fv-dist-row { flex-direction: column; }
   .fv-table { font-size: 10px; }
 }
+
+/* ── Top Nav Market Toggle (India / US) ──────────────────────────────────── */
+.nav-market-toggle {
+  display: flex;
+  gap: 2px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  padding: 2px;
+  border: 1px solid var(--card-border);
+  flex-shrink: 0;
+}
+.nav-mkt-btn {
+  padding: 5px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text3);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.nav-mkt-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.nav-mkt-btn.active {
+  background: var(--cyan);
+  color: #000;
+}
+.nav-mkt-btn[data-market="US"].active {
+  background: #f59e0b;
+  color: #000;
+}

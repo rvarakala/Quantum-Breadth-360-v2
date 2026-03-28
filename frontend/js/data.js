@@ -100,7 +100,12 @@ function updateFreshness() {
 
 function switchMarket(market) {
   currentMarket = market;
+  // Update sidebar toggle
   document.querySelectorAll('.market-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.market === market);
+  });
+  // Update top nav toggle
+  document.querySelectorAll('.nav-mkt-btn').forEach(t => {
     t.classList.toggle('active', t.dataset.market === market);
   });
 
@@ -110,6 +115,12 @@ function switchMarket(market) {
     return;
   }
   switchTab('overview');
+
+  // Reset tab caches so they reload for new market
+  _scannerData = null;
+  _fvLoaded = false;
+  if (typeof _leadersData !== 'undefined') _leadersData = null;
+  if (typeof _stockbeeData !== 'undefined') _stockbeeData = null;
 
   if (currentData[market]) {
     renderOverview(currentData[market]);
