@@ -1805,6 +1805,144 @@ async def sectors_heatmap(market: str = "India", period: str = "1m"):
     data = await loop.run_in_executor(executor, compute_sector_heatmap, market, period)
     return data
 
+
+@app.get("/api/sectors/rotation")
+async def sectors_rotation(market: str = "India"):
+    """
+    Sector Rotation Map (RRG-style scatter plot).
+    X-axis: RS (% above 50 DMA) — relative strength
+    Y-axis: Performance (15-day avg return) — momentum
+    Bubble size: stock count in sector
+    Quadrants: Leading (top-right), Weakening (bottom-right), Lagging (bottom-left), Improving (top-left)
+    """
+    import sqlite3
+    db_path = pathlib.Path(__file__).parent / "breadth_data.db"
+    db_market = "India" if market.upper() == "INDIA" else market
+
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=10)
+        conn.row_factory = sqlite3.Row
+
+        # Get sector map
+        sec_rows = conn.execute("SELECT ticker, sector FROM sector_map WHERE sector IS NOT NULL AND sector != ''").fetchall()
+        if not sec_rows:
+            conn.close()
+            return {"sectors": [], "error": "No sector map"}
+
+        sector_tickers = {}
+        for r in sec_rows:
+            sector_tickers.setdefault(r["sector"], []).append(r["ticker"])
+
+        # Get latest date
+        latest = conn.execute("SELECT MAX(date) as d FROM ohlcv WHERE market=?", (db_market,)).fetchone()
+        if not latest or not latest["d"]:
+            conn.close()
+            return {"sectors": [], "error": "No OHLCV data"}
+        latest_date = latest["d"]
+
+        lookback_15d = (datetime.strptime(latest_date, "%Y-%m-%d") - timedelta(days=25)).strftime("%Y-%m-%d")
+        dma50_date = (datetime.strptime(latest_date, "%Y-%m-%d") - timedelta(days=80)).strftime("%Y-%m-%d")
+
+        sectors_out = []
+        all_rs = []
+        all_perf = []
+
+        for sector, tickers in sector_tickers.items():
+            perfs = []
+            above_50 = 0
+            valid_50 = 0
+            vol_ratios = []
+
+            for ticker in tickers:
+                # 15-day return
+                latest_close = conn.execute(
+                    "SELECT close FROM ohlcv WHERE ticker=? AND market=? ORDER BY date DESC LIMIT 1",
+                    (ticker, db_market)
+                ).fetchone()
+                past_close = conn.execute(
+                    "SELECT close FROM ohlcv WHERE ticker=? AND market=? AND date<=? ORDER BY date DESC LIMIT 1",
+                    (ticker, db_market, lookback_15d)
+                ).fetchone()
+
+                if not latest_close or not past_close:
+                    continue
+                c_now = float(latest_close["close"] or 0)
+                c_past = float(past_close["close"] or 0)
+                if c_now <= 0 or c_past <= 0:
+                    continue
+
+                perf = ((c_now - c_past) / c_past) * 100
+                perfs.append(perf)
+
+                # 50 DMA check
+                rows_50 = conn.execute(
+                    "SELECT close FROM ohlcv WHERE ticker=? AND market=? AND date>=? ORDER BY date",
+                    (ticker, db_market, dma50_date)
+                ).fetchall()
+                if len(rows_50) >= 30:
+                    closes = [float(r["close"]) for r in rows_50[-50:] if r["close"]]
+                    if closes:
+                        dma50 = sum(closes) / len(closes)
+                        valid_50 += 1
+                        if c_now > dma50:
+                            above_50 += 1
+
+                # Volume ratio (today vs 50d avg)
+                vol_rows = conn.execute(
+                    "SELECT volume FROM ohlcv WHERE ticker=? AND market=? ORDER BY date DESC LIMIT 50",
+                    (ticker, db_market)
+                ).fetchall()
+                if len(vol_rows) >= 2:
+                    today_vol = float(vol_rows[0]["volume"] or 0)
+                    avg_vol = sum(float(r["volume"] or 0) for r in vol_rows[1:]) / (len(vol_rows) - 1)
+                    if avg_vol > 0:
+                        vol_ratios.append(today_vol / avg_vol)
+
+            if not perfs or valid_50 == 0:
+                continue
+
+            rs_score = round((above_50 / valid_50) * 100, 1) if valid_50 > 0 else 0
+            avg_perf = round(sum(perfs) / len(perfs), 2)
+            avg_vol_ratio = round(sum(vol_ratios) / len(vol_ratios), 2) if vol_ratios else 1.0
+
+            # Quadrant: RS median ~50, Perf median ~0
+            if rs_score >= 50 and avg_perf >= 0:
+                quadrant = "Leading"
+            elif rs_score >= 50 and avg_perf < 0:
+                quadrant = "Weakening"
+            elif rs_score < 50 and avg_perf >= 0:
+                quadrant = "Improving"
+            else:
+                quadrant = "Lagging"
+
+            sectors_out.append({
+                "sector": sector,
+                "rs": rs_score,
+                "perf": avg_perf,
+                "stock_count": len(perfs),
+                "vol_ratio": avg_vol_ratio,
+                "quadrant": quadrant,
+            })
+            all_rs.append(rs_score)
+            all_perf.append(avg_perf)
+
+        conn.close()
+
+        # Compute medians for crosshair
+        median_rs = sorted(all_rs)[len(all_rs)//2] if all_rs else 50
+        median_perf = sorted(all_perf)[len(all_perf)//2] if all_perf else 0
+
+        return {
+            "sectors": sectors_out,
+            "median_rs": round(median_rs, 1),
+            "median_perf": round(median_perf, 2),
+            "latest_date": latest_date,
+            "market": market,
+        }
+
+    except Exception as e:
+        return {"sectors": [], "error": str(e)}
+
 # ── Watchlist CRUD ─────────────────────────────────────────────────────────────
 
 @app.get("/api/watchlist")

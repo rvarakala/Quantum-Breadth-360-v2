@@ -3327,3 +3327,32 @@ select option:checked {
   background: #fff;
   color: #1e293b;
 }
+
+/* ── Sector View Toggle (Heatmap / Rotation) ────────────────────────────── */
+.hm-view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--input-bg);
+  border-radius: 8px;
+  padding: 2px;
+  border: 1px solid var(--card-border);
+}
+.hm-view-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.04em;
+}
+.hm-view-btn:hover { color: var(--text); background: var(--surface); }
+.hm-view-btn.active {
+  background: var(--cyan);
+  color: #000;
+  font-weight: 700;
+}

@@ -854,11 +854,14 @@
 
   <!-- SECTORS TAB -->
   <div class="tab-content" id="tab-sectors">
-    <!-- Rotation Heatmap -->
+    <!-- View Toggle -->
     <div class="hm-section">
       <div class="hm-header">
-        <span class="section-title">SECTOR ROTATION HEATMAP</span>
-        <div class="hm-period-group">
+        <div class="hm-view-toggle">
+          <button class="hm-view-btn active" id="hm-view-heatmap" onclick="switchSectorView('heatmap')">🔥 Heatmap</button>
+          <button class="hm-view-btn" id="hm-view-rotation" onclick="switchSectorView('rotation')">◎ Rotation Map</button>
+        </div>
+        <div class="hm-period-group" id="hm-period-group">
           <button class="hm-period-btn" data-period="1d" onclick="loadHeatmap('1d')">1D</button>
           <button class="hm-period-btn" data-period="1w" onclick="loadHeatmap('1w')">1W</button>
           <button class="hm-period-btn active" data-period="1m" onclick="loadHeatmap('1m')">1M</button>
@@ -866,8 +869,13 @@
         </div>
         <span class="hm-info" id="hm-info" style="font-size:10px;color:var(--text3);font-family:var(--font-mono)"></span>
       </div>
+      <!-- Heatmap view -->
       <div id="heatmap-container" class="heatmap-container">
         <div style="text-align:center;padding:40px;color:var(--text3)">Loading heatmap...</div>
+      </div>
+      <!-- Rotation Map view (hidden by default) -->
+      <div id="rotation-container" class="heatmap-container" style="display:none">
+        <div style="text-align:center;padding:40px;color:var(--text3)">Loading rotation map...</div>
       </div>
     </div>
 
