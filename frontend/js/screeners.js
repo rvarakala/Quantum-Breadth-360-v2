@@ -422,14 +422,6 @@ let _scannerData=null;
 
 async function loadScannerData(){
   if(_scannerData) return _scannerData;
-  // Show loading state in Top Movers
-  const gEl=document.getElementById('scn-gainers');
-  const lEl=document.getElementById('scn-losers');
-  const vEl=document.getElementById('scn-volspikes');
-  const loadingHtml='<div class="scn-mover-empty">⏳ Loading RS data...</div>';
-  if(gEl) gEl.innerHTML=loadingHtml;
-  if(lEl) lEl.innerHTML=loadingHtml;
-  if(vEl) vEl.innerHTML=loadingHtml;
   try{
     const minMcap = _getMinMcap();
     const params = new URLSearchParams({market: currentMarket, min_rs: '1'});
@@ -439,19 +431,9 @@ async function loadScannerData(){
     const d=await res.json();
     if(d.error) throw new Error(d.error);
     _scannerData=d.stocks||[];
-    if(!_scannerData.length){
-      const noData='<div class="scn-mover-empty">No stock data in DB.<br>Run OHLCV sync first (Importer tab).</div>';
-      if(gEl) gEl.innerHTML=noData;
-      if(lEl) lEl.innerHTML=noData;
-      if(vEl) vEl.innerHTML=noData;
-    }
     return _scannerData;
   }catch(e){
-    console.warn('Scanner load failed:',e.message);
-    const errHtml=`<div class="scn-mover-empty" style="color:var(--red)">⚠ ${e.message}<br><span style="color:var(--text3);font-size:10px">RS computation may take 15-30s on first load.<br>If this persists, check server logs.</span></div>`;
-    if(gEl) gEl.innerHTML=errHtml;
-    if(lEl) lEl.innerHTML=errHtml;
-    if(vEl) vEl.innerHTML=errHtml;
+    console.warn('Scanner RS load failed:',e.message);
     return[];
   }
 }
@@ -535,6 +517,10 @@ async function runQuickScan(scanId){
     }catch(e){body.innerHTML=`<div class="scn-mover-empty" style="color:var(--red)">⚠ ${e.message}</div>`;return;}
   } else {
     const stocks=await loadScannerData();
+    if(!stocks.length){
+      body.innerHTML='<div class="scn-mover-empty" style="color:var(--amber)">⏳ RS data not available yet.<br><span style="color:var(--text3);font-size:10px">RS rankings compute on first scan click (takes 15-30s).<br>Try again in a moment, or use a backend scan instead.</span></div>';
+      return;
+    }
     results=stocks.filter(def.filter).sort((a,b)=>b.rs_rating-a.rs_rating);
   }
   const elapsed=((Date.now()-t0)/1000).toFixed(1);
