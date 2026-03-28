@@ -224,9 +224,9 @@
           <label>Cap Filter:</label>
           <select id="ldr-mcap-filter" onchange="loadLeaders(false)">
             <option value="0">All Caps</option>
-            <option value="500" selected>Exclude Micro (&gt;₹500 Cr)</option>
-            <option value="5000">Mid Cap+ (&gt;₹5,000 Cr)</option>
-            <option value="20000">Large Cap+ (&gt;₹20,000 Cr)</option>
+            <option value="500" selected>Exclude Micro (>500 Cr / $2B)</option>
+            <option value="5000">Mid Cap+ (>5K Cr / $20B)</option>
+            <option value="20000">Large Cap+ (>20K Cr / $80B)</option>
           </select>
         </div>
       </div>
@@ -480,7 +480,7 @@
           <div class="scn-sidebar-section">MOMENTUM</div>
           <div class="scn-sidebar-item" onclick="runQuickScan('rs90')"           id="qs-rs90">          <span>⭐</span>RS Rating 90+</div>
           <div class="scn-sidebar-item" onclick="runQuickScan('rs80')"           id="qs-rs80">          <span>✨</span>RS Rating 80+</div>
-          <div class="scn-sidebar-item" onclick="runQuickScan('stronger_nifty')" id="qs-stronger_nifty"><span>💪</span>Stronger Than Nifty</div>
+          <div class="scn-sidebar-item" onclick="runQuickScan('stronger_nifty')" id="qs-stronger_nifty"><span>💪</span><span id="qs-stronger-label">Stronger Than Nifty</span></div>
           <div class="scn-sidebar-item" onclick="runQuickScan('breakout_king')"  id="qs-breakout_king"> <span>⚡</span>Breakout King</div>
           <div class="scn-sidebar-section">A/D RATING</div>
           <div class="scn-sidebar-item" onclick="runQuickScan('ad_a')"           id="qs-ad_a">          <span>🟢</span>A/D = A or A+</div>
@@ -496,7 +496,7 @@
       <div class="scn-main">
         <div class="scn-mkt-bar">
           <div class="scn-mkt-dot closed" id="scn-mkt-dot"></div>
-          <span style="font-weight:700">NSE / BSE</span>
+          <span style="font-weight:700" id="scn-exchange-label">NSE / BSE</span>
           <span style="color:var(--border2)">•</span>
           <span id="scn-mkt-status" style="color:var(--text2);font-size:11px">—</span>
           <span style="color:var(--border2)">•</span>
@@ -526,7 +526,7 @@
         <div class="scn-popscan-grid">
           <div class="scn-popscan-card" onclick="runQuickScan('breakout_king')"><span class="scn-popscan-icon">⚡</span><div><div class="scn-popscan-name">Breakout King</div><div class="scn-popscan-desc">Near 52W high + RS 80+ + Vol surge</div></div></div>
           <div class="scn-popscan-card" onclick="runQuickScan('vol5x')"><span class="scn-popscan-icon">💥</span><div><div class="scn-popscan-name">Volume &gt; 5x Avg</div><div class="scn-popscan-desc">Unusual volume vs 50-day average</div></div></div>
-          <div class="scn-popscan-card" onclick="runQuickScan('stronger_nifty')"><span class="scn-popscan-icon">💪</span><div><div class="scn-popscan-name">Stronger Than Nifty</div><div class="scn-popscan-desc">RS trend ↑ with rating above 70</div></div></div>
+          <div class="scn-popscan-card" onclick="runQuickScan('stronger_nifty')"><span class="scn-popscan-icon">💪</span><div><div class="scn-popscan-name" id="scn-pop-stronger">Stronger Than Nifty</div><div class="scn-popscan-desc">RS trend ↑ with rating above 70</div></div></div>
           <div class="scn-popscan-card" onclick="runQuickScan('near_52w_high')"><span class="scn-popscan-icon">🎯</span><div><div class="scn-popscan-name">Near 52W High</div><div class="scn-popscan-desc">Within 5% of 52-week high</div></div></div>
           <div class="scn-popscan-card" onclick="runQuickScan('svro')"><span class="scn-popscan-icon">🎯</span><div><div class="scn-popscan-name">SVRO Setup</div><div class="scn-popscan-desc">Stage2 + Vol Surge + RS 85+ + Liquid</div></div></div>
           <div class="scn-popscan-card" onclick="runQuickScan('vcp_minervini')"><span class="scn-popscan-icon">📐</span><div><div class="scn-popscan-name">VCP (Minervini)</div><div class="scn-popscan-desc">Trend Template + Contraction + Near Pivot</div></div></div>
@@ -546,7 +546,7 @@
           </div>
           <div>
             <div class="ins-main-title">INSIDER ACTIVITY</div>
-            <div class="ins-subtitle">SEBI PIT Reg 7(2) Disclosures</div>
+            <div class="ins-subtitle" id="ins-subtitle">SEBI PIT Reg 7(2) Disclosures</div>
           </div>
           <span class="ins-live-dot" id="ins-live-dot">● LIVE</span>
           <button class="ins-refresh-btn" onclick="refreshInsiderData()" title="Refresh data">↻ Refresh</button>
@@ -588,7 +588,7 @@
         </div>
         <!-- CSV import -->
         <div class="ins-filter-group">
-          <label class="ins-import-btn" title="Import NSE PIT CSV">
+          <label class="ins-import-btn" id="ins-import-label" title="Import CSV">
             📥 Import CSV
             <input type="file" accept=".csv" onchange="importInsiderCSV(this)" style="display:none">
           </label>
@@ -624,7 +624,7 @@
 
       <div class="ins-footer" id="ins-footer">
         <span id="ins-count">0 trades</span>
-        <span class="ins-powered">Data: NSE SEBI PIT Disclosures</span>
+        <span class="ins-powered" id="ins-powered">Data: NSE SEBI PIT Disclosures</span>
       </div>
     </div>
   </div><!-- /tab-insider -->
@@ -686,7 +686,7 @@
               <th>SECTOR</th>
               <th class="fv-th-center">GRADE</th>
               <th>FV STATUS</th>
-              <th class="fv-th-right">CMP ₹</th>
+              <th class="fv-th-right">CMP</th>
               <th class="fv-th-right">FAIR VAL</th>
               <th class="fv-th-right">UPSIDE%</th>
               <th class="fv-th-right">PE</th>
@@ -1379,9 +1379,9 @@
             <label>Cap Filter:</label>
             <select id="scr-mcap-filter" onchange="_scannerData=null;">
               <option value="0">All Caps</option>
-              <option value="500" selected>Exclude Micro (&gt;₹500 Cr)</option>
-              <option value="5000">Mid Cap+ (&gt;₹5,000 Cr)</option>
-              <option value="20000">Large Cap+ (&gt;₹20,000 Cr)</option>
+              <option value="500" selected>Exclude Micro (>500 Cr / $2B)</option>
+              <option value="5000">Mid Cap+ (>5K Cr / $20B)</option>
+              <option value="20000">Large Cap+ (>20K Cr / $80B)</option>
             </select>
           </div>
           <div class="scr-hint">

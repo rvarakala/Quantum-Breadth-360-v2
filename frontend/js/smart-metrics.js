@@ -135,7 +135,7 @@ function _renderTechPanel(d) {
   const t = d.technicals;
   if (!t || !t.has_data) return '<div class="sm-no-data">No technical data in DB</div>';
 
-  const price = t.price ? Number(t.price).toLocaleString('en-IN', {maximumFractionDigits: 2}) : '—';
+  const price = t.price ? Number(t.price).toLocaleString(mktLocale(), {maximumFractionDigits: 2}) : '—';
   const chgColor = (t.change_pct || 0) >= 0 ? 'var(--green)' : 'var(--red)';
   const chgSign = (t.change_pct || 0) >= 0 ? '+' : '';
 
@@ -174,7 +174,7 @@ function _renderTechPanel(d) {
     </div>
     <div class="sm-tech-price-row">
       <span class="sm-tech-ticker">${d.ticker}</span>
-      <span class="sm-tech-price">₹${price}</span>
+      <span class="sm-tech-price">${mktCurrency()}${price}</span>
       <span class="sm-tech-chg" style="color:${chgColor}">${chgSign}${(t.change_pct || 0).toFixed(2)}%</span>
     </div>
     <div class="sm-stage-bar">${stageBarHtml}</div>

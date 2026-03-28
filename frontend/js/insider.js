@@ -128,7 +128,7 @@ function _renderInsiderTable(trades) {
       <td><span class="ins-type-badge ${isBuy ? 'buy' : isSell ? 'sell' : ''}">${t.transaction_type}</span></td>
       <td class="ins-right">${(t.securities_count || 0).toLocaleString()}</td>
       <td class="ins-right ins-val">${t.value_fmt || '—'}</td>
-      <td class="ins-right">₹${(t.price_approx || 0).toLocaleString()}</td>
+      <td class="ins-right">${mktCurrency()}${(t.price_approx || 0).toLocaleString()}</td>
       <td class="ins-mode">${_shortMode(t.mode)}</td>
     </tr>`;
   }).join('');
@@ -188,10 +188,7 @@ async function refreshInsiderData() {
 
 function _fmtVal(val) {
   if (!val) return '—';
-  if (val >= 1_00_00_000) return `₹${(val/1_00_00_000).toFixed(1)}Cr`;
-  if (val >= 1_00_000) return `₹${(val/1_00_000).toFixed(1)}L`;
-  if (val >= 1000) return `₹${(val/1000).toFixed(0)}K`;
-  return `₹${val.toFixed(0)}`;
+  return mktFormatValue(val);
 }
 
 function _truncate(s, n) {
@@ -224,5 +221,15 @@ function _shortMode(mode) {
 // ── Auto-load when tab is shown ──────────────────────────────────────────────
 // Called from app.js switchTab()
 function onInsiderTabLoad() {
+  // Update labels based on current market
+  const sub = document.getElementById('ins-subtitle');
+  const pwr = document.getElementById('ins-powered');
+  if (currentMarket === 'US') {
+    if (sub) sub.textContent = 'SEC Form 4 Filings';
+    if (pwr) pwr.textContent = 'Data: SEC EDGAR Form 4';
+  } else {
+    if (sub) sub.textContent = 'SEBI PIT Reg 7(2) Disclosures';
+    if (pwr) pwr.textContent = 'Data: NSE SEBI PIT Disclosures';
+  }
   if (_insiderData.length === 0) loadInsiderData();
 }

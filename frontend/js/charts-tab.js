@@ -692,7 +692,7 @@ async function loadChart(ticker) {
       }
       infoBar.innerHTML = `
         <span class="chart-info-ticker">${info.name}</span>
-        <span class="chart-info-price" style="color:${col}">${lastCandle.close.toLocaleString('en-IN', {maximumFractionDigits:2})}</span>
+        <span class="chart-info-price" style="color:${col}">${lastCandle.close.toLocaleString(mktLocale(), {maximumFractionDigits:2})}</span>
         <span class="chart-info-chg" style="color:${col}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)} (${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)</span>
         <span class="chart-info-date">${info.last_date}</span>
         <span class="chart-info-bars">${info.total_bars} bars</span>

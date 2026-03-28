@@ -62,7 +62,7 @@ async function loadPeepIntoPast(dateStr) {
   _peepShowLoading();
 
   try {
-    const resp = await fetch(`${PEEP_API}/api/peep-into-past?date=${d}&market=India`);
+    const resp = await fetch(`${PEEP_API}/api/peep-into-past?date=${d}&market=${mktDbMarket()}`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);

@@ -134,19 +134,19 @@ function renderOverview(d) {
     da.style.display = 'none';
   }
 
-  // Nav bar update
-  if (d.market === 'INDIA') {
-    // Show NIFTY 50 in nav header (benchmark index), NIFTY 500 in side card
-    const n50p = d.nifty50_price || d.index_price || 0;
-    const n50c = d.nifty50_change_pct ?? ic;
-    $('nav-nifty-price').textContent = n50p > 0 ? n50p.toLocaleString('en-IN', {maximumFractionDigits:1}) : '—';
-    $('nav-nifty-chg').textContent = n50c >= 0 ? `+${fmt(n50c,2)}%` : `${fmt(n50c,2)}%`;
-    $('nav-nifty-chg').style.color = n50c >= 0 ? '#22c55e' : '#ef4444';
-  } else {
-    $('nav-sp-price').textContent = d.index_price > 0 ? d.index_price.toLocaleString('en-US', {maximumFractionDigits:1}) : '—';
-    $('nav-sp-chg').textContent = ic >= 0 ? `+${fmt(ic,2)}%` : `${fmt(ic,2)}%`;
-    $('nav-sp-chg').style.color = ic >= 0 ? '#22c55e' : '#ef4444';
-  }
+  // Nav bar update — market-aware
+  const navLabel = $('nav-ticker-label-main');
+  const idxPrice = d.nifty50_price || d.index_price || 0;
+  const idxChg = d.nifty50_change_pct ?? ic;
+  
+  // Update the nav ticker label dynamically
+  const tickerLabelEl = document.querySelector('#nav-india .nav-ticker-label');
+  if (tickerLabelEl) tickerLabelEl.textContent = mktIndexLabel();
+  
+  $('nav-nifty-price').textContent = idxPrice > 0 ? idxPrice.toLocaleString(mktLocale(), {maximumFractionDigits:1}) : '—';
+  $('nav-nifty-chg').textContent = idxChg >= 0 ? `+${fmt(idxChg,2)}%` : `${fmt(idxChg,2)}%`;
+  $('nav-nifty-chg').style.color = idxChg >= 0 ? '#22c55e' : '#ef4444';
+
   // VIX in nav bar
   const vixVal = d.vix;
   if (vixVal != null && !isNaN(vixVal)) {

@@ -131,3 +131,40 @@ function switchMarket(market) {
     loadBreadth(false);
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// MARKET-AWARE UTILITIES — returns correct labels/symbols for current market
+// ════════════════════════════════════════════════════════════════════════════
+
+function mktCurrency()    { return currentMarket === 'US' ? '$' : '₹'; }
+function mktLocale()      { return currentMarket === 'US' ? 'en-US' : 'en-IN'; }
+function mktIndexName()   { return currentMarket === 'US' ? 'Russell 3000' : 'NIFTY 500'; }
+function mktIndexLabel()  { return currentMarket === 'US' ? 'R3000' : 'NIFTY'; }
+function mktExchange()    { return currentMarket === 'US' ? 'NYSE / NASDAQ' : 'NSE / BSE'; }
+function mktVixLabel()    { return currentMarket === 'US' ? 'VIX' : 'VIX'; }
+function mktBenchmark()   { return currentMarket === 'US' ? '^RUA' : '^CRSLDX'; }
+function mktStrongerLabel() { return currentMarket === 'US' ? 'Stronger Than R3000' : 'Stronger Than Nifty'; }
+function mktDbMarket()    { return currentMarket === 'US' ? 'US' : 'India'; }
+
+function mktFormatPrice(val) {
+  if (!val && val !== 0) return '—';
+  const cur = mktCurrency();
+  const loc = mktLocale();
+  return cur + Number(val).toLocaleString(loc, {maximumFractionDigits: 1});
+}
+
+function mktFormatValue(val) {
+  if (!val) return '—';
+  const cur = mktCurrency();
+  if (currentMarket === 'US') {
+    if (val >= 1e9)  return cur + (val/1e9).toFixed(1) + 'B';
+    if (val >= 1e6)  return cur + (val/1e6).toFixed(1) + 'M';
+    if (val >= 1e3)  return cur + (val/1e3).toFixed(0) + 'K';
+    return cur + val.toFixed(0);
+  } else {
+    if (val >= 1_00_00_000) return cur + (val/1_00_00_000).toFixed(1) + 'Cr';
+    if (val >= 1_00_000)    return cur + (val/1_00_000).toFixed(1) + 'L';
+    if (val >= 1000)        return cur + (val/1000).toFixed(0) + 'K';
+    return cur + val.toFixed(0);
+  }
+}

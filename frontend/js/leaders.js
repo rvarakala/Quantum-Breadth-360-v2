@@ -250,7 +250,7 @@ const LDR_FV_COLS = [
   { key:'ad_rating',     label:'A/D',       w:'56px',  align:'center',
     fmt:(v)=>_adBadge(v) },
   { key:'price',         label:'PRICE',     w:'90px',  align:'right',
-    fmt:(v)=>v?`₹${Number(v).toLocaleString('en-IN',{maximumFractionDigits:1})}`:'—' },
+    fmt:(v)=>v?mktFormatPrice(v):'—' },
   { key:'chg_1w',        label:'1W %',      w:'68px',  align:'right',
     fmt:(v)=>{ const n=Number(v||0); return `<span style="color:${n>=0?'var(--green)':'var(--red)'}">${n>=0?'+':''}${n.toFixed(1)}%</span>`; } },
   { key:'chg_1m',        label:'1M %',      w:'68px',  align:'right',

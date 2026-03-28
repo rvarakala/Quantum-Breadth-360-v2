@@ -287,16 +287,14 @@ def run_fvalue_screener(
     fv_filter: str = None,
     sector: str = None,
     limit: int = 500,
+    market: str = "India",
 ) -> dict:
     """
     Run F-Value screener across all stocks with TV fundamentals.
-
-    Returns ranked list with grade, fair value, and upside%.
-    Filters:
-      min_grade: "A", "B+", "B", "C", "D" — show only this grade or better
-      fv_filter: "deep_value", "undervalued", "fair" — fair value status filter
-      sector: filter by sector
+    Supports both India and US markets.
     """
+    db_market = "India" if market.upper() in ("INDIA", "INDIA") else "US"
+    
     conn = sqlite3.connect(str(DB_PATH), timeout=15)
     conn.row_factory = sqlite3.Row
 
@@ -316,17 +314,16 @@ def run_fvalue_screener(
 
     # 2. Get latest close price for each ticker (~50ms using MAX date once)
     latest_date = conn.execute(
-        "SELECT MAX(date) FROM ohlcv WHERE market='India'"
+        "SELECT MAX(date) FROM ohlcv WHERE market=?", (db_market,)
     ).fetchone()[0]
 
     price_map = {}
     if latest_date:
         price_rows = conn.execute(
-            "SELECT ticker, close FROM ohlcv WHERE date=? AND market='India' AND close > 0",
-            (latest_date,)
+            "SELECT ticker, close FROM ohlcv WHERE date=? AND market=? AND close > 0",
+            (latest_date, db_market)
         ).fetchall()
         for pr in price_rows:
-            # Store both with and without .NS suffix
             t = pr["ticker"]
             price_map[t] = float(pr["close"])
             if t.endswith(".NS"):

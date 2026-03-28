@@ -113,7 +113,7 @@ function _renderWlTable(data) {
           <td class="wl-td" style="font-weight:700;font-family:var(--font-mono)">
             <span class="ticker-link" onclick="openTickerChart('${s.ticker}')">${s.ticker}</span>
           </td>
-          <td class="wl-td" style="text-align:right;font-family:var(--font-mono)">${s.price ? '₹' + s.price.toLocaleString('en-IN', {maximumFractionDigits: 1}) : '—'}</td>
+          <td class="wl-td" style="text-align:right;font-family:var(--font-mono)">${s.price ? mktCurrency() + s.price.toLocaleString(mktLocale(), {maximumFractionDigits: 1}) : '—'}</td>
           <td class="wl-td" style="text-align:right;color:${gc(s.chg_1w)}">${s.chg_1w != null ? (s.chg_1w >= 0 ? '+' : '') + f(s.chg_1w) + '%' : '—'}</td>
           <td class="wl-td" style="text-align:right;color:${gc(s.chg_1m)}">${s.chg_1m != null ? (s.chg_1m >= 0 ? '+' : '') + f(s.chg_1m) + '%' : '—'}</td>
           <td class="wl-td" style="text-align:right;color:${gc(s.chg_3m)}">${s.chg_3m != null ? (s.chg_3m >= 0 ? '+' : '') + f(s.chg_3m) + '%' : '—'}</td>

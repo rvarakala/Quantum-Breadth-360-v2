@@ -1384,14 +1384,14 @@ async def api_fvalue_screener(
     fv_filter: str = None,
     sector: str = None,
     limit: int = 500,
+    market: str = "India",
 ):
     """
     F-Value Screener — Quality grades (A-E) + Fair Value estimation.
-    Uses TV fundamentals data (PE, ROE, EPS growth, margins, D/E).
-    Cached for 4 hours — recompute with refresh=true.
+    Supports both India and US markets.
     """
-    # Use cache for unfiltered requests
-    cache_key = "fvalue_full"
+    db_market = "India" if market.upper() in ("INDIA",) else "US"
+    cache_key = f"fvalue_{db_market}"
     if not min_grade and not fv_filter and not sector:
         cached = get_cache(cache_key)
         if cached:
@@ -1402,10 +1402,9 @@ async def api_fvalue_screener(
     result = await loop.run_in_executor(
         executor, lambda: run_fvalue_screener(
             min_grade=min_grade, fv_filter=fv_filter,
-            sector=sector, limit=limit,
+            sector=sector, limit=limit, market=db_market,
         )
     )
-    # Cache unfiltered result
     if not min_grade and not fv_filter and not sector and result.get("stocks"):
         set_cache(cache_key, result)
     return result

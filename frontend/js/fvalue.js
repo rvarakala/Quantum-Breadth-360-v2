@@ -13,7 +13,7 @@ async function loadFValueData() {
   if (tbody) tbody.innerHTML = '<tr><td colspan="13" class="fv-empty">Loading F-Value data...</td></tr>';
 
   try {
-    const res = await fetch(`${API}/api/fvalue?limit=1000`);
+    const res = await fetch(`${API}/api/fvalue?limit=1000&market=${currentMarket}`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     _fvAllData = data.stocks || [];
@@ -116,8 +116,8 @@ function _renderFVTable(stocks) {
       <td class="fv-sector">${_fvTrunc(s.sector, 18)}</td>
       <td class="fv-td-center"><span class="fv-grade-badge" style="background:${gc}18;color:${gc};border:1px solid ${gc}44">${s.grade}</span></td>
       <td><span class="fv-fvs-badge" style="background:${fvc}18;color:${fvc};border:1px solid ${fvc}44">${s.fv_status}</span></td>
-      <td class="fv-right">₹${s.price?.toLocaleString('en-IN') || '—'}</td>
-      <td class="fv-right" style="font-weight:600">₹${s.fair_value?.toLocaleString('en-IN') || '—'}</td>
+      <td class="fv-right">${mktCurrency()}${s.price?.toLocaleString(mktLocale()) || '—'}</td>
+      <td class="fv-right" style="font-weight:600">${mktCurrency()}${s.fair_value?.toLocaleString(mktLocale()) || '—'}</td>
       <td class="fv-right" style="color:${upc};font-weight:700">${s.upside_pct != null ? (s.upside_pct >= 0 ? '+' : '') + s.upside_pct + '%' : '—'}</td>
       <td class="fv-right">${s.pe || '—'}</td>
       <td class="fv-right" style="color:${s.roe >= 15 ? 'var(--green)' : s.roe >= 8 ? 'var(--text)' : 'var(--red)'}">${s.roe || '—'}</td>

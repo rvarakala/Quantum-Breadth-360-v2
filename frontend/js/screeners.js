@@ -236,7 +236,7 @@ function _renderScrTable() {
                 ${s.rs_trend || '—'}
               </td>
               <td class="scr-td" style="text-align:center">${_mcapBadgeHtml(s.mcap_tier)}</td>
-              <td class="scr-td" style="font-family:var(--font-mono)">₹${s.price?.toLocaleString('en-IN',{maximumFractionDigits:1}) || '—'}</td>
+              <td class="scr-td" style="font-family:var(--font-mono)">${mktCurrency()}${s.price?.toLocaleString(mktLocale(),{maximumFractionDigits:1}) || '—'}</td>
               <td class="scr-td" style="color:${gc(s.chg_1w)}">${s.chg_1w>=0?'+':''}${f(s.chg_1w)}%</td>
               <td class="scr-td" style="color:${gc(s.chg_1m)}">${s.chg_1m>=0?'+':''}${f(s.chg_1m)}%</td>
               <td class="scr-td" style="color:${gc(s.chg_3m)}">${s.chg_3m>=0?'+':''}${f(s.chg_3m)}%</td>
@@ -440,15 +440,27 @@ async function loadScannerData(){
 
 function updateScannerMarketBar(){
   const now=new Date();
-  const ist=new Date(now.toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
-  const hh=ist.getHours(),mm=ist.getMinutes(),day=ist.getDay();
-  const isOpen=day>=1&&day<=5&&((hh===9&&mm>=15)||(hh>=10&&hh<15)||(hh===15&&mm<=30));
+  const tz = currentMarket === 'US' ? 'America/New_York' : 'Asia/Kolkata';
+  const tzLabel = currentMarket === 'US' ? 'ET' : 'IST';
+  const mktTime=new Date(now.toLocaleString('en-US',{timeZone:tz}));
+  const hh=mktTime.getHours(),mm=mktTime.getMinutes(),day=mktTime.getDay();
+  
+  let isOpen;
+  if (currentMarket === 'US') {
+    isOpen = day>=1&&day<=5&&((hh===9&&mm>=30)||(hh>=10&&hh<16));
+  } else {
+    isOpen = day>=1&&day<=5&&((hh===9&&mm>=15)||(hh>=10&&hh<15)||(hh===15&&mm<=30));
+  }
+  
   const dot=document.getElementById('scn-mkt-dot');
   const lbl=document.getElementById('scn-mkt-status');
   const tim=document.getElementById('scn-mkt-time');
+  const exchEl=document.querySelector('.scn-mkt-bar span[style*="font-weight:700"]');
+  
   if(dot) dot.className='scn-mkt-dot '+(isOpen?'open':'closed');
   if(lbl){lbl.textContent=isOpen?'Market Open':'Market Closed';lbl.style.color=isOpen?'var(--green)':'var(--red)';}
-  if(tim) tim.textContent=ist.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' IST';
+  if(tim) tim.textContent=mktTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' '+tzLabel;
+  if(exchEl) exchEl.textContent=mktExchange();
   const dbEl=document.getElementById('scn-db-info');
   if(dbEl&&currentData[currentMarket]) dbEl.textContent=(currentData[currentMarket].universe_size||'—')+' stocks';
 }
@@ -544,7 +556,7 @@ async function runQuickScan(scanId){
       <td class="scn-results-td" style="font-weight:700;font-family:var(--font-mono)"><span class="ticker-link" onclick="openTickerChart('${s.ticker}')">${s.ticker}</span></td>
       <td class="scn-results-td"><span class="rs-bdg" style="background:${rb};color:${rf}">${rs}</span></td>
       <td class="scn-results-td">${_adBadge(s.ad_rating)}</td>
-      <td class="scn-results-td" style="font-family:var(--font-mono)">₹${s.price?.toLocaleString('en-IN',{maximumFractionDigits:1})||'—'}</td>
+      <td class="scn-results-td" style="font-family:var(--font-mono)">${mktCurrency()}${s.price?.toLocaleString(mktLocale(),{maximumFractionDigits:1})||'—'}</td>
       <td class="scn-results-td" style="color:${gc(s.chg_1w)}">${s.chg_1w>=0?'+':''}${f(s.chg_1w)}%</td>
       <td class="scn-results-td" style="color:${gc(s.chg_3m)}">${s.chg_3m>=0?'+':''}${f(s.chg_3m)}%</td>
       <td class="scn-results-td" style="color:${s.pct_from_high>=-5?'var(--green)':s.pct_from_high>=-15?'var(--amber)':'var(--red)'}">${f(s.pct_from_high)}%</td>
@@ -566,6 +578,14 @@ function filterScanSidebar(q){
 }
 
 async function initScannerTab(){
+  // Update market-aware labels
+  const exchEl = document.getElementById('scn-exchange-label');
+  if (exchEl) exchEl.textContent = mktExchange();
+  const strEl = document.getElementById('qs-stronger-label');
+  if (strEl) strEl.textContent = mktStrongerLabel();
+  const popStr = document.getElementById('scn-pop-stronger');
+  if (popStr) popStr.textContent = mktStrongerLabel();
+
   updateScannerMarketBar();
   setInterval(updateScannerMarketBar,1000);
   await loadTopMovers();
