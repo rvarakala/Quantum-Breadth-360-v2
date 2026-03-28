@@ -1,68 +1,58 @@
 @echo off
 setlocal enabledelayedexpansion
-title Quantum Breadth 360
-color 0A
+title Quantum Breadth 360 - Start
+color 0B
+
+:: Set root directory (where this BAT file lives)
+set "ROOT=%~dp0"
+set "BACKEND=%ROOT%backend"
 
 echo.
-echo  ██████╗ ██████╗ ███████╗ █████╗ ██████╗ ████████╗██╗  ██╗
-echo  ██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██║  ██║
-echo  ██████╔╝██████╔╝█████╗  ███████║██║  ██║   ██║   ███████║
-echo  ██╔══██╗██╔══██╗██╔══╝  ██╔══██║██║  ██║   ██║   ██╔══██║
-echo  ██████╔╝██║  ██║███████╗██║  ██║██████╔╝   ██║   ██║  ██║
-echo  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝    ╚═╝   ╚═╝  ╚═╝
-echo.
-echo   360  ^|  Market Intelligence Platform  ^|  localhost:8001
-echo  ═══════════════════════════════════════════════════════════
+echo  ============================================
+echo    QUANTUM BREADTH 360 v2 - START
+echo  ============================================
 echo.
 
-cd /d "%~dp0backend"
-
-:: Create .env from template if missing
-if not exist ".env" (
-    if exist ".env.example" (
-        copy ".env.example" ".env" >nul
-        echo  [SETUP] .env created — edit it to add your GROQ_API_KEY
-        echo.
-    )
+:: Step 1: Check if already running
+echo  [1/3] Checking for existing server...
+netstat -ano 2>nul | findstr ":8001 " >nul 2>&1
+if %errorlevel%==0 (
+    echo        Server already running on port 8001
+    echo        Opening dashboard...
+    start "" "http://localhost:8001"
+    timeout /t 2 /nobreak >nul
+    exit /b
 )
+echo        Port 8001 is free.
 
-:: Create venv on first run
+:: Step 2: Setup environment
+echo.
+echo  [2/3] Setting up environment...
+cd /d "%BACKEND%"
 if not exist "venv\Scripts\activate.bat" (
-    echo  [SETUP] First-time setup: creating virtual environment...
+    echo        Creating virtual environment...
     python -m venv venv
-    if errorlevel 1 ( echo  [ERROR] Python not found. Download from python.org & pause & exit /b 1 )
-    echo  [SETUP] Installing packages (2-3 min first time)...
-    call venv\Scripts\pip install -r requirements.txt --quiet
-    echo  [SETUP] Done!
-    echo.
+    call venv\Scripts\activate.bat
+    pip install -r requirements.txt --quiet
+    echo        Environment created.
+) else (
+    call venv\Scripts\activate.bat
+    echo        Environment ready.
 )
 
-call venv\Scripts\activate.bat
+:: Step 3: Start server + open browser
+echo.
+echo  [3/3] Starting Quantum Breadth 360 v2...
+start /min "QB360-Backend" cmd /k "cd /d "%BACKEND%" && call venv\Scripts\activate.bat && python main.py"
 
-:: Kill anything on port 8001
-for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8001 "') do (
-    taskkill /PID %%a /F >nul 2>&1
-)
-
-:: Start backend
-echo  [START] Starting Quantum Breadth 360...
-start /min "QB360-Backend" cmd /c "cd /d "%~dp0backend" && call venv\Scripts\activate.bat && python main.py"
-
-:: Wait for server to be ready
-echo  [START] Waiting for server...
 timeout /t 4 /nobreak >nul
-
-:: Open browser
-echo  [START] Opening browser → http://localhost:8001
 start "" "http://localhost:8001"
 
 echo.
-echo  ────────────────────────────────────────
-echo   Quantum Breadth 360 is running!
-echo   Dashboard: http://localhost:8001
-echo   Server:    Running in background
-echo.
-echo   To stop: close the QB360-Backend window
-echo  ────────────────────────────────────────
+echo  ============================================
+echo    Q-BRAM v2 Engine Running!
+echo    Dashboard: http://localhost:8001
+echo    Press any key to close this window
+echo  ============================================
 echo.
 pause
