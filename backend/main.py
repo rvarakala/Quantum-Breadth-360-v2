@@ -1813,14 +1813,20 @@ async def sectors_rotation(market: str = "India"):
     X-axis: RS (% above 50 DMA) — relative strength
     Y-axis: Performance (15-day avg return) — momentum
     Bubble size: stock count in sector
-    Quadrants: Leading (top-right), Weakening (bottom-right), Lagging (bottom-left), Improving (top-left)
     """
+    loop = asyncio.get_event_loop()
+    data = await loop.run_in_executor(executor, _compute_rotation, market)
+    return data
+
+
+def _compute_rotation(market: str = "India") -> dict:
+    """Compute sector rotation data — bulk SQL, no per-ticker queries."""
     import sqlite3
     db_path = pathlib.Path(__file__).parent / "breadth_data.db"
     db_market = "India" if market.upper() == "INDIA" else market
 
     try:
-        conn = sqlite3.connect(str(db_path), timeout=10)
+        conn = sqlite3.connect(str(db_path), timeout=30)
         conn.row_factory = sqlite3.Row
 
         # Get sector map
@@ -1829,8 +1835,10 @@ async def sectors_rotation(market: str = "India"):
             conn.close()
             return {"sectors": [], "error": "No sector map"}
 
+        ticker_to_sector = {}
         sector_tickers = {}
         for r in sec_rows:
+            ticker_to_sector[r["ticker"]] = r["sector"]
             sector_tickers.setdefault(r["sector"], []).append(r["ticker"])
 
         # Get latest date
@@ -1843,6 +1851,51 @@ async def sectors_rotation(market: str = "India"):
         lookback_15d = (datetime.strptime(latest_date, "%Y-%m-%d") - timedelta(days=25)).strftime("%Y-%m-%d")
         dma50_date = (datetime.strptime(latest_date, "%Y-%m-%d") - timedelta(days=80)).strftime("%Y-%m-%d")
 
+        # BULK: Get latest close for all tickers
+        latest_rows = conn.execute(
+            "SELECT ticker, close, volume FROM ohlcv WHERE date=? AND market=?",
+            (latest_date, db_market)
+        ).fetchall()
+        latest_prices = {r["ticker"]: (float(r["close"] or 0), float(r["volume"] or 0)) for r in latest_rows}
+
+        # BULK: Get ~15d ago close for all tickers
+        past_rows = conn.execute("""
+            SELECT o.ticker, o.close FROM ohlcv o
+            INNER JOIN (
+                SELECT ticker, MAX(date) as max_date FROM ohlcv
+                WHERE market=? AND date <= ? AND date >= ?
+                GROUP BY ticker
+            ) sub ON o.ticker = sub.ticker AND o.date = sub.max_date
+            WHERE o.market=?
+        """, (db_market, lookback_15d, (datetime.strptime(lookback_15d, "%Y-%m-%d") - timedelta(days=10)).strftime("%Y-%m-%d"), db_market)).fetchall()
+        past_prices = {r["ticker"]: float(r["close"] or 0) for r in past_rows}
+
+        # BULK: Get 50-day moving average for all tickers
+        dma_rows = conn.execute("""
+            SELECT ticker, AVG(close) as dma50, COUNT(*) as cnt
+            FROM (
+                SELECT ticker, close FROM ohlcv
+                WHERE market=? AND date >= ? AND close > 0
+                ORDER BY date DESC
+            )
+            GROUP BY ticker
+            HAVING cnt >= 30
+        """, (db_market, dma50_date)).fetchall()
+        dma50_map = {r["ticker"]: float(r["dma50"]) for r in dma_rows}
+
+        # BULK: Get 50-day avg volume
+        vol_rows = conn.execute("""
+            SELECT ticker, AVG(volume) as avg_vol
+            FROM ohlcv
+            WHERE market=? AND date >= ?
+            GROUP BY ticker
+            HAVING COUNT(*) >= 20
+        """, (db_market, dma50_date)).fetchall()
+        avg_vol_map = {r["ticker"]: float(r["avg_vol"] or 1) for r in vol_rows}
+
+        conn.close()
+
+        # Aggregate per sector
         sectors_out = []
         all_rs = []
         all_perf = []
@@ -1853,21 +1906,9 @@ async def sectors_rotation(market: str = "India"):
             valid_50 = 0
             vol_ratios = []
 
-            for ticker in tickers:
-                # 15-day return
-                latest_close = conn.execute(
-                    "SELECT close FROM ohlcv WHERE ticker=? AND market=? ORDER BY date DESC LIMIT 1",
-                    (ticker, db_market)
-                ).fetchone()
-                past_close = conn.execute(
-                    "SELECT close FROM ohlcv WHERE ticker=? AND market=? AND date<=? ORDER BY date DESC LIMIT 1",
-                    (ticker, db_market, lookback_15d)
-                ).fetchone()
-
-                if not latest_close or not past_close:
-                    continue
-                c_now = float(latest_close["close"] or 0)
-                c_past = float(past_close["close"] or 0)
+            for t in tickers:
+                c_now = latest_prices.get(t, (0, 0))[0]
+                c_past = past_prices.get(t, 0)
                 if c_now <= 0 or c_past <= 0:
                     continue
 
@@ -1875,37 +1916,25 @@ async def sectors_rotation(market: str = "India"):
                 perfs.append(perf)
 
                 # 50 DMA check
-                rows_50 = conn.execute(
-                    "SELECT close FROM ohlcv WHERE ticker=? AND market=? AND date>=? ORDER BY date",
-                    (ticker, db_market, dma50_date)
-                ).fetchall()
-                if len(rows_50) >= 30:
-                    closes = [float(r["close"]) for r in rows_50[-50:] if r["close"]]
-                    if closes:
-                        dma50 = sum(closes) / len(closes)
-                        valid_50 += 1
-                        if c_now > dma50:
-                            above_50 += 1
+                dma50 = dma50_map.get(t)
+                if dma50 and dma50 > 0:
+                    valid_50 += 1
+                    if c_now > dma50:
+                        above_50 += 1
 
-                # Volume ratio (today vs 50d avg)
-                vol_rows = conn.execute(
-                    "SELECT volume FROM ohlcv WHERE ticker=? AND market=? ORDER BY date DESC LIMIT 50",
-                    (ticker, db_market)
-                ).fetchall()
-                if len(vol_rows) >= 2:
-                    today_vol = float(vol_rows[0]["volume"] or 0)
-                    avg_vol = sum(float(r["volume"] or 0) for r in vol_rows[1:]) / (len(vol_rows) - 1)
-                    if avg_vol > 0:
-                        vol_ratios.append(today_vol / avg_vol)
+                # Vol ratio
+                today_vol = latest_prices.get(t, (0, 0))[1]
+                avg_v = avg_vol_map.get(t, 1)
+                if avg_v > 0 and today_vol > 0:
+                    vol_ratios.append(today_vol / avg_v)
 
             if not perfs or valid_50 == 0:
                 continue
 
-            rs_score = round((above_50 / valid_50) * 100, 1) if valid_50 > 0 else 0
+            rs_score = round((above_50 / valid_50) * 100, 1)
             avg_perf = round(sum(perfs) / len(perfs), 2)
             avg_vol_ratio = round(sum(vol_ratios) / len(vol_ratios), 2) if vol_ratios else 1.0
 
-            # Quadrant: RS median ~50, Perf median ~0
             if rs_score >= 50 and avg_perf >= 0:
                 quadrant = "Leading"
             elif rs_score >= 50 and avg_perf < 0:
@@ -1926,9 +1955,6 @@ async def sectors_rotation(market: str = "India"):
             all_rs.append(rs_score)
             all_perf.append(avg_perf)
 
-        conn.close()
-
-        # Compute medians for crosshair
         median_rs = sorted(all_rs)[len(all_rs)//2] if all_rs else 50
         median_perf = sorted(all_perf)[len(all_perf)//2] if all_perf else 0
 
@@ -1941,6 +1967,8 @@ async def sectors_rotation(market: str = "India"):
         }
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"sectors": [], "error": str(e)}
 
 # ── Watchlist CRUD ─────────────────────────────────────────────────────────────
