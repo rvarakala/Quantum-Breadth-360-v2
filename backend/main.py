@@ -6,7 +6,7 @@ Market Breadth Engine — Backend
 - /api/sync/update  → daily incremental update
 - /api/sync/status  → see what's stored locally
 """
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,6 +55,10 @@ from smart_metrics_service import get_smart_metrics, run_smart_screener
 from liquidity_regime import compute_iv_footprint
 from peep_into_past import compute_historical_breadth
 from sectors_heatmap import compute_sector_heatmap
+from insider import (
+    get_insider_trades, get_insider_summary, sync_insider_data,
+    import_insider_csv, compute_buy_score, _ensure_tables as _ensure_insider_tables,
+)
 from watchlist import (
     list_watchlists, create_watchlist, delete_watchlist,
     add_ticker as wl_add_ticker, remove_ticker as wl_remove_ticker,
@@ -1159,7 +1163,63 @@ async def get_score_history(market: str = "INDIA", days: int = 30):
         return {"error": str(e), "history": []}
 
 
-# ── TradingView Fundamentals Batch Sync ───────────────────────────────────────
+# ── Insider Trading Endpoints ────────────────────────────────────────────────
+
+@app.get("/api/insider/trades")
+async def api_insider_trades(
+    days: int = 90,
+    type: str = None,
+    category: str = None,
+    symbol: str = None,
+    min_value: float = 0,
+    limit: int = 200,
+):
+    """Get insider trades with optional filters."""
+    trades = get_insider_trades(
+        days=days, tx_type=type, category=category,
+        symbol=symbol, min_value=min_value, limit=limit,
+    )
+    # Add buy score to each trade
+    for t in trades:
+        t["score"] = compute_buy_score(t)
+    # Sort by score desc for buys, date desc for others
+    trades.sort(key=lambda x: (-x["score"], x.get("transaction_date", "")), reverse=False)
+    trades.sort(key=lambda x: -x["score"])
+    return {"trades": trades, "count": len(trades)}
+
+
+@app.get("/api/insider/summary")
+async def api_insider_summary(days: int = 90):
+    """Get insider activity summary stats."""
+    return get_insider_summary(days=days)
+
+
+@app.post("/api/insider/sync")
+async def api_insider_sync(background_tasks: BackgroundTasks, days: int = 30):
+    """Sync insider trades from NSE PIT API."""
+    result = await asyncio.get_event_loop().run_in_executor(
+        executor, lambda: sync_insider_data(days_back=days)
+    )
+    return result
+
+
+@app.post("/api/insider/import-csv")
+async def api_insider_import_csv(file: UploadFile):
+    """Import insider trades from uploaded NSE CSV file."""
+    import tempfile, shutil
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
+    try:
+        shutil.copyfileobj(file.file, tmp)
+        tmp.close()
+        count = import_insider_csv(tmp.name)
+        return {"status": "ok", "imported": count, "filename": file.filename}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except:
+            pass
 
 _tv_fund_state: dict = {"running": False, "message": "Idle", "count": 0}
 

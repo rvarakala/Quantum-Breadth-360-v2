@@ -118,6 +118,10 @@
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <span class="nav-label">Scanner</span>
         </button>
+        <button class="nav-item" data-tab="insider" onclick="switchTab('insider')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="nav-label">Insider</span>
+        </button>
         <button class="nav-item" data-tab="leaders" onclick="switchTab('leaders')">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span class="nav-label">Leaders</span>
@@ -519,6 +523,100 @@
       </div>
     </div>
   </div><!-- /tab-scanner -->
+
+  <!-- INSIDER TAB -->
+  <div class="tab-content" id="tab-insider">
+    <div class="ins-wrap">
+      <!-- Header bar -->
+      <div class="ins-header">
+        <div class="ins-title-row">
+          <div class="ins-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div>
+            <div class="ins-main-title">INSIDER ACTIVITY</div>
+            <div class="ins-subtitle">SEBI PIT Reg 7(2) Disclosures</div>
+          </div>
+          <span class="ins-live-dot" id="ins-live-dot">● LIVE</span>
+          <button class="ins-refresh-btn" onclick="refreshInsiderData()" title="Refresh data">↻ Refresh</button>
+        </div>
+        <!-- Stats bar -->
+        <div class="ins-stats-bar" id="ins-stats-bar">
+          <div class="ins-stat-card"><div class="ins-stat-label">TOTAL</div><div class="ins-stat-value" id="ins-total">—</div></div>
+          <div class="ins-stat-card buy"><div class="ins-stat-label">BUYS</div><div class="ins-stat-value" id="ins-buys">—</div></div>
+          <div class="ins-stat-card sell"><div class="ins-stat-label">SELLS</div><div class="ins-stat-value" id="ins-sells">—</div></div>
+          <div class="ins-stat-card"><div class="ins-stat-label">TOP BUY</div><div class="ins-stat-value" id="ins-top-buy">—</div></div>
+          <div class="ins-stat-card"><div class="ins-stat-label">TOP SELL</div><div class="ins-stat-value" id="ins-top-sell">—</div></div>
+          <div class="ins-stat-card"><div class="ins-stat-label">LAST DATA</div><div class="ins-stat-value" id="ins-last-date">—</div></div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="ins-filters">
+        <div class="ins-filter-group">
+          <button class="ins-filter-btn active" onclick="insiderFilter('all')" id="ins-f-all">All</button>
+          <button class="ins-filter-btn buy" onclick="insiderFilter('Buy')" id="ins-f-buy">🟢 Buys</button>
+          <button class="ins-filter-btn sell" onclick="insiderFilter('Sell')" id="ins-f-sell">🔴 Sells</button>
+          <button class="ins-filter-btn" onclick="insiderFilter('cluster')" id="ins-f-cluster">🔥 Clustered</button>
+        </div>
+        <div class="ins-filter-group">
+          <input class="ins-search" id="ins-search" placeholder="Search ticker, company, insider..." oninput="filterInsiderTable()">
+          <select class="ins-select" id="ins-category" onchange="filterInsiderTable()">
+            <option value="">All Categories</option>
+            <option value="Promoter">Promoter</option>
+            <option value="Director">Director</option>
+            <option value="KMP">KMP</option>
+            <option value="Immediate Relative">Immediate Relative</option>
+          </select>
+          <select class="ins-select" id="ins-period" onchange="loadInsiderData()">
+            <option value="30">30 Days</option>
+            <option value="90" selected>90 Days</option>
+            <option value="180">6 Months</option>
+            <option value="365">1 Year</option>
+          </select>
+        </div>
+        <!-- CSV import -->
+        <div class="ins-filter-group">
+          <label class="ins-import-btn" title="Import NSE PIT CSV">
+            📥 Import CSV
+            <input type="file" accept=".csv" onchange="importInsiderCSV(this)" style="display:none">
+          </label>
+        </div>
+      </div>
+
+      <!-- Cluster alerts -->
+      <div class="ins-clusters" id="ins-clusters" style="display:none"></div>
+
+      <!-- Results table -->
+      <div class="ins-table-wrap">
+        <table class="ins-table" id="ins-table">
+          <thead>
+            <tr>
+              <th class="ins-th-score">SCORE ↓</th>
+              <th>TICKER</th>
+              <th>COMPANY</th>
+              <th>INSIDER</th>
+              <th>CATEGORY</th>
+              <th>DATE</th>
+              <th>TYPE</th>
+              <th class="ins-th-right">SHARES</th>
+              <th class="ins-th-right">VALUE</th>
+              <th class="ins-th-right">~PRICE</th>
+              <th>MODE</th>
+            </tr>
+          </thead>
+          <tbody id="ins-tbody">
+            <tr><td colspan="11" class="ins-empty">Loading insider data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ins-footer" id="ins-footer">
+        <span id="ins-count">0 trades</span>
+        <span class="ins-powered">Data: NSE SEBI PIT Disclosures</span>
+      </div>
+    </div>
+  </div><!-- /tab-insider -->
 
   <!-- OVERVIEW TAB -->
   <div class="tab-content active" id="tab-overview">
@@ -1334,6 +1432,7 @@
 <script src="/static/js/smart-metrics.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/autocomplete.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/peep-into-past.js?v=__ASSET_VERSION__"></script>
+<script src="/static/js/insider.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/smart-screener.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/ai-insights.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/app.js?v=__ASSET_VERSION__"></script>

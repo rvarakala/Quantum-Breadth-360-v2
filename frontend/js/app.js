@@ -125,6 +125,7 @@ function switchTab(tab) {
     if(g&&g.innerHTML.includes('Loading')) initScannerTab();
     else updateScannerMarketBar();
   }
+  if (tab === 'insider') { if(typeof onInsiderTabLoad==='function') onInsiderTabLoad(); }
 }
 
 // ─── SUMMARY MODAL ────────────────────────────────────────────────────────────
