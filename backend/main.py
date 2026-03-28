@@ -48,6 +48,7 @@ from screeners import (
 )
 from stockbee import _compute_stockbee
 from nse_sync import sync_nifty500, sync_full_history, _get_stale_tickers
+from us_sync import import_iwv_holdings_csv, sync_us_ohlcv, sync_us_daily, full_us_setup
 from fundamentals_sync import sync_fundamentals, get_eps_for_ticker
 from charts import get_chart_data
 from stock_metrics import compute_stock_metrics, compute_eps_async
@@ -380,6 +381,80 @@ async def compare():
                 "pct_above_200","ad_ratio","nh_nl","vix","index_price",
                 "index_change_pct","index_name")}
     return {"India":s(get_cache("breadth_INDIA")),"US":s(get_cache("breadth_US"))}
+
+
+# ── US Market Sync (Russell 3000) ─────────────────────────────────────────────
+
+_us_sync_state: dict = {"running": False, "message": "Idle", "synced": 0, "total": 0}
+
+@app.get("/api/us-sync/status")
+async def us_sync_status():
+    return _us_sync_state
+
+@app.post("/api/us-sync/import-csv")
+async def us_sync_import_csv(file: UploadFile):
+    """Import iShares IWV Russell 3000 holdings CSV."""
+    import tempfile, shutil
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
+    try:
+        shutil.copyfileobj(file.file, tmp)
+        tmp.close()
+        result = import_iwv_holdings_csv(tmp.name)
+        return {"status": "ok", **result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        try: os.unlink(tmp.name)
+        except: pass
+
+@app.post("/api/us-sync/start")
+async def us_sync_start(background_tasks: BackgroundTasks, period: str = "2y"):
+    """Start full OHLCV sync for Russell 3000 universe."""
+    if _us_sync_state["running"]:
+        return {"message": "US sync already running", **_us_sync_state}
+
+    def _run():
+        _us_sync_state["running"] = True
+        _us_sync_state["message"] = "Starting US OHLCV sync..."
+        try:
+            def _progress(msg):
+                _us_sync_state["message"] = msg
+            result = sync_us_ohlcv(period=period, progress_callback=_progress)
+            _us_sync_state["synced"] = result.get("synced", 0)
+            _us_sync_state["total"] = result.get("total_tickers", 0)
+            _us_sync_state["message"] = result.get("message", "Done")
+            _us_sync_state["result"] = result
+            # Clear US breadth cache so it recomputes
+            from cache import CACHE
+            keys_to_clear = [k for k in CACHE if "US" in k or "us" in k.lower()]
+            for k in keys_to_clear:
+                CACHE.pop(k, None)
+        except Exception as e:
+            _us_sync_state["message"] = f"Error: {e}"
+        finally:
+            _us_sync_state["running"] = False
+
+    background_tasks.add_task(_run)
+    return {"message": "US sync started. Poll /api/us-sync/status for progress."}
+
+@app.post("/api/us-sync/daily")
+async def us_sync_daily_endpoint(background_tasks: BackgroundTasks):
+    """Quick daily EOD sync for US market (last 5 days)."""
+    if _us_sync_state["running"]:
+        return {"message": "US sync already running"}
+    def _run():
+        _us_sync_state["running"] = True
+        _us_sync_state["message"] = "Running daily US EOD sync..."
+        try:
+            result = sync_us_daily()
+            _us_sync_state["message"] = result.get("message", "Done")
+            _us_sync_state["result"] = result
+        except Exception as e:
+            _us_sync_state["message"] = f"Error: {e}"
+        finally:
+            _us_sync_state["running"] = False
+    background_tasks.add_task(_run)
+    return {"message": "Daily US sync started."}
 
 
 @app.get("/api/ohlcv/fetch")

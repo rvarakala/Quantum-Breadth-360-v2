@@ -714,7 +714,7 @@ def _compute_rs_rankings(market: str = "India") -> dict:
     logger.info(f"Screener universe: {len(stock_data):,} tickers (RS vs ^CRSLDX)")
 
     # Get index data for RS Line calculation
-    index_ticker = "^CRSLDX" if market == "India" else "^GSPC"
+    index_ticker = "^CRSLDX" if market == "India" else "^RUA"
     idx_df = safe_download(index_ticker, period="1y")
     idx_prices = []
     try:

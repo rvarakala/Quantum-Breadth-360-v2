@@ -469,7 +469,7 @@ def _compute_market_impl(market: str, custom_tickers: dict = None) -> dict:
         "INDIA":dict(index="^CRSLDX",index_name="NIFTY 500",vix="^INDIAVIX",nifty50="^NSEI",
                      sectors=db_sector_map if db_sector_map else INDIA_SECTORS,
                      db_market="India"),
-        "US":   dict(index="^GSPC",index_name="S&P 500", vix="^VIX",
+        "US":   dict(index="^RUA",index_name="Russell 3000", vix="^VIX",
                      sectors=US_SECTORS, db_market="US"),
     }[market]
     logger.info(f"=== Computing {market} ===")
