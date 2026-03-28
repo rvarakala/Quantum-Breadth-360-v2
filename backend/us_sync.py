@@ -33,70 +33,86 @@ def import_iwv_holdings_csv(csv_path: str) -> dict:
     """
     Import Russell 3000 universe from iShares IWV holdings CSV.
     
-    iShares CSV format (typical):
-    - First ~9 rows are metadata headers (fund name, date, etc.)
-    - Actual data starts after a row containing "Ticker"
-    - Columns: Ticker, Name, Sector, Asset Class, Market Value, Weight, etc.
+    iShares CSV format:
+    - First 9 rows are metadata (fund name, date, shares outstanding, etc.)
+    - Row 10: Header row with columns:
+      Ticker, Name, Sector, Asset Class, Market Value, Weight (%),
+      Notional Value, Quantity, Price, Location, Exchange, Currency, etc.
+    - Data rows follow (equity + non-equity)
     
     Stores tickers in ticker_universe and sector_map tables with market='US'.
     Returns: {tickers: int, sectors: int, skipped: int}
     """
+    # Known iShares → yfinance ticker fixes
+    TICKER_FIXES = {
+        "BRKB": "BRK-B", "BFB": "BF-B", "BFA": "BF-A",
+        "LLYVA": "LLYVA", "LLYVK": "LLYVK",
+    }
+    
     tickers = []
-    sectors = {}
+    sector_data = {}
     skipped = 0
     
     try:
         with open(csv_path, "r", encoding="utf-8-sig") as f:
             raw_lines = f.readlines()
         
-        # Find the header row (contains "Ticker" or "ticker")
+        # Find the header row (contains "Ticker")
         header_idx = None
         for i, line in enumerate(raw_lines):
-            if "Ticker" in line or "ticker" in line or "TICKER" in line:
+            if "Ticker" in line and "Name" in line and "Sector" in line:
                 header_idx = i
                 break
         
         if header_idx is None:
-            # Try parsing as a simple CSV with first row as header
-            header_idx = 0
+            return {"error": "Could not find header row with 'Ticker' column", "tickers": 0}
         
-        # Parse from header row onwards
+        # Parse from header row
         reader = csv.DictReader(raw_lines[header_idx:])
-        # Clean header names (strip whitespace, BOM, newlines)
-        if reader.fieldnames:
-            reader.fieldnames = [h.strip().replace("\n", "").replace("\ufeff", "") for h in reader.fieldnames]
+        reader.fieldnames = [h.strip() for h in reader.fieldnames]
         
         logger.info(f"IWV CSV headers: {reader.fieldnames[:8]}")
         
+        seen = set()
         for row in reader:
-            # Find ticker column
-            ticker = (row.get("Ticker", row.get("ticker", row.get("TICKER", ""))) or "").strip()
+            ticker = (row.get("Ticker", "") or "").strip().strip('"')
+            asset_class = (row.get("Asset Class", "") or "").strip().strip('"')
+            sector = (row.get("Sector", "") or "").strip().strip('"')
+            name = (row.get("Name", "") or "").strip().strip('"')
+            exchange = (row.get("Exchange", "") or "").strip().strip('"')
             
-            # Skip non-equity rows (cash, futures, etc.)
-            if not ticker or ticker == "-" or len(ticker) > 10:
+            # Only equities
+            if asset_class != "Equity":
                 skipped += 1
                 continue
             
-            # Skip rows with no ticker or header-like rows
-            if ticker.lower() in ("ticker", "symbol", ""):
+            # Valid ticker check
+            if not ticker or ticker == "-" or len(ticker) > 8:
+                skipped += 1
                 continue
             
-            # Asset class filter — only equities
-            asset_class = (row.get("Asset Class", row.get("asset_class", "")) or "").strip()
-            if asset_class and "equity" not in asset_class.lower() and "stock" not in asset_class.lower():
-                if asset_class.lower() in ("cash", "futures", "money market", "other"):
-                    skipped += 1
-                    continue
+            # Skip non-alpha tickers (cash proxies like P5N994)
+            if any(c.isdigit() for c in ticker) and not any(c == '-' for c in ticker):
+                skipped += 1
+                continue
             
-            # Get sector
-            sector = (row.get("Sector", row.get("sector", row.get("GICS Sector", ""))) or "").strip()
-            name = (row.get("Name", row.get("name", row.get("Security", ""))) or "").strip()
+            # Apply ticker fixes (iShares strips dots/hyphens)
+            ticker = TICKER_FIXES.get(ticker, ticker)
+            
+            # Deduplicate
+            if ticker in seen:
+                continue
+            seen.add(ticker)
             
             tickers.append(ticker)
             if sector and sector != "-":
-                sectors[ticker] = {"sector": sector, "name": name}
+                sector_data[ticker] = {
+                    "sector": sector,
+                    "name": name,
+                    "exchange": exchange,
+                }
         
-        logger.info(f"Parsed {len(tickers)} tickers, {len(sectors)} with sectors, {skipped} skipped")
+        logger.info(f"Parsed {len(tickers)} US equity tickers, {len(sector_data)} with sectors, {skipped} skipped")
         
     except Exception as e:
         logger.error(f"Failed to parse IWV CSV: {e}")
@@ -105,32 +121,31 @@ def import_iwv_holdings_csv(csv_path: str) -> dict:
         return {"error": str(e), "tickers": 0}
     
     if not tickers:
-        return {"error": "No tickers found in CSV", "tickers": 0}
+        return {"error": "No equity tickers found in CSV", "tickers": 0}
     
     # Store in DB
     conn = sqlite3.connect(str(DB_PATH), timeout=15)
     
-    # 1. Store ticker universe
+    # 1. Ticker universe
     conn.execute("""
         CREATE TABLE IF NOT EXISTS ticker_universe (
             ticker TEXT, market TEXT, added_at TEXT,
             PRIMARY KEY (ticker, market)
         )
     """)
-    # Clear old US universe
     conn.execute("DELETE FROM ticker_universe WHERE market='US'")
     conn.executemany(
         "INSERT OR REPLACE INTO ticker_universe (ticker, market, added_at) VALUES (?, 'US', ?)",
         [(t, datetime.utcnow().isoformat()) for t in tickers]
     )
     
-    # 2. Store sector map
+    # 2. Sector map (merge, don't overwrite India sectors)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS sector_map (
             ticker TEXT PRIMARY KEY, sector TEXT, industry TEXT, name TEXT
         )
     """)
-    for ticker, info in sectors.items():
+    for ticker, info in sector_data.items():
         conn.execute(
             "INSERT OR REPLACE INTO sector_map (ticker, sector, name) VALUES (?, ?, ?)",
             (ticker, info["sector"], info.get("name", ""))
@@ -139,13 +154,20 @@ def import_iwv_holdings_csv(csv_path: str) -> dict:
     conn.commit()
     conn.close()
     
-    logger.info(f"✅ Imported {len(tickers)} US tickers, {len(sectors)} sector mappings")
+    # Collect sector distribution
+    sector_counts = {}
+    for info in sector_data.values():
+        s = info["sector"]
+        sector_counts[s] = sector_counts.get(s, 0) + 1
+    
+    logger.info(f"✅ Imported {len(tickers)} US tickers across {len(sector_counts)} GICS sectors")
     
     return {
         "tickers": len(tickers),
-        "sectors": len(sectors),
+        "sectors": len(sector_counts),
+        "sector_distribution": sector_counts,
         "skipped": skipped,
-        "sample": tickers[:10],
+        "sample": tickers[:15],
     }
 
 
