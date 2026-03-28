@@ -13,11 +13,29 @@ echo    QUANTUM BREADTH 360 v2 - RESTART
 echo  ============================================
 echo.
 
-:: Step 1: Kill existing server on port 8001
-echo  [1/4] Stopping server...
+:: Step 1: Kill EVERYTHING related to the app
+echo  [1/4] Stopping all server processes...
+
+:: Kill any process on port 8001
 for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8001 "') do (
+    echo        Killing PID %%a (port 8001)
     taskkill /PID %%a /F >nul 2>&1
 )
+
+:: Kill any python main.py processes
+for /f "tokens=2" %%a in ('tasklist /fi "imagename eq python.exe" /fo list 2^>nul ^| findstr "PID"') do (
+    wmic process where "ProcessId=%%a" get CommandLine 2>nul | findstr /i "main.py" >nul 2>&1
+    if not errorlevel 1 (
+        echo        Killing Python main.py PID %%a
+        taskkill /PID %%a /F >nul 2>&1
+    )
+)
+
+:: Kill any old QB360-Backend cmd windows
+taskkill /fi "windowtitle eq QB360-Backend*" /F >nul 2>&1
+
+:: Small delay to let processes fully terminate
+timeout /t 2 /nobreak >nul
 echo        Done.
 
 :: Step 2: Pull latest code from GitHub
@@ -50,7 +68,7 @@ echo  [4/4] Starting Quantum Breadth 360 v2...
 start /min "QB360-Backend" cmd /k "cd /d "%BACKEND%" && call venv\Scripts\activate.bat && python main.py"
 
 :: Wait for server to boot
-timeout /t 4 /nobreak >nul
+timeout /t 5 /nobreak >nul
 
 :: Open browser
 start "" "http://localhost:8001"
