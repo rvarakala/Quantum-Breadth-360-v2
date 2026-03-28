@@ -1313,7 +1313,16 @@ async def api_fvalue_screener(
     """
     F-Value Screener — Quality grades (A-E) + Fair Value estimation.
     Uses TV fundamentals data (PE, ROE, EPS growth, margins, D/E).
+    Cached for 4 hours — recompute with refresh=true.
     """
+    # Use cache for unfiltered requests
+    cache_key = "fvalue_full"
+    if not min_grade and not fv_filter and not sector:
+        cached = get_cache(cache_key)
+        if cached:
+            stocks = cached.get("stocks", [])[:limit]
+            return {**cached, "stocks": stocks, "cached": True}
+
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
         executor, lambda: run_fvalue_screener(
@@ -1321,6 +1330,9 @@ async def api_fvalue_screener(
             sector=sector, limit=limit,
         )
     )
+    # Cache unfiltered result
+    if not min_grade and not fv_filter and not sector and result.get("stocks"):
+        set_cache(cache_key, result)
     return result
 
 
@@ -1530,6 +1542,63 @@ async def startup_event():
 
     # 4. Start daily insider sync scheduler (runs at ~6:30 PM IST / 1 PM UTC)
     asyncio.create_task(_insider_daily_scheduler())
+
+    # 5. Pre-warm RS rankings + Leaders + F-Value in background
+    #    These are the slowest computations — do them once on startup so tabs load instantly
+    asyncio.create_task(_prewarm_heavy_caches())
+
+async def _prewarm_heavy_caches():
+    """Pre-compute RS rankings, Leaders, and F-Value in background after breadth is ready."""
+    await asyncio.sleep(20)  # wait for breadth to finish first
+    loop = asyncio.get_event_loop()
+
+    # 1. RS Rankings (used by Scanner + Screeners)
+    try:
+        rs_cache_key = _rs_cache_key("India")
+        if rs_cache_key not in _rs_cache:
+            logger.info("⏳ Pre-warming RS rankings (this takes 15-30s)...")
+            result = await loop.run_in_executor(executor, _compute_rs_rankings, "India")
+            if "error" not in result:
+                _enrich_stocks_mcap(result.get("stocks", []))
+                result.pop("_stock_data", None)
+                _rs_cache[rs_cache_key] = {"data": result, "ts": datetime.now(timezone.utc)}
+                logger.info(f"✅ RS rankings pre-warmed: {len(result.get('stocks', []))} stocks")
+            else:
+                logger.warning(f"RS pre-warm returned error: {result.get('error')}")
+        else:
+            logger.info("✅ RS rankings already cached")
+    except Exception as e:
+        logger.warning(f"RS pre-warm failed: {e}")
+
+    # 2. Leaders (uses RS + breadth data)
+    try:
+        leaders_key = "leaders_India"
+        if leaders_key not in _leaders_cache:
+            logger.info("⏳ Pre-warming Leaders...")
+            # Get cached breadth and RS data
+            breadth_data = get_cache("breadth_INDIA") or {}
+            rs_data = _rs_cache.get(_rs_cache_key("India"), {}).get("data", {})
+            stocks = rs_data.get("stocks", [])
+            if stocks:
+                result = await loop.run_in_executor(
+                    executor, _compute_leaders, "India", stocks, breadth_data
+                )
+                if result:
+                    _leaders_cache[leaders_key] = {"data": result, "ts": datetime.now(timezone.utc)}
+                    logger.info(f"✅ Leaders pre-warmed")
+        else:
+            logger.info("✅ Leaders already cached")
+    except Exception as e:
+        logger.warning(f"Leaders pre-warm failed: {e}")
+
+    # 3. F-Value (uses tv_fundamentals — fast SQL, ~1s)
+    try:
+        logger.info("⏳ Pre-warming F-Value screener...")
+        result = await loop.run_in_executor(executor, run_fvalue_screener)
+        if result.get("stocks"):
+            logger.info(f"✅ F-Value pre-warmed: {result.get('total', 0)} stocks graded")
+    except Exception as e:
+        logger.warning(f"F-Value pre-warm failed: {e}")
 
 async def _prewarm_breadth():
     """Pre-compute breadth in background so first load is instant."""

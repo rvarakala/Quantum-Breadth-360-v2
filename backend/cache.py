@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 # ── In-memory breadth cache ───────────────────────────────────────────────────
 _cache: Dict[str, dict] = {}
-CACHE_TTL = 28800   # 8 hours — covers full trading day (recompute after market close)
+CACHE_TTL = 72000   # 20 hours — data is EOD, no need to recompute during the day
 
 # ── Disk cache — survives backend restarts ────────────────────────────────────
 _DISK_CACHE_FILE = pathlib.Path(__file__).parent / "breadth_cache.json"
