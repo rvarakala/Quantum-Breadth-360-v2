@@ -301,7 +301,7 @@ async def nse_sync_force_today(background_tasks: BackgroundTasks):
             _nse_sync_state["result"] = result
             _nse_sync_state["message"] = result["message"]
             # Clear breadth cache so next load computes fresh
-            from cache import CACHE
+            from cache import _cache as CACHE
             keys_to_clear = [k for k in CACHE if k.startswith("breadth_") or k.startswith("stockbee_") or k.startswith("rs_")]
             for k in keys_to_clear:
                 CACHE.pop(k, None)
@@ -425,7 +425,7 @@ async def us_sync_start(background_tasks: BackgroundTasks, period: str = "2y"):
             _us_sync_state["message"] = result.get("message", "Done")
             _us_sync_state["result"] = result
             # Clear US breadth cache so it recomputes
-            from cache import CACHE
+            from cache import _cache as CACHE
             keys_to_clear = [k for k in CACHE if "US" in k or "us" in k.lower()]
             for k in keys_to_clear:
                 CACHE.pop(k, None)
