@@ -422,6 +422,14 @@ let _scannerData=null;
 
 async function loadScannerData(){
   if(_scannerData) return _scannerData;
+  // Show loading state in Top Movers
+  const gEl=document.getElementById('scn-gainers');
+  const lEl=document.getElementById('scn-losers');
+  const vEl=document.getElementById('scn-volspikes');
+  const loadingHtml='<div class="scn-mover-empty">⏳ Loading RS data...</div>';
+  if(gEl) gEl.innerHTML=loadingHtml;
+  if(lEl) lEl.innerHTML=loadingHtml;
+  if(vEl) vEl.innerHTML=loadingHtml;
   try{
     const minMcap = _getMinMcap();
     const params = new URLSearchParams({market: currentMarket, min_rs: '1'});
@@ -429,8 +437,23 @@ async function loadScannerData(){
     const res=await fetch(`${API}/api/screener/rs?${params}`);
     if(!res.ok) throw new Error('HTTP '+res.status);
     const d=await res.json();
-    _scannerData=d.stocks||[]; return _scannerData;
-  }catch(e){console.warn('Scanner load failed:',e.message);return[];}
+    if(d.error) throw new Error(d.error);
+    _scannerData=d.stocks||[];
+    if(!_scannerData.length){
+      const noData='<div class="scn-mover-empty">No stock data in DB.<br>Run OHLCV sync first (Importer tab).</div>';
+      if(gEl) gEl.innerHTML=noData;
+      if(lEl) lEl.innerHTML=noData;
+      if(vEl) vEl.innerHTML=noData;
+    }
+    return _scannerData;
+  }catch(e){
+    console.warn('Scanner load failed:',e.message);
+    const errHtml=`<div class="scn-mover-empty" style="color:var(--red)">⚠ ${e.message}<br><span style="color:var(--text3);font-size:10px">RS computation may take 15-30s on first load.<br>If this persists, check server logs.</span></div>`;
+    if(gEl) gEl.innerHTML=errHtml;
+    if(lEl) lEl.innerHTML=errHtml;
+    if(vEl) vEl.innerHTML=errHtml;
+    return[];
+  }
 }
 
 function updateScannerMarketBar(){
@@ -449,7 +472,8 @@ function updateScannerMarketBar(){
 }
 
 async function loadTopMovers(){
-  const stocks=await loadScannerData(); if(!stocks.length) return;
+  const stocks=await loadScannerData();
+  if(!stocks.length) return;  // loadScannerData already shows error/empty state
   const f=(v,d=1)=>v==null?'—':Number(v).toFixed(d);
   const row=(s,val,col)=>`<div class="scn-mover-row"><span class="scn-mover-ticker ticker-link" onclick="openTickerChart('${s.ticker}')">${s.ticker}</span><span class="scn-mover-val" style="color:${col}">${val}</span></div>`;
   const gainers=[...stocks].filter(s=>s.chg_1w>0).sort((a,b)=>b.chg_1w-a.chg_1w).slice(0,5);
@@ -477,7 +501,7 @@ async function runQuickScan(scanId){
   title.textContent=def.label;
   badge.style.display='none';
   stat.textContent='';
-  body.innerHTML='<div class="scn-mover-empty"><span class="scn-loading-spinner"></span> Running scan...</div>';
+  body.innerHTML='<div class="scn-mover-empty">⏳ Running scan... (may take 15-30s on first load)</div>';
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
   let results=[]; const t0=Date.now();
   if(def.backend){
