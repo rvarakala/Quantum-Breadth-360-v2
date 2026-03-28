@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+.env
+.venv/
+venv/
+node_modules/
+*.log
+.DS_Store
+breadth_v1_backup.py
