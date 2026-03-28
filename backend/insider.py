@@ -202,7 +202,8 @@ def _normalize_date(ds: str) -> str:
 
 def import_insider_csv(csv_path: str) -> int:
     """
-    Import insider trades from NSE CSV download.
+    Import insider trades from NSE PIT CSV download.
+    Handles NSE's quirky format: headers with embedded \\n, 29 columns.
     Returns count of records imported.
     """
     import csv
@@ -213,9 +214,21 @@ def import_insider_csv(csv_path: str) -> int:
 
     try:
         with open(csv_path, "r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
+            reader = csv.reader(f)
+            headers_raw = next(reader)
+            # NSE headers have embedded \n — strip all whitespace
+            headers = [h.strip().replace("\n", "").strip() for h in headers_raw]
+            logger.info(f"CSV headers ({len(headers)}): {headers[:10]}...")
+
             for row in reader:
-                trade = _parse_csv_row(row)
+                if len(row) < 10:
+                    continue
+                # Build dict with cleaned headers
+                row_dict = {}
+                for i, h in enumerate(headers):
+                    row_dict[h] = row[i].strip() if i < len(row) else ""
+
+                trade = _parse_nse_csv_row(row_dict)
                 if trade:
                     try:
                         conn.execute("""
@@ -238,6 +251,8 @@ def import_insider_csv(csv_path: str) -> int:
         conn.commit()
     except Exception as e:
         logger.error(f"CSV import error: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         conn.close()
 
@@ -245,41 +260,83 @@ def import_insider_csv(csv_path: str) -> int:
     return count
 
 
-def _parse_csv_row(row: dict) -> dict:
-    """Parse a CSV row (NSE PIT download format) into trade dict."""
-    # NSE CSV columns vary — handle common patterns
-    symbol = (row.get("Symbol", row.get("SYMBOL", row.get("symbol", "")))).strip()
-    if not symbol:
+def _parse_nse_csv_row(row: dict) -> dict:
+    """
+    Parse a single row from NSE PIT CSV download.
+
+    NSE columns (29 total):
+    [0]  SYMBOL
+    [1]  COMPANY
+    [2]  REGULATION
+    [3]  NAME OF THE ACQUIRER/DISPOSER
+    [4]  CATEGORY OF PERSON
+    [5]  TYPE OF SECURITY (PRIOR)
+    [6]  NO. OF SECURITY (PRIOR)
+    [7]  % SHAREHOLDING (PRIOR)
+    [8]  TYPE OF SECURITY (ACQUIRED/DISPLOSED)
+    [9]  NO. OF SECURITIES (ACQUIRED/DISPLOSED)
+    [10] VALUE OF SECURITY (ACQUIRED/DISPLOSED)
+    [11] ACQUISITION/DISPOSAL TRANSACTION TYPE
+    [12] TYPE OF SECURITY (POST)
+    [13] NO. OF SECURITY (POST)
+    [14] % POST
+    [15] DATE OF ALLOTMENT/ACQUISITION FROM
+    [16] DATE OF ALLOTMENT/ACQUISITION TO
+    [17] DATE OF INITMATION TO COMPANY
+    [18] MODE OF ACQUISITION
+    [25] EXCHANGE
+    [26] REMARK
+    [27] BROADCASTE DATE AND TIME
+    """
+    # Helper: find value by partial key match (handles slight variations)
+    def _get(key_part):
+        for k, v in row.items():
+            if key_part.upper() in k.upper():
+                return v.strip() if v else ""
+        return ""
+
+    symbol = _get("SYMBOL")
+    if not symbol or symbol == "-":
         return None
 
-    # Try various column names
-    company = row.get("Company", row.get("COMPANY", row.get("company", ""))).strip()
-    insider = row.get("Name of the Acquirer/Disposer",
-              row.get("Acquirer Name", row.get("acqName", row.get("insider_name", "")))).strip()
-    category = row.get("Category of Person",
-               row.get("Regulation", row.get("personCategory", row.get("category", "")))).strip()
+    company = _get("COMPANY")
+    insider = _get("NAME OF THE ACQUIRER") or _get("ACQUIRER/DISPOSER")
+    category = _get("CATEGORY OF PERSON")
 
-    tx_raw = row.get("Type of Transaction",
-             row.get("Acquisition/Disposal", row.get("transaction_type", ""))).strip().lower()
-    if "acqui" in tx_raw or "buy" in tx_raw or "purchase" in tx_raw:
+    # Transaction type
+    tx_raw = _get("ACQUISITION/DISPOSAL TRANSACTION TYPE")
+    if not tx_raw:
+        tx_raw = _get("TRANSACTION TYPE")
+    tx_lower = tx_raw.lower()
+    if "buy" in tx_lower or "acqui" in tx_lower:
         tx_type = "Buy"
-    elif "dispos" in tx_raw or "sell" in tx_raw or "sale" in tx_raw:
+    elif "sell" in tx_lower or "sale" in tx_lower or "dispos" in tx_lower:
         tx_type = "Sell"
-    elif "pledge" in tx_raw:
+    elif "pledge" in tx_lower:
         tx_type = "Pledge"
+    elif "revoke" in tx_lower or "invocation" in tx_lower:
+        tx_type = "Revoke"
     else:
-        tx_type = tx_raw.title() or "Unknown"
+        tx_type = tx_raw or "Unknown"
 
-    sec_count = _safe_num(row.get("No. of Securities (Acquired/Disposed)",
-                row.get("No of shares", row.get("securities_count", 0))))
-    sec_value = _safe_num(row.get("Value of Securities (Acquired/Disposed)",
-                row.get("Value", row.get("securities_value", 0))))
-    tx_date = row.get("Date of Allotment/Acquisition From",
-              row.get("Transaction Date", row.get("transaction_date", ""))).strip()
-    mode = row.get("Mode of Acquisition",
-           row.get("Mode", row.get("mode", ""))).strip()
-    broadcast = row.get("Broadcast Date/Time",
-                row.get("broadcast_date", "")).strip()
+    # Securities count and value
+    sec_count = _safe_num(_get("NO. OF SECURITIES (ACQUIRED"))
+    if sec_count == 0:
+        sec_count = _safe_num(_get("NO. OF SECURITIES"))
+    sec_value = _safe_num(_get("VALUE OF SECURITY (ACQUIRED"))
+    if sec_value == 0:
+        sec_value = _safe_num(_get("VALUE OF SECURITY"))
+
+    # Dates
+    tx_date = _get("DATE OF ALLOTMENT/ACQUISITION FROM")
+    if not tx_date:
+        tx_date = _get("ACQUISITION FROM")
+    mode = _get("MODE OF ACQUISITION") or _get("MODE")
+    exchange = _get("EXCHANGE") or "NSE"
+    broadcast = _get("BROADCASTE DATE") or _get("BROADCAST DATE")
+    remark = _get("REMARK")
+    if remark == "-":
+        remark = ""
 
     return {
         "symbol": symbol,
@@ -290,9 +347,10 @@ def _parse_csv_row(row: dict) -> dict:
         "securities_count": sec_count,
         "securities_value": sec_value,
         "transaction_date": _normalize_date(tx_date),
-        "mode": mode,
-        "broadcast_date": _normalize_date(broadcast),
-        "exchange": "NSE",
+        "mode": mode if mode != "-" else "",
+        "exchange": exchange if exchange != "-" else "NSE",
+        "broadcast_date": _normalize_date(broadcast.split(" ")[0] if broadcast else ""),
+        "remarks": remark,
     }
 
 
