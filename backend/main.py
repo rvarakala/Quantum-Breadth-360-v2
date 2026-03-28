@@ -59,6 +59,7 @@ from insider import (
     get_insider_trades, get_insider_summary, sync_insider_data,
     import_insider_csv, compute_buy_score, _ensure_tables as _ensure_insider_tables,
 )
+from fvalue import run_fvalue_screener
 from watchlist import (
     list_watchlists, create_watchlist, delete_watchlist,
     add_ticker as wl_add_ticker, remove_ticker as wl_remove_ticker,
@@ -1298,6 +1299,30 @@ async def api_insider_import_csv(file: UploadFile):
             os.unlink(tmp.name)
         except:
             pass
+
+
+# ── F-Value Fundamental Screener ──────────────────────────────────────────────
+
+@app.get("/api/fvalue")
+async def api_fvalue_screener(
+    min_grade: str = None,
+    fv_filter: str = None,
+    sector: str = None,
+    limit: int = 500,
+):
+    """
+    F-Value Screener — Quality grades (A-E) + Fair Value estimation.
+    Uses TV fundamentals data (PE, ROE, EPS growth, margins, D/E).
+    """
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        executor, lambda: run_fvalue_screener(
+            min_grade=min_grade, fv_filter=fv_filter,
+            sector=sector, limit=limit,
+        )
+    )
+    return result
+
 
 _tv_fund_state: dict = {"running": False, "message": "Idle", "count": 0}
 

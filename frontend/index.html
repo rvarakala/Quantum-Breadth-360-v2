@@ -122,6 +122,10 @@
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span class="nav-label">Insider</span>
         </button>
+        <button class="nav-item" data-tab="fvalue" onclick="switchTab('fvalue')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          <span class="nav-label">F-Value</span>
+        </button>
         <button class="nav-item" data-tab="leaders" onclick="switchTab('leaders')">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span class="nav-label">Leaders</span>
@@ -617,6 +621,84 @@
       </div>
     </div>
   </div><!-- /tab-insider -->
+
+  <!-- F-VALUE TAB -->
+  <div class="tab-content" id="tab-fvalue">
+    <div class="fv-wrap">
+      <!-- Header -->
+      <div class="fv-header">
+        <div class="fv-title-row">
+          <div><span class="fv-main-title">F-VALUE</span><span class="fv-subtitle"> FUNDAMENTAL SCREENER</span></div>
+          <span class="fv-info" id="fv-info"></span>
+        </div>
+        <!-- Grade + FV distribution bars -->
+        <div class="fv-dist-row">
+          <div class="fv-dist-section">
+            <div class="fv-dist-label">GRADE</div>
+            <div class="fv-dist-bars" id="fv-grade-dist"></div>
+          </div>
+          <div class="fv-dist-section">
+            <div class="fv-dist-label">FAIR VALUE</div>
+            <div class="fv-dist-bars" id="fv-fv-dist"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="fv-filters">
+        <div class="fv-filter-group">
+          <span class="fv-filter-label">Grade:</span>
+          <button class="fv-filter-btn active" onclick="fvFilterGrade(null)" id="fv-g-all">All</button>
+          <button class="fv-filter-btn" onclick="fvFilterGrade('A')" id="fv-g-A" style="color:#22c55e">A</button>
+          <button class="fv-filter-btn" onclick="fvFilterGrade('B+')" id="fv-g-Bp" style="color:#4ade80">B+</button>
+          <button class="fv-filter-btn" onclick="fvFilterGrade('B')" id="fv-g-B" style="color:#60a5fa">B</button>
+          <button class="fv-filter-btn" onclick="fvFilterGrade('C')" id="fv-g-C" style="color:#f59e0b">C</button>
+          <button class="fv-filter-btn" onclick="fvFilterGrade('D')" id="fv-g-D" style="color:#ef4444">D</button>
+        </div>
+        <div class="fv-filter-group">
+          <span class="fv-filter-label">Value:</span>
+          <button class="fv-filter-btn active" onclick="fvFilterFV(null)" id="fv-v-all">All</button>
+          <button class="fv-filter-btn" onclick="fvFilterFV('deep_value')" id="fv-v-dv" style="color:#22c55e">Deep Value</button>
+          <button class="fv-filter-btn" onclick="fvFilterFV('undervalued')" id="fv-v-uv" style="color:#4ade80">Undervalued</button>
+          <button class="fv-filter-btn" onclick="fvFilterFV('fair')" id="fv-v-fair" style="color:#f59e0b">Fair</button>
+          <button class="fv-filter-btn" onclick="fvFilterFV('overvalued')" id="fv-v-ov" style="color:#ef4444">Overvalued</button>
+        </div>
+        <div class="fv-filter-group">
+          <input class="fv-search" id="fv-search" placeholder="Search ticker, company, sector..." oninput="filterFValueTable()">
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="fv-table-wrap">
+        <table class="fv-table" id="fv-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>TICKER</th>
+              <th>COMPANY</th>
+              <th>SECTOR</th>
+              <th class="fv-th-center">GRADE</th>
+              <th>FV STATUS</th>
+              <th class="fv-th-right">CMP ₹</th>
+              <th class="fv-th-right">FAIR VAL</th>
+              <th class="fv-th-right">UPSIDE%</th>
+              <th class="fv-th-right">PE</th>
+              <th class="fv-th-right">ROE%</th>
+              <th class="fv-th-right">EPS G%</th>
+              <th class="fv-th-right">D/E</th>
+            </tr>
+          </thead>
+          <tbody id="fv-tbody">
+            <tr><td colspan="13" class="fv-empty">Loading F-Value data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="fv-footer">
+        <span id="fv-count">0 stocks</span>
+        <span>Data: TradingView Fundamentals</span>
+      </div>
+    </div>
+  </div><!-- /tab-fvalue -->
 
   <!-- OVERVIEW TAB -->
   <div class="tab-content active" id="tab-overview">
@@ -1441,6 +1523,7 @@
 <script src="/static/js/autocomplete.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/peep-into-past.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/insider.js?v=__ASSET_VERSION__"></script>
+<script src="/static/js/fvalue.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/smart-screener.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/ai-insights.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/app.js?v=__ASSET_VERSION__"></script>

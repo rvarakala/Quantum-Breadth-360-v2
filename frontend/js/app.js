@@ -126,6 +126,7 @@ function switchTab(tab) {
     else updateScannerMarketBar();
   }
   if (tab === 'insider') { if(typeof onInsiderTabLoad==='function') onInsiderTabLoad(); }
+  if (tab === 'fvalue') { if(typeof onFValueTabLoad==='function') onFValueTabLoad(); }
 }
 
 // ─── SUMMARY MODAL ────────────────────────────────────────────────────────────
