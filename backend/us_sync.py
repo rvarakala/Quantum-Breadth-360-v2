@@ -307,6 +307,7 @@ def sync_us_ohlcv(period: str = "2y", batch_size: int = 50, max_workers: int = 3
     
     # Process batches with parallel workers
     batch_num = 0
+    api_calls = 0  # Track total API calls for rate limiting
     
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit batches in waves to avoid overwhelming yfinance
@@ -319,6 +320,7 @@ def sync_us_ohlcv(period: str = "2y", batch_size: int = 50, max_workers: int = 3
             
             for future in as_completed(futures):
                 batch_num += 1
+                api_calls += 1
                 batch = futures[future]
                 try:
                     result = future.result()
@@ -338,8 +340,16 @@ def sync_us_ohlcv(period: str = "2y", batch_size: int = 50, max_workers: int = 3
                     progress_callback(msg)
             
             # Small pause between waves to avoid rate limiting
+            # Longer pause after every 10 batches (500 tickers) per YfinanceDownloader pattern
             if wave_start + max_workers * 2 < len(batches):
-                time.sleep(1)
+                if api_calls % 10 == 0:
+                    cooldown_msg = f"Rate limit cooldown (30s) after {api_calls} batches ({synced} tickers synced)..."
+                    logger.info(cooldown_msg)
+                    if progress_callback:
+                        progress_callback(cooldown_msg)
+                    time.sleep(30)
+                else:
+                    time.sleep(2)
     
     elapsed = round(time.time() - t0, 1)
     result = {
