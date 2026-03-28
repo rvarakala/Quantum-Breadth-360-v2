@@ -542,6 +542,84 @@ async def import_nifty500(payload: dict = {}):
     return {"ok": True, "tickers_imported": n, "filepath": filepath}
 
 
+@app.get("/api/scanner/movers")
+async def get_top_movers(market: str = "India", limit: int = 10):
+    """
+    Fast endpoint for Top Movers (Gainers/Losers/Vol Spikes).
+    Reads directly from OHLCV DB — NO RS computation needed.
+    Returns in ~200ms vs 15-30s for /api/screener/rs.
+    """
+    import sqlite3
+    db_path = pathlib.Path(__file__).parent / "breadth_data.db"
+    db_market = "India" if market.upper() == "INDIA" else market
+
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=10)
+        # Get the last 2 trading dates
+        dates = conn.execute(
+            "SELECT DISTINCT date FROM ohlcv WHERE market=? ORDER BY date DESC LIMIT 6",
+            (db_market,)
+        ).fetchall()
+        if len(dates) < 2:
+            conn.close()
+            return {"gainers": [], "losers": [], "vol_spikes": [], "error": "Need at least 2 days of data"}
+
+        latest = dates[0][0]
+        prev = dates[1][0]
+
+        # Get today's and yesterday's close + volume for all tickers in one query
+        rows = conn.execute("""
+            SELECT t.ticker,
+                   t.close AS close_today, t.volume AS vol_today, t.high, t.low, t.open,
+                   p.close AS close_prev, p.volume AS vol_prev
+            FROM ohlcv t
+            JOIN ohlcv p ON t.ticker = p.ticker AND p.date = ? AND p.market = ?
+            WHERE t.date = ? AND t.market = ?
+              AND t.close > 0 AND p.close > 0
+        """, (prev, db_market, latest, db_market)).fetchall()
+
+        # Also get 50-day avg volume for vol spike detection
+        vol_avg_rows = conn.execute("""
+            SELECT ticker, AVG(volume) as avg_vol
+            FROM ohlcv
+            WHERE market = ? AND date >= date(?, '-60 days')
+            GROUP BY ticker
+            HAVING COUNT(*) >= 20
+        """, (db_market, latest)).fetchall()
+        conn.close()
+
+        vol_avg = {r[0]: r[1] for r in vol_avg_rows}
+
+        stocks = []
+        for r in rows:
+            ticker, close, vol, high, low, opn, prev_close, prev_vol = r
+            chg_pct = round((close - prev_close) / prev_close * 100, 2)
+            avg_v = vol_avg.get(ticker, vol)
+            vol_ratio = round(vol / avg_v, 2) if avg_v > 0 else 1.0
+            stocks.append({
+                "ticker": ticker,
+                "price": round(close, 2),
+                "chg_pct": chg_pct,
+                "volume": int(vol),
+                "vol_ratio": vol_ratio,
+            })
+
+        gainers = sorted([s for s in stocks if s["chg_pct"] > 0], key=lambda x: -x["chg_pct"])[:limit]
+        losers = sorted([s for s in stocks if s["chg_pct"] < 0], key=lambda x: x["chg_pct"])[:limit]
+        vol_spikes = sorted([s for s in stocks if s["vol_ratio"] > 1.5], key=lambda x: -x["vol_ratio"])[:limit]
+
+        return {
+            "gainers": gainers,
+            "losers": losers,
+            "vol_spikes": vol_spikes,
+            "date": latest,
+            "total_stocks": len(stocks),
+        }
+
+    except Exception as e:
+        return {"gainers": [], "losers": [], "vol_spikes": [], "error": str(e)}
+
+
 @app.get("/api/screener/rs")
 async def get_rs_rankings(
     market: str = "India",

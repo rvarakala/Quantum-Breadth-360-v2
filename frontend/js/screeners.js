@@ -472,20 +472,40 @@ function updateScannerMarketBar(){
 }
 
 async function loadTopMovers(){
-  const stocks=await loadScannerData();
-  if(!stocks.length) return;  // loadScannerData already shows error/empty state
-  const f=(v,d=1)=>v==null?'—':Number(v).toFixed(d);
-  const row=(s,val,col)=>`<div class="scn-mover-row"><span class="scn-mover-ticker ticker-link" onclick="openTickerChart('${s.ticker}')">${s.ticker}</span><span class="scn-mover-val" style="color:${col}">${val}</span></div>`;
-  const gainers=[...stocks].filter(s=>s.chg_1w>0).sort((a,b)=>b.chg_1w-a.chg_1w).slice(0,5);
-  const losers=[...stocks].filter(s=>s.chg_1w<0).sort((a,b)=>a.chg_1w-b.chg_1w).slice(0,5);
-  const vols=[...stocks].filter(s=>s.vol_ratio>1).sort((a,b)=>b.vol_ratio-a.vol_ratio).slice(0,5);
-  const empty='<div class="scn-mover-empty">No data</div>';
+  // Use the FAST movers endpoint — no RS computation needed
   const gEl=document.getElementById('scn-gainers');
   const lEl=document.getElementById('scn-losers');
   const vEl=document.getElementById('scn-volspikes');
-  if(gEl) gEl.innerHTML=gainers.length?gainers.map(s=>row(s,`+${f(s.chg_1w)}%`,'var(--green)')).join(''):empty;
-  if(lEl) lEl.innerHTML=losers.length?losers.map(s=>row(s,`${f(s.chg_1w)}%`,'var(--red)')).join(''):empty;
-  if(vEl) vEl.innerHTML=vols.length?vols.map(s=>row(s,`${f(s.vol_ratio,2)}x`,'var(--cyan)')).join(''):empty;
+  const loadingHtml='<div class="scn-mover-empty">Loading...</div>';
+  if(gEl) gEl.innerHTML=loadingHtml;
+  if(lEl) lEl.innerHTML=loadingHtml;
+  if(vEl) vEl.innerHTML=loadingHtml;
+
+  try{
+    const res=await fetch(`${API}/api/scanner/movers?market=${currentMarket}&limit=8`);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const d=await res.json();
+    if(d.error) throw new Error(d.error);
+
+    const f=(v,d2=1)=>v==null?'—':Number(v).toFixed(d2);
+    const row=(s,val,col)=>`<div class="scn-mover-row"><span class="scn-mover-ticker ticker-link" onclick="openTickerChart('${s.ticker}')">${s.ticker}</span><span class="scn-mover-val" style="color:${col}">${val}</span></div>`;
+    const empty='<div class="scn-mover-empty">No data</div>';
+
+    if(gEl) gEl.innerHTML=(d.gainers||[]).length ? d.gainers.map(s=>row(s,`+${f(s.chg_pct)}%`,'var(--green)')).join('') : empty;
+    if(lEl) lEl.innerHTML=(d.losers||[]).length ? d.losers.map(s=>row(s,`${f(s.chg_pct)}%`,'var(--red)')).join('') : empty;
+    if(vEl) vEl.innerHTML=(d.vol_spikes||[]).length ? d.vol_spikes.map(s=>row(s,`${f(s.vol_ratio,2)}x`,'var(--cyan)')).join('') : empty;
+
+    // Update DB info
+    const dbEl=document.getElementById('scn-db-info');
+    if(dbEl) dbEl.textContent=`${d.total_stocks||'—'} stocks · ${d.date||''}`;
+
+  }catch(e){
+    console.warn('Top Movers load failed:',e.message);
+    const errHtml=`<div class="scn-mover-empty" style="color:var(--red)">⚠ ${e.message}</div>`;
+    if(gEl) gEl.innerHTML=errHtml;
+    if(lEl) lEl.innerHTML=errHtml;
+    if(vEl) vEl.innerHTML=errHtml;
+  }
 }
 
 async function runQuickScan(scanId){
