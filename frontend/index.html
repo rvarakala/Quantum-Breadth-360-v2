@@ -1171,6 +1171,18 @@
           <div style="font-size:10px;color:var(--text2);margin-bottom:10px">44 NSE indices → SQLite<br>Semi-annual (Jan &amp; Jul)</div>
           <button onclick="syncNseIndices()" id="nse-idx-sync-btn" style="width:100%;padding:8px;background:#0891b2;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:var(--font-mono);font-size:12px;font-weight:700;">Sync All Indices</button>
         </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#f59e0b;font-family:var(--font-mono);margin-bottom:4px;">🇺🇸 US MARKET (Russell 3000)</div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:10px">iShares IWV CSV → yfinance<br>~2,586 tickers · Quarterly</div>
+          <label style="display:block;width:100%;padding:8px;background:#f59e0b;color:#000;border:none;border-radius:6px;cursor:pointer;font-family:var(--font-mono);font-size:12px;font-weight:700;text-align:center;margin-bottom:5px;">
+            📥 Import IWV CSV
+            <input type="file" accept=".csv" onchange="importUSUniverse(this)" style="display:none">
+          </label>
+          <button onclick="startUSOhlcvSync()" id="us-sync-btn" style="width:100%;padding:6px;background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:6px;cursor:pointer;font-family:var(--font-mono);font-size:11px;">▶ Start OHLCV Sync (2Y)</button>
+          <button onclick="startUSDailySync()" style="width:100%;padding:6px;background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:6px;cursor:pointer;font-family:var(--font-mono);font-size:11px;margin-top:4px;">⚡ Daily EOD Update</button>
+          <button onclick="startUSFundamentals()" style="width:100%;padding:6px;background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:6px;cursor:pointer;font-family:var(--font-mono);font-size:11px;margin-top:4px;">🧠 US TV Fundamentals</button>
+          <div id="us-sync-status" style="font-family:var(--font-mono);font-size:10px;color:var(--text3);margin-top:6px;display:none;"></div>
+        </div>
       </div>
       <div id="nse-sync-status" style="font-family:var(--font-mono);font-size:12px;color:var(--text2);display:none;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">

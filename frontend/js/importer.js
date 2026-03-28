@@ -614,3 +614,95 @@ async function prefetchQuarterly() {
     } catch(e) {}
   }, 2000);
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// US MARKET SYNC — Russell 3000 via iShares IWV
+// ════════════════════════════════════════════════════════════════════════════
+
+async function importUSUniverse(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const statusEl = document.getElementById('us-sync-status');
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Importing IWV CSV...'; }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch(`${API}/api/us-sync/import-csv`, { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const msg = `✅ Imported ${data.tickers} US tickers across ${data.sectors} GICS sectors`;
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green)">${msg}</span>`;
+    alert(msg + '\n\nNow click "Start OHLCV Sync (2Y)" to download price data.');
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">⚠ ${e.message}</span>`;
+    alert('Import failed: ' + e.message);
+  }
+  input.value = '';
+}
+
+async function startUSOhlcvSync() {
+  const btn = document.getElementById('us-sync-btn');
+  const statusEl = document.getElementById('us-sync-status');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing...'; }
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Starting 2-year OHLCV sync for ~2,586 US tickers...'; }
+
+  try {
+    const res = await fetch(`${API}/api/us-sync/start?period=2y`, { method: 'POST' });
+    const data = await res.json();
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--cyan)">${data.message || 'Sync started'}</span>`;
+    // Poll for progress
+    _pollUSSyncStatus();
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">⚠ ${e.message}</span>`;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '▶ Start OHLCV Sync (2Y)'; }
+}
+
+async function startUSDailySync() {
+  const statusEl = document.getElementById('us-sync-status');
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Starting daily US EOD sync...'; }
+  try {
+    const res = await fetch(`${API}/api/us-sync/daily`, { method: 'POST' });
+    const data = await res.json();
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--cyan)">${data.message || 'Daily sync started'}</span>`;
+    _pollUSSyncStatus();
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">⚠ ${e.message}</span>`;
+  }
+}
+
+async function startUSFundamentals() {
+  const statusEl = document.getElementById('us-sync-status');
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Syncing US TV fundamentals...'; }
+  try {
+    const res = await fetch(`${API}/api/fundamentals/tv-sync?market=america`, { method: 'POST' });
+    const data = await res.json();
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green)">✅ ${data.message || 'US fundamentals synced'}</span>`;
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">⚠ ${e.message}</span>`;
+  }
+}
+
+let _usSyncPollTimer = null;
+function _pollUSSyncStatus() {
+  if (_usSyncPollTimer) clearInterval(_usSyncPollTimer);
+  _usSyncPollTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`${API}/api/us-sync/status`);
+      const data = await res.json();
+      const statusEl = document.getElementById('us-sync-status');
+      if (statusEl) {
+        const color = data.running ? 'var(--cyan)' : 'var(--green)';
+        statusEl.innerHTML = `<span style="color:${color}">${data.running ? '⏳' : '✅'} ${data.message}</span>`;
+      }
+      if (!data.running) {
+        clearInterval(_usSyncPollTimer);
+        _usSyncPollTimer = null;
+      }
+    } catch (e) {
+      clearInterval(_usSyncPollTimer);
+      _usSyncPollTimer = null;
+    }
+  }, 5000); // Poll every 5 seconds
+}
