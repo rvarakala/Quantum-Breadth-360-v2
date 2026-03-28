@@ -300,24 +300,41 @@ def run_fvalue_screener(
     conn = sqlite3.connect(str(DB_PATH), timeout=15)
     conn.row_factory = sqlite3.Row
 
-    rows = conn.execute("""
-        SELECT f.ticker, f.pe_ratio, f.pb_ratio, f.roe, f.roa,
-               f.gross_margin, f.operating_margin, f.net_margin,
-               f.debt_to_equity, f.current_ratio,
-               f.eps_ttm, f.eps_growth_ttm, f.revenue_growth,
-               f.market_cap, f.company_name, f.sector, f.industry,
-               o.close as price
-        FROM tv_fundamentals f
-        LEFT JOIN (
-            SELECT ticker, close FROM ohlcv
-            WHERE (ticker, date) IN (
-                SELECT ticker, MAX(date) FROM ohlcv WHERE market='India' GROUP BY ticker
-            )
-        ) o ON f.ticker = REPLACE(o.ticker, '.NS', '')
-        WHERE f.eps_ttm IS NOT NULL AND f.eps_ttm > 0
-        ORDER BY f.roe DESC
+    # FAST: Two simple queries instead of one slow JOIN
+
+    # 1. Get all fundamentals (~1ms)
+    fund_rows = conn.execute("""
+        SELECT ticker, pe_ratio, pb_ratio, roe, roa,
+               gross_margin, operating_margin, net_margin,
+               debt_to_equity, current_ratio,
+               eps_ttm, eps_growth_ttm, revenue_growth,
+               market_cap, company_name, sector, industry
+        FROM tv_fundamentals
+        WHERE eps_ttm IS NOT NULL AND eps_ttm > 0
+        ORDER BY roe DESC
     """).fetchall()
+
+    # 2. Get latest close price for each ticker (~50ms using MAX date once)
+    latest_date = conn.execute(
+        "SELECT MAX(date) FROM ohlcv WHERE market='India'"
+    ).fetchone()[0]
+
+    price_map = {}
+    if latest_date:
+        price_rows = conn.execute(
+            "SELECT ticker, close FROM ohlcv WHERE date=? AND market='India' AND close > 0",
+            (latest_date,)
+        ).fetchall()
+        for pr in price_rows:
+            # Store both with and without .NS suffix
+            t = pr["ticker"]
+            price_map[t] = float(pr["close"])
+            if t.endswith(".NS"):
+                price_map[t[:-3]] = float(pr["close"])
+
     conn.close()
+
+    rows = fund_rows
 
     # Grade ordering for filter comparison
     grade_order = {"A": 5, "B+": 4, "B": 3, "C": 2, "D": 1, "E": 0}
@@ -337,9 +354,11 @@ def run_fvalue_screener(
 
     for r in rows:
         row = dict(r)
-        # Use OHLCV price, fallback to nothing
-        if not row.get("price"):
+        # Look up price from price_map
+        price = price_map.get(row["ticker"], 0)
+        if not price:
             continue
+        row["price"] = price
 
         grade_info = compute_quality_grade(row)
         fv_info = compute_fair_value({**row, "close": row["price"]})
