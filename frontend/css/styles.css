@@ -3101,11 +3101,21 @@ body::before {
   border-radius: 6px;
   border: 1px solid var(--input-border);
   background: var(--input-bg);
+  background-color: #1a1535;
   color: var(--text);
   font-size: 11px;
   font-family: var(--font-mono);
   outline: none;
   cursor: pointer;
+}
+.ins-select option {
+  background: #1a1535;
+  color: #f1f5f9;
+  padding: 6px;
+}
+.ins-select option:checked {
+  background: #06b6d4;
+  color: #000;
 }
 .ins-import-btn {
   padding: 5px 14px;
@@ -3288,4 +3298,32 @@ body::before {
   .ins-search { width: 100%; }
   .ins-table { font-size: 10px; }
   .ins-table td, .ins-table th { padding: 5px 8px; }
+}
+
+/* ── Global: dark select/option fix (Windows CMD renders white otherwise) ── */
+select, .scn-select, .mcap-filter-wrap select, .alert-select {
+  background-color: #1a1535 !important;
+  color: #f1f5f9 !important;
+}
+select option, .scn-select option, .alert-select option {
+  background: #1a1535;
+  color: #f1f5f9;
+  padding: 6px;
+}
+select option:checked {
+  background: #06b6d4;
+  color: #000;
+}
+[data-theme="light"] select,
+[data-theme="light"] .ins-select,
+[data-theme="light"] .scn-select,
+[data-theme="light"] .alert-select,
+[data-theme="light"] .mcap-filter-wrap select {
+  background-color: #fff !important;
+  color: #1e293b !important;
+}
+[data-theme="light"] select option,
+[data-theme="light"] .ins-select option {
+  background: #fff;
+  color: #1e293b;
 }
