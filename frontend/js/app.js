@@ -127,6 +127,7 @@ function switchTab(tab) {
   }
   if (tab === 'insider') { if(typeof onInsiderTabLoad==='function') onInsiderTabLoad(); }
   if (tab === 'fvalue') { if(typeof onFValueTabLoad==='function') onFValueTabLoad(); }
+  if (tab === 'fiidii') { if(typeof onFiiDiiTabLoad==='function') onFiiDiiTabLoad(); }
 }
 
 // ─── SUMMARY MODAL ────────────────────────────────────────────────────────────

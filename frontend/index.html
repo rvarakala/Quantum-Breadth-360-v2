@@ -137,6 +137,10 @@
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span class="nav-label">Leaders</span>
         </button>
+        <button class="nav-item" data-tab="fiidii" onclick="switchTab('fiidii')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 6-6"/></svg>
+          <span class="nav-label">FII / DII</span>
+        </button>
         <button class="nav-item" data-tab="stockbee" onclick="switchTab('stockbee')">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
           <span class="nav-label">Stockbee MB</span>
@@ -233,6 +237,119 @@
       <div id="ldr-tiers-wrap"></div>
     </div>
   </div><!-- /tab-leaders -->
+
+  <!-- FII/DII INSTITUTIONAL FLOW TAB -->
+  <div class="tab-content" id="tab-fiidii">
+    <div class="fd-wrap">
+      <!-- Header -->
+      <div class="fd-header">
+        <div class="fd-logo">🏛</div>
+        <div>
+          <div class="fd-main-title">FII & DII DATA</div>
+          <div class="fd-subtitle">INSTITUTIONAL MONEY MATRIX</div>
+        </div>
+        <button class="fd-sync-btn" onclick="syncFiiDiiTab()">⟳ Force Sync</button>
+        <span class="fd-live" id="fd-live">● LIVE</span>
+      </div>
+
+      <!-- Row 1: Latest Session (big card) + Streaks column -->
+      <div class="fd-row-1">
+        <!-- Latest Session Card -->
+        <div class="fd-session-card" id="fd-session-card">
+          <div class="fd-session-hdr">
+            <span class="fd-session-title">LATEST EXTRACTED SESSION</span>
+            <span class="fd-sentiment-badge" id="fd-sentiment"></span>
+          </div>
+          <div class="fd-session-date" id="fd-session-date">Loading...</div>
+          <div class="fd-session-vals">
+            <div>
+              <div class="fd-val-label">FII / FPI NET</div>
+              <div class="fd-val-big" id="fd-fii-net">—</div>
+            </div>
+            <div style="text-align:right">
+              <div class="fd-val-label">DII NET</div>
+              <div class="fd-val-big" id="fd-dii-net">—</div>
+            </div>
+          </div>
+          <!-- Balance bar -->
+          <div class="fd-balance-bar" id="fd-balance-bar">
+            <span class="fd-bal-label" id="fd-fii-pct" style="color:#ef4444">FII: 50%</span>
+            <div class="fd-bal-track">
+              <div class="fd-bal-fill-fii" id="fd-bal-fii"></div>
+              <div class="fd-bal-fill-dii" id="fd-bal-dii"></div>
+            </div>
+            <span class="fd-bal-label" id="fd-dii-pct" style="color:#22c55e">DII: 50%</span>
+          </div>
+          <!-- Net Liquidity -->
+          <div class="fd-net-liq">
+            <span>NET LIQUIDITY INJECTION</span>
+            <span class="fd-net-liq-val" id="fd-net-liq">—</span>
+          </div>
+        </div>
+
+        <!-- Streaks Column -->
+        <div class="fd-streaks-col">
+          <div class="fd-streak-card fii" id="fd-fii-streak-card">
+            <div class="fd-streak-hdr">Current FII Streak <span class="fd-streak-velocity">Streak Velocity</span></div>
+            <div class="fd-streak-body" id="fd-fii-streak">★ — Days — ₹— Cr</div>
+          </div>
+          <div class="fd-streak-card velocity" id="fd-fii-velocity-card">
+            <div class="fd-streak-hdr">5-Day FII Net Velocity</div>
+            <div class="fd-streak-body" id="fd-fii-5d">—</div>
+            <div class="fd-streak-sub" id="fd-fii-5d-avg">Avg daily: —</div>
+          </div>
+          <div class="fd-streak-card dii" id="fd-dii-streak-card">
+            <div class="fd-streak-hdr">Current DII Streak <span class="fd-streak-velocity">Streak Velocity</span></div>
+            <div class="fd-streak-body" id="fd-dii-streak">★ — Days — ₹— Cr</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: 4 metric cards -->
+      <div class="fd-metrics-row">
+        <div class="fd-metric-card">
+          <div class="fd-metric-label">FII 5-Yr Cumulative</div>
+          <div class="fd-metric-val" id="fd-fii-cum" style="color:#ef4444">—</div>
+          <div class="fd-metric-sub">Historical allocation extraction</div>
+        </div>
+        <div class="fd-metric-card">
+          <div class="fd-metric-label">DII 5-Yr Cumulative</div>
+          <div class="fd-metric-val" id="fd-dii-cum" style="color:#22c55e">—</div>
+          <div class="fd-metric-sub">The domestic fortress</div>
+        </div>
+        <div class="fd-metric-card">
+          <div class="fd-metric-label">Monthly Net Flow</div>
+          <div class="fd-metric-val" id="fd-monthly-net">—</div>
+          <div class="fd-metric-sub">Net institutional flow this month</div>
+        </div>
+        <div class="fd-metric-card">
+          <div class="fd-metric-label">FII Selling Intensity</div>
+          <div class="fd-metric-val" id="fd-fii-intensity">—</div>
+          <div class="fd-metric-sub" id="fd-fii-intensity-sub">Relative to 20-day average</div>
+        </div>
+      </div>
+
+      <!-- Row 3: 45-Day Matrices -->
+      <div class="fd-matrix-row">
+        <div class="fd-matrix-card">
+          <div class="fd-matrix-title">FII 45-DAY CONCENTRATION MATRIX</div>
+          <div class="fd-matrix-sub">Visualizing the sell-off depth and density</div>
+          <div class="fd-matrix-dots" id="fd-fii-matrix"></div>
+        </div>
+        <div class="fd-matrix-card">
+          <div class="fd-matrix-title">DII 45-DAY BUFFER MATRIX</div>
+          <div class="fd-matrix-sub">Visualizing domestic absorption</div>
+          <div class="fd-matrix-dots" id="fd-dii-matrix"></div>
+        </div>
+      </div>
+
+      <!-- Row 4: Daily bar chart -->
+      <div class="fd-chart-card">
+        <div class="fd-chart-title">30-DAY FII/DII NET FLOW</div>
+        <canvas id="fd-chart-canvas" height="200"></canvas>
+      </div>
+    </div>
+  </div><!-- /tab-fiidii -->
 
   <!-- Leaders Full View Modal -->
   <div id="ldr-fullview" class="ldr-fv-overlay" style="display:none">
@@ -1555,6 +1672,7 @@
 <script src="/static/js/peep-into-past.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/insider.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/fvalue.js?v=__ASSET_VERSION__"></script>
+<script src="/static/js/fiidii-tab.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/smart-screener.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/ai-insights.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/app.js?v=__ASSET_VERSION__"></script>
