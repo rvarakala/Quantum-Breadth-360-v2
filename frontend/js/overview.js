@@ -168,6 +168,7 @@ function renderOverview(d) {
   // New components
   renderLiquidityStress(d);
   renderQBRAMAlerts(d);
+  loadFiiDiiData();
 }
 
 function renderCharts(d) {
@@ -726,3 +727,90 @@ function renderIVFootprint() {
     .catch(e => console.warn('IV footprint fetch failed:', e));
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// FII / DII INSTITUTIONAL FLOW
+// ════════════════════════════════════════════════════════════════════════════
+
+async function loadFiiDiiData() {
+  const card = document.getElementById('fiidii-card');
+  if (!card) return;
+  // Only show for India market
+  if (currentMarket !== 'INDIA') { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  try {
+    const res = await fetch(`${API}/api/fiidii/summary?days=30`);
+    const data = await res.json();
+    if (data.error) { document.getElementById('fiidii-body').innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">${data.error}</div>`; return; }
+    _renderFiiDii(data);
+  } catch (e) {
+    document.getElementById('fiidii-body').innerHTML = `<div style="text-align:center;padding:20px;color:var(--red);font-size:12px">⚠ ${e.message}</div>`;
+  }
+}
+
+function _renderFiiDii(data) {
+  const s = data.latest;
+  const st = data.streaks;
+  const c = data.cumulative;
+  const fmtCr = v => {
+    const sign = v >= 0 ? '+' : '';
+    return `${sign}₹${Math.abs(v).toLocaleString('en-IN', {maximumFractionDigits:2})} Cr`;
+  };
+  const fiiColor = s.fii_net >= 0 ? 'var(--green)' : 'var(--red)';
+  const diiColor = s.dii_net >= 0 ? 'var(--green)' : 'var(--red)';
+  const netColor = s.net_liquidity >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Sentiment badge
+  const sentEl = document.getElementById('fiidii-sentiment');
+  if (sentEl) { sentEl.textContent = data.sentiment; sentEl.style.color = data.sentiment_color; sentEl.style.background = data.sentiment_color + '18'; sentEl.style.border = `1px solid ${data.sentiment_color}44`; }
+
+  const body = document.getElementById('fiidii-body');
+  body.innerHTML = `
+    <div class="fiidii-date">${s.date} · Cash Segment</div>
+    <div class="fiidii-grid">
+      <div class="fiidii-cell">
+        <div class="fiidii-label">FII / FPI NET</div>
+        <div class="fiidii-val" style="color:${fiiColor}">${fmtCr(s.fii_net)}</div>
+      </div>
+      <div class="fiidii-cell">
+        <div class="fiidii-label">DII NET</div>
+        <div class="fiidii-val" style="color:${diiColor}">${fmtCr(s.dii_net)}</div>
+      </div>
+      <div class="fiidii-cell">
+        <div class="fiidii-label">NET LIQUIDITY</div>
+        <div class="fiidii-val" style="color:${netColor}">${fmtCr(s.net_liquidity)}</div>
+      </div>
+    </div>
+    <div class="fiidii-bar-wrap">
+      <span class="fiidii-bar-label" style="color:var(--red)">FII ${st.fii.direction === 'Selling' ? '📉' : '📈'}: ${s.fii_pct}%</span>
+      <div class="fiidii-bar-track">
+        <div class="fiidii-bar-fill fii" style="width:${s.fii_pct}%"></div>
+        <div class="fiidii-bar-fill dii" style="width:${s.dii_pct}%;left:${s.fii_pct}%"></div>
+      </div>
+      <span class="fiidii-bar-label" style="color:var(--green)">DII ${st.dii.direction === 'Buying' ? '📈' : '📉'}: ${s.dii_pct}%</span>
+    </div>
+    <div class="fiidii-streaks">
+      <div class="fiidii-streak-item">
+        <span class="fiidii-streak-label">FII Streak</span>
+        <span class="fiidii-streak-val" style="color:${st.fii.direction==='Buying'?'var(--green)':'var(--red)'}">★ ${st.fii.days} Days ${st.fii.direction} ${fmtCr(st.fii.total)}</span>
+      </div>
+      <div class="fiidii-streak-item">
+        <span class="fiidii-streak-label">DII Streak</span>
+        <span class="fiidii-streak-val" style="color:${st.dii.direction==='Buying'?'var(--green)':'var(--red)'}">★ ${st.dii.days} Days ${st.dii.direction} ${fmtCr(st.dii.total)}</span>
+      </div>
+    </div>
+    <div class="fiidii-cumulative">
+      <div><span class="fiidii-cum-label">FII 5D</span><span style="color:${c.fii_5d>=0?'var(--green)':'var(--red)'}">${fmtCr(c.fii_5d)}</span></div>
+      <div><span class="fiidii-cum-label">DII 5D</span><span style="color:${c.dii_5d>=0?'var(--green)':'var(--red)'}">${fmtCr(c.dii_5d)}</span></div>
+      <div><span class="fiidii-cum-label">FII 20D</span><span style="color:${c.fii_20d>=0?'var(--green)':'var(--red)'}">${fmtCr(c.fii_20d)}</span></div>
+      <div><span class="fiidii-cum-label">DII 20D</span><span style="color:${c.dii_20d>=0?'var(--green)':'var(--red)'}">${fmtCr(c.dii_20d)}</span></div>
+    </div>`;
+}
+
+async function syncFiiDii() {
+  try {
+    await fetch(`${API}/api/fiidii/sync`, { method: 'POST' });
+    loadFiiDiiData();
+  } catch (e) { console.warn('FII/DII sync failed:', e); }
+}

@@ -61,6 +61,7 @@ from insider import (
     import_insider_csv, compute_buy_score, _ensure_tables as _ensure_insider_tables,
 )
 from fvalue import run_fvalue_screener
+from fiidii import fetch_fiidii_from_nse, get_fiidii_summary
 from watchlist import (
     list_watchlists, create_watchlist, delete_watchlist,
     add_ticker as wl_add_ticker, remove_ticker as wl_remove_ticker,
@@ -1376,6 +1377,22 @@ async def api_insider_import_csv(file: UploadFile):
             pass
 
 
+# ── FII/DII Institutional Flow ────────────────────────────────────────────────
+
+@app.get("/api/fiidii/summary")
+async def api_fiidii_summary(days: int = 30):
+    """Get FII/DII summary with streaks, cumulative flows, sentiment."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, lambda: get_fiidii_summary(days))
+
+@app.post("/api/fiidii/sync")
+async def api_fiidii_sync(background_tasks: BackgroundTasks):
+    """Fetch latest FII/DII data from NSE."""
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(executor, fetch_fiidii_from_nse)
+    return result
+
+
 # ── F-Value Fundamental Screener ──────────────────────────────────────────────
 
 @app.get("/api/fvalue")
@@ -1617,6 +1634,9 @@ async def startup_event():
     # 4. Start daily insider sync scheduler (runs at ~6:30 PM IST / 1 PM UTC)
     asyncio.create_task(_insider_daily_scheduler())
 
+    # 4b. Auto-sync FII/DII data from NSE
+    asyncio.create_task(_auto_sync_fiidii())
+
     # 5. Pre-warm RS rankings + Leaders + F-Value in background
     #    These are the slowest computations — do them once on startup so tabs load instantly
     asyncio.create_task(_prewarm_heavy_caches())
@@ -1700,6 +1720,20 @@ async def _auto_sync_insider():
             logger.info(f"⏭ Insider auto-sync: {result.get('message', 'No data')} — use CSV import")
     except Exception as e:
         logger.warning(f"Insider auto-sync failed: {e}")
+
+
+async def _auto_sync_fiidii():
+    """Auto-fetch FII/DII data from NSE on startup."""
+    await asyncio.sleep(15)  # Wait for server to stabilize
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(executor, fetch_fiidii_from_nse)
+        if result.get("entries", 0) > 0:
+            logger.info(f"✅ FII/DII auto-sync: {result['entries']} entries (latest: {result.get('latest_date')})")
+        else:
+            logger.info(f"⏭ FII/DII auto-sync: {result.get('error', 'No data')}")
+    except Exception as e:
+        logger.warning(f"FII/DII auto-sync failed: {e}")
 
 
 async def _insider_daily_scheduler():

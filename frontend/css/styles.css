@@ -3613,3 +3613,143 @@ select option:checked {
   background: #f59e0b;
   color: #000;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FII/DII INSTITUTIONAL FLOW CARD
+   ═══════════════════════════════════════════════════════════════════════════ */
+.fiidii-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.fiidii-hdr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.fiidii-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  color: var(--text);
+  font-family: var(--font-mono);
+}
+.fiidii-sentiment {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  font-family: var(--font-mono);
+}
+.fiidii-sync-btn {
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--card-border);
+  background: transparent;
+  color: var(--text3);
+  font-size: 11px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+.fiidii-sync-btn:hover { background: var(--surface); color: var(--text); }
+.fiidii-date {
+  font-size: 10px;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  margin-bottom: 12px;
+}
+.fiidii-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.fiidii-cell {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+.fiidii-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  margin-bottom: 4px;
+}
+.fiidii-val {
+  font-size: 18px;
+  font-weight: 900;
+  font-family: var(--font-mono);
+  letter-spacing: .02em;
+}
+.fiidii-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.fiidii-bar-label {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.fiidii-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--surface);
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+}
+.fiidii-bar-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  transition: width 0.5s;
+}
+.fiidii-bar-fill.fii { left: 0; background: linear-gradient(90deg, #ef4444, #f87171); border-radius: 5px 0 0 5px; }
+.fiidii-bar-fill.dii { background: linear-gradient(90deg, #22c55e, #4ade80); border-radius: 0 5px 5px 0; }
+.fiidii-streaks {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 12px;
+}
+.fiidii-streak-item { flex: 1; }
+.fiidii-streak-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  letter-spacing: .08em;
+  display: block;
+  margin-bottom: 2px;
+}
+.fiidii-streak-val {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+.fiidii-cumulative {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.fiidii-cumulative > div { text-align: center; }
+.fiidii-cum-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text3);
+  letter-spacing: .08em;
+  display: block;
+  margin-bottom: 2px;
+}

@@ -848,6 +848,18 @@
       <div id="qbram-alerts-card" class="qa-card"></div>
     </div>
 
+    <!-- FII/DII Institutional Flow (India only) -->
+    <div class="fiidii-card fade-in" id="fiidii-card" style="display:none">
+      <div class="fiidii-hdr">
+        <span class="fiidii-title">🏛 FII / DII INSTITUTIONAL FLOW</span>
+        <span class="fiidii-sentiment" id="fiidii-sentiment"></span>
+        <button class="fiidii-sync-btn" onclick="syncFiiDii()" title="Sync from NSE">⟳ Sync</button>
+      </div>
+      <div class="fiidii-body" id="fiidii-body">
+        <div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">Loading FII/DII data...</div>
+      </div>
+    </div>
+
 
     <!-- AI Market Intelligence Card -->
     <div class="ai-card fade-in" id="ai-market-card">
