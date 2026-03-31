@@ -1404,6 +1404,98 @@
       </div>
     </div>
 
+    <!-- ── Cloudflare-Safe Data Sources ────────────────────────────────────── -->
+    <div style="margin-top:24px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <div>
+          <h3 style="font-size:13px;font-weight:700;color:var(--text1);margin:0;letter-spacing:1px">
+            🛡️ CLOUDFLARE-SAFE DATA SOURCES
+          </h3>
+          <p style="font-size:11px;color:var(--text3);margin:4px 0 0 0">
+            Bypasses NSE Cloudflare blocks — uses jugaad-data archives + Indian Stock API
+          </p>
+        </div>
+        <button onclick="checkDataSourceHealth()" id="ds-health-btn"
+          style="padding:6px 14px;background:var(--bg3);border:1px solid var(--accent);color:var(--accent);font-size:11px;border-radius:5px;cursor:pointer;font-family:var(--font-mono)">
+          🔬 Health Check
+        </button>
+      </div>
+
+      <!-- Health status panel -->
+      <div id="ds-health-panel" style="display:none;margin-bottom:16px;background:var(--bg1);border-radius:6px;padding:12px">
+        <div id="ds-health-content" style="font-size:11px;font-family:var(--font-mono);color:var(--text2)">
+          Checking...
+        </div>
+      </div>
+
+      <!-- Three columns of actions -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+
+        <!-- Insider via jugaad -->
+        <div style="background:var(--bg1);border:1px solid var(--border2);border-radius:8px;padding:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text1);margin-bottom:4px;letter-spacing:.5px">
+            👤 INSIDER TRADES
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:10px;line-height:1.5">
+            NSE PIT archives via jugaad-data<br>
+            (nsearchives — no Cloudflare)
+          </div>
+          <select id="ds-insider-days" style="width:100%;margin-bottom:8px;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);padding:4px;border-radius:4px;font-size:11px">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="60">Last 60 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+          <button onclick="syncInsiderJugaad()" id="ds-insider-btn"
+            style="width:100%;padding:7px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-size:11px;border-radius:5px;cursor:pointer;font-family:var(--font-mono)">
+            ⬇ Sync Insider (jugaad)
+          </button>
+          <div id="ds-insider-status" style="font-size:10px;color:var(--text3);margin-top:6px;min-height:14px"></div>
+        </div>
+
+        <!-- FII/DII via jugaad -->
+        <div style="background:var(--bg1);border:1px solid var(--border2);border-radius:8px;padding:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text1);margin-bottom:4px;letter-spacing:.5px">
+            🏦 FII / DII FLOW
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:10px;line-height:1.5">
+            NSE archives + direct API fallback<br>
+            (auto-selects working source)
+          </div>
+          <select id="ds-fiidii-days" style="width:100%;margin-bottom:8px;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);padding:4px;border-radius:4px;font-size:11px">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="60">Last 60 days</option>
+          </select>
+          <button onclick="syncFiiDiiJugaad()" id="ds-fiidii-btn"
+            style="width:100%;padding:7px;background:transparent;border:1px solid #f59e0b;color:#f59e0b;font-size:11px;border-radius:5px;cursor:pointer;font-family:var(--font-mono)">
+            ⬇ Sync FII/DII (jugaad)
+          </button>
+          <div id="ds-fiidii-status" style="font-size:10px;color:var(--text3);margin-top:6px;min-height:14px"></div>
+        </div>
+
+        <!-- Fundamentals via Indian Stock API -->
+        <div style="background:var(--bg1);border:1px solid var(--border2);border-radius:8px;padding:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text1);margin-bottom:4px;letter-spacing:.5px">
+            📊 FUNDAMENTALS
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:10px;line-height:1.5">
+            Indian Stock API (PE, EPS, Mkt Cap)<br>
+            Fills gaps left by TradingView batch
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:8px">
+            Covers all symbols in your OHLCV DB
+          </div>
+          <button onclick="syncFundamentalsIndianApi()" id="ds-funds-btn"
+            style="width:100%;padding:7px;background:transparent;border:1px solid #22c55e;color:#22c55e;font-size:11px;border-radius:5px;cursor:pointer;font-family:var(--font-mono)">
+            ⬇ Sync Fundamentals (Indian API)
+          </button>
+          <div id="ds-funds-status" style="font-size:10px;color:var(--text3);margin-top:6px;min-height:14px"></div>
+        </div>
+
+      </div>
+    </div>
+
   </div><!-- /tab-importer -->
 
 

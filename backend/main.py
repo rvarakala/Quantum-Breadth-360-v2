@@ -62,6 +62,15 @@ from insider import (
 )
 from fvalue import run_fvalue_screener
 from fiidii import fetch_fiidii_from_nse, get_fiidii_summary
+from nse_data_adapter import (
+    sync_fiidii_with_fallback,
+    sync_insider_with_fallback,
+    sync_fundamentals_indian_api,
+    fetch_fundamentals_batch,
+    fetch_ohlcv_bhavcopy,
+    store_ohlcv_bhavcopy,
+    health_check as adapter_health_check,
+)
 from watchlist import (
     list_watchlists, create_watchlist, delete_watchlist,
     add_ticker as wl_add_ticker, remove_ticker as wl_remove_ticker,
@@ -1351,9 +1360,12 @@ async def api_insider_summary(days: int = 90):
 
 @app.post("/api/insider/sync")
 async def api_insider_sync(background_tasks: BackgroundTasks, days: int = 30):
-    """Sync insider trades from NSE PIT API."""
+    """
+    Sync insider trades — tries jugaad NSE archives first (Cloudflare-safe),
+    falls back to direct NSE API, then suggests CSV import.
+    """
     result = await asyncio.get_event_loop().run_in_executor(
-        executor, lambda: sync_insider_data(days_back=days)
+        executor, lambda: sync_insider_with_fallback(days_back=days)
     )
     return result
 
@@ -1422,10 +1434,78 @@ async def api_fiidii_summary(days: int = 30):
     return await loop.run_in_executor(executor, lambda: get_fiidii_summary(days))
 
 @app.post("/api/fiidii/sync")
-async def api_fiidii_sync(background_tasks: BackgroundTasks):
-    """Fetch latest FII/DII data from NSE."""
+async def api_fiidii_sync(background_tasks: BackgroundTasks, days: int = 30):
+    """
+    Sync FII/DII data — tries jugaad NSE archives first (Cloudflare-safe),
+    falls back to direct NSE API.
+    """
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(executor, fetch_fiidii_from_nse)
+    result = await loop.run_in_executor(
+        executor, lambda: sync_fiidii_with_fallback(days_back=days)
+    )
+    return result
+
+
+# ── NSE Data Adapter — new Cloudflare-safe endpoints ─────────────────────────
+
+@app.get("/api/data-sources/health")
+async def api_data_sources_health():
+    """
+    Test connectivity to all data sources:
+    - Indian Stock Market API (fundamentals)
+    - NSE Archives via jugaad-data (OHLCV bhavcopy, FII/DII, Insider PIT)
+    - Direct NSE API (likely Cloudflare-blocked)
+    """
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(executor, adapter_health_check)
+    return result
+
+
+@app.post("/api/fundamentals/sync-indian-api")
+async def api_fundamentals_sync_indian_api(market: str = "india"):
+    """
+    Sync fundamentals for all symbols in OHLCV table using Indian Stock Market API.
+    Fills in PE, EPS, Market Cap, Sector where TradingView batch left gaps.
+    Safe to run alongside existing TV batch — only fills NULL fields.
+    """
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        executor, lambda: sync_fundamentals_indian_api(market=market)
+    )
+    return result
+
+
+@app.post("/api/ohlcv/sync-bhavcopy")
+async def api_ohlcv_sync_bhavcopy(
+    market: str = "india",
+    days_back: int = 365,
+):
+    """
+    Sync OHLCV for India market using NSE bhavcopy archives (jugaad-data).
+    Hits nsearchives.nseindia.com — NOT blocked by Cloudflare.
+    Useful as fallback when yfinance is rate-limited.
+
+    WARNING: Slow for many symbols — one HTTP request per trading day.
+    Use for targeted symbol lists or short date ranges only.
+    """
+    try:
+        conn = sqlite3.connect("breadth_data.db", timeout=10)
+        rows = conn.execute(
+            "SELECT DISTINCT symbol FROM ohlcv WHERE market = ? LIMIT 500",
+            (market,)
+        ).fetchall()
+        conn.close()
+        symbols = [r[0] for r in rows]
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+    if not symbols:
+        return {"status": "no_data", "message": "No symbols found — run primary OHLCV sync first"}
+
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        executor, lambda: store_ohlcv_bhavcopy(symbols, days_back=days_back, market=market)
+    )
     return result
 
 

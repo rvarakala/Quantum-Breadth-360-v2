@@ -10,3 +10,6 @@ lxml==5.1.0
 tradingview-screener>=3.0.0
 tradingview-scraper>=0.3.0
 pytz
+jugaad-data>=0.32
+nsetools>=1.0.11
+requests>=2.31.0

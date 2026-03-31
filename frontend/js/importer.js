@@ -706,3 +706,122 @@ function _pollUSSyncStatus() {
     }
   }, 5000); // Poll every 5 seconds
 }
+
+
+// ── Cloudflare-Safe Data Sources ─────────────────────────────────────────────
+
+async function checkDataSourceHealth() {
+  const btn = document.getElementById('ds-health-btn');
+  const panel = document.getElementById('ds-health-panel');
+  const content = document.getElementById('ds-health-content');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Checking...'; }
+  if (panel) panel.style.display = 'block';
+  if (content) content.innerHTML = 'Running health checks on all data sources...';
+
+  try {
+    const res = await fetch(`${API}/api/data-sources/health`);
+    const data = await res.json();
+
+    const rows = Object.entries(data).map(([src, info]) => {
+      const ok = info.reachable;
+      const icon = ok ? '✅' : '❌';
+      const latency = info.latency_ms ? ` (${info.latency_ms}ms)` : '';
+      const note = info.note || info.error || '';
+      const version = info.version ? ` v${info.version}` : '';
+      return `${icon} <b>${src}</b>${version}${latency} — ${note}`;
+    });
+
+    if (content) content.innerHTML = rows.join('<br>');
+  } catch (e) {
+    if (content) content.innerHTML = `<span style="color:var(--red)">Health check failed: ${e.message}</span>`;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔬 Health Check'; }
+}
+
+async function syncInsiderJugaad() {
+  const btn = document.getElementById('ds-insider-btn');
+  const status = document.getElementById('ds-insider-status');
+  const days = document.getElementById('ds-insider-days')?.value || 30;
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing...'; }
+  if (status) status.innerHTML = 'Fetching from NSE archives...';
+
+  try {
+    const res = await fetch(`${API}/api/insider/sync?days=${days}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.status === 'ok') {
+      const src = data.source || 'jugaad';
+      if (status) status.innerHTML =
+        `<span style="color:var(--green)">✅ ${data.stored || data.fetched || 0} trades stored via ${src}</span>`;
+    } else if (data.status === 'no_data') {
+      if (status) status.innerHTML =
+        `<span style="color:#f59e0b">⚠ ${data.message || 'No data — try CSV import'}</span>`;
+    } else {
+      if (status) status.innerHTML =
+        `<span style="color:var(--red)">❌ ${data.message || 'Sync failed'}</span>`;
+    }
+  } catch (e) {
+    if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '⬇ Sync Insider (jugaad)'; }
+}
+
+async function syncFiiDiiJugaad() {
+  const btn = document.getElementById('ds-fiidii-btn');
+  const status = document.getElementById('ds-fiidii-status');
+  const days = document.getElementById('ds-fiidii-days')?.value || 30;
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing...'; }
+  if (status) status.innerHTML = 'Fetching from NSE archives...';
+
+  try {
+    const res = await fetch(`${API}/api/fiidii/sync?days=${days}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.status === 'ok') {
+      const src = data.source || 'jugaad';
+      const latest = data.latest_date ? ` (latest: ${data.latest_date})` : '';
+      if (status) status.innerHTML =
+        `<span style="color:var(--green)">✅ ${data.entries || 0} days stored via ${src}${latest}</span>`;
+    } else if (data.status === 'no_data') {
+      if (status) status.innerHTML =
+        `<span style="color:#f59e0b">⚠ ${data.message || 'No FII/DII data found'}</span>`;
+    } else {
+      if (status) status.innerHTML =
+        `<span style="color:var(--red)">❌ ${data.message || 'Sync failed'}</span>`;
+    }
+  } catch (e) {
+    if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '⬇ Sync FII/DII (jugaad)'; }
+}
+
+async function syncFundamentalsIndianApi() {
+  const btn = document.getElementById('ds-funds-btn');
+  const status = document.getElementById('ds-funds-status');
+  const market = window._currentMarket || 'india';
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing...'; }
+  if (status) status.innerHTML = 'Fetching from Indian Stock API...';
+
+  try {
+    const res = await fetch(`${API}/api/fundamentals/sync-indian-api?market=${market}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.status === 'ok') {
+      if (status) status.innerHTML =
+        `<span style="color:var(--green)">✅ ${data.tickers_synced}/${data.tickers_requested} tickers updated</span>`;
+    } else {
+      if (status) status.innerHTML =
+        `<span style="color:#f59e0b">⚠ ${data.message || 'No data returned'}</span>`;
+    }
+  } catch (e) {
+    if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '⬇ Sync Fundamentals (Indian API)'; }
+}
