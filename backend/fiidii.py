@@ -1,10 +1,17 @@
 """
 FII/DII Institutional Money Flow — India Market
-Primary: nsearchives.nseindia.com via nse_data_adapter (no Cloudflare)
-Fallback: NSE API fiidiiTradeReact (needs cookies)
+
+Data sources (tried in order):
+1. jugaad-data NSELive.fii_dii() — current day (no Cloudflare issues from local)
+2. NSE API fiidiiTradeReact — recent days (needs cookies)
+3. NSE Archives CSV — day-by-day historical backfill from nsearchives.nseindia.com
+
+The archives CSV approach is the most reliable for historical data.
+URL pattern: https://archives.nseindia.com/content/fo/fii_stats_{DD}-{Mon}-{YYYY}.xls
+Alt URL:     https://nsearchives.nseindia.com/content/fo/fii_stats_{DD}-{Mon}-{YYYY}.xls
 """
 
-import sqlite3, logging, time
+import sqlite3, logging, time, io, csv
 from pathlib import Path
 from datetime import datetime, timedelta, timezone, date
 
@@ -28,100 +35,237 @@ def _ensure_fiidii_table():
 
 def fetch_fiidii_from_nse(days_back: int = 60) -> dict:
     """
-    Fetch FII/DII data — tries jugaad adapter first (reliable),
-    falls back to NSE API (needs cookies).
+    Fetch FII/DII data — multiple methods:
+    1. Try jugaad adapter (nse_data_adapter.py)
+    2. Try NSE live API (fiidiiTradeReact)
+    3. Backfill missing dates from NSE archives day-by-day
     """
     _ensure_fiidii_table()
+    total_stored = 0
 
-    # Method 1: jugaad adapter — hits nsearchives (no Cloudflare)
+    # Method 1: jugaad adapter
     try:
         from nse_data_adapter import fetch_fiidii_jugaad
         result = fetch_fiidii_jugaad(days_back=days_back)
         if result.get("status") == "ok" and result.get("entries", 0) > 0:
-            logger.info(f"✅ FII/DII via jugaad: {result['entries']} entries (latest: {result.get('latest_date')})")
-            return result
-        logger.info(f"Jugaad FII/DII: {result.get('message', 'no data')} — trying NSE API...")
+            logger.info(f"✅ FII/DII via jugaad: {result['entries']} entries")
+            total_stored += result["entries"]
     except Exception as e:
-        logger.warning(f"Jugaad FII/DII failed: {e} — trying NSE API fallback...")
+        logger.info(f"Jugaad FII/DII: {e}")
 
-    # Method 2: NSE API (needs session cookies)
+    # Method 2: NSE live API
     try:
-        import httpx
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                           "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://www.nseindia.com/reports/fii-dii",
-        }
-        client = httpx.Client(follow_redirects=True, timeout=20)
-        r0 = client.get("https://www.nseindia.com/", headers={"User-Agent": headers["User-Agent"]})
-        logger.info(f"NSE session: {r0.status_code}, cookies: {len(r0.cookies)}")
-        time.sleep(0.5)
+        stored = _fetch_from_nse_api()
+        if stored > 0:
+            total_stored += stored
+    except Exception as e:
+        logger.info(f"NSE API FII/DII: {e}")
 
-        r = client.get("https://www.nseindia.com/api/fiidiiTradeReact", headers=headers)
-        client.close()
+    # Method 3: Backfill missing dates from archives
+    try:
+        filled = _backfill_from_archives(days_back)
+        if filled > 0:
+            total_stored += filled
+    except Exception as e:
+        logger.info(f"Archives backfill: {e}")
 
-        if r.status_code != 200:
-            return {"status": "error", "message": f"NSE returned {r.status_code}", "entries": 0}
+    # Check total in DB
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    count = conn.execute("SELECT COUNT(*) FROM fiidii").fetchone()[0]
+    latest = conn.execute("SELECT MAX(date) FROM fiidii").fetchone()[0]
+    conn.close()
 
-        data = r.json()
-        if not isinstance(data, list):
-            return {"status": "error", "message": "Unexpected format", "entries": 0}
+    return {
+        "status": "ok" if count > 0 else "no_data",
+        "entries": total_stored,
+        "total_in_db": count,
+        "latest_date": latest,
+        "message": f"Synced {total_stored} new entries. Total in DB: {count} days."
+    }
 
-        logger.info(f"NSE API returned {len(data)} FII/DII entries")
-        conn = sqlite3.connect(str(DB_PATH), timeout=10)
-        now = datetime.now(timezone.utc).isoformat()
 
-        date_data = {}
-        for entry in data:
-            cat = entry.get("category", "").strip()
-            date_str = entry.get("date", "").strip()
-            if not date_str:
-                continue
+def _fetch_from_nse_api() -> int:
+    """Try NSE live API — returns recent days."""
+    import httpx
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.nseindia.com/reports/fii-dii",
+    }
+    client = httpx.Client(follow_redirects=True, timeout=20)
+    r0 = client.get("https://www.nseindia.com/", headers={"User-Agent": headers["User-Agent"]})
+    logger.info(f"NSE session: {r0.status_code}, cookies: {len(r0.cookies)}")
+    time.sleep(0.5)
+
+    r = client.get("https://www.nseindia.com/api/fiidiiTradeReact", headers=headers)
+    client.close()
+
+    if r.status_code != 200:
+        return 0
+
+    data = r.json()
+    if not isinstance(data, list):
+        return 0
+
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    now = datetime.now(timezone.utc).isoformat()
+    stored = 0
+    date_data = {}
+
+    for entry in data:
+        cat = entry.get("category", "").strip()
+        date_str = entry.get("date", "").strip()
+        if not date_str: continue
+        try:
+            dt = datetime.strptime(date_str, "%d-%b-%Y")
+            iso_date = dt.strftime("%Y-%m-%d")
+        except: continue
+
+        if iso_date not in date_data:
+            date_data[iso_date] = {}
+
+        def _p(v):
+            try: return float(str(v).replace(",", "").strip() or "0")
+            except: return 0.0
+
+        if "FII" in cat or "FPI" in cat:
+            date_data[iso_date].update({"fii_buy": _p(entry.get("buyValue")),
+                "fii_sell": _p(entry.get("sellValue")), "fii_net": _p(entry.get("netValue"))})
+        elif "DII" in cat:
+            date_data[iso_date].update({"dii_buy": _p(entry.get("buyValue")),
+                "dii_sell": _p(entry.get("sellValue")), "dii_net": _p(entry.get("netValue"))})
+
+    for d, v in date_data.items():
+        conn.execute("""INSERT OR REPLACE INTO fiidii
+            (date, fii_buy, fii_sell, fii_net, dii_buy, dii_sell, dii_net, fetched_at)
+            VALUES (?,?,?,?,?,?,?,?)""",
+            (d, v.get("fii_buy",0), v.get("fii_sell",0), v.get("fii_net",0),
+             v.get("dii_buy",0), v.get("dii_sell",0), v.get("dii_net",0), now))
+        stored += 1
+
+    conn.commit()
+    conn.close()
+    if stored: logger.info(f"NSE API: stored {stored} FII/DII entries")
+    return stored
+
+
+def _backfill_from_archives(days_back: int = 60) -> int:
+    """
+    Backfill missing dates from NSE archives.
+    Tries multiple URL patterns for FII/DII CSVs.
+    """
+    import requests
+
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    existing = set(r[0] for r in conn.execute("SELECT date FROM fiidii").fetchall())
+    conn.close()
+
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Encoding": "gzip, deflate",
+    })
+
+    today = date.today()
+    filled = 0
+
+    for i in range(days_back):
+        dt = today - timedelta(days=i)
+        # Skip weekends
+        if dt.weekday() >= 5:
+            continue
+        iso = dt.isoformat()
+        if iso in existing:
+            continue
+
+        dd = dt.strftime("%d")
+        mon = dt.strftime("%b").upper()
+        mon_cap = dt.strftime("%b").capitalize()
+        yyyy = str(dt.year)
+
+        # Try multiple URL patterns
+        urls = [
+            f"https://archives.nseindia.com/content/fo/fii_stats_{dd}-{mon_cap}-{yyyy}.xls",
+            f"https://nsearchives.nseindia.com/content/fo/fii_stats_{dd}-{mon_cap}-{yyyy}.xls",
+            f"https://archives.nseindia.com/content/fo/fii{dd}{mon}{yyyy}.csv",
+            f"https://nsearchives.nseindia.com/content/fo/fii{dd}{mon}{yyyy}.csv",
+        ]
+
+        for url in urls:
             try:
-                dt = datetime.strptime(date_str, "%d-%b-%Y")
-                iso_date = dt.strftime("%Y-%m-%d")
+                r = session.get(url, timeout=8)
+                if r.status_code != 200 or len(r.text) < 50:
+                    continue
+
+                entry = _parse_archive_data(r.text, iso)
+                if entry:
+                    _store_single(entry)
+                    filled += 1
+                    existing.add(iso)
+                    break
             except:
                 continue
 
-            if iso_date not in date_data:
-                date_data[iso_date] = {}
+        time.sleep(0.1)
 
-            def _pcr(v):
-                try: return float(str(v).replace(",", "").strip() or "0")
+    if filled:
+        logger.info(f"Archives backfill: {filled} new entries")
+    return filled
+
+
+def _parse_archive_data(text: str, iso_date: str) -> dict:
+    """Parse NSE archive FII/DII data (CSV or XLS-as-text)."""
+    try:
+        fii_buy = fii_sell = fii_net = 0.0
+        dii_buy = dii_sell = dii_net = 0.0
+
+        # Try CSV parsing
+        reader = csv.reader(io.StringIO(text))
+        for row in reader:
+            if len(row) < 4:
+                continue
+            cat = row[0].strip().upper()
+
+            def _v(idx):
+                try: return float(row[idx].replace(",", "").strip())
                 except: return 0.0
 
-            buy = _pcr(entry.get("buyValue", "0"))
-            sell = _pcr(entry.get("sellValue", "0"))
-            net = _pcr(entry.get("netValue", "0"))
-
             if "FII" in cat or "FPI" in cat:
-                date_data[iso_date].update({"fii_buy": buy, "fii_sell": sell, "fii_net": net})
-            elif "DII" in cat:
-                date_data[iso_date].update({"dii_buy": buy, "dii_sell": sell, "dii_net": net})
+                fii_buy = _v(1) if len(row) > 1 else 0
+                fii_sell = _v(2) if len(row) > 2 else 0
+                fii_net = _v(3) if len(row) > 3 else (fii_buy - fii_sell)
+            elif "DII" in cat or "DOMESTIC" in cat:
+                dii_buy = _v(1) if len(row) > 1 else 0
+                dii_sell = _v(2) if len(row) > 2 else 0
+                dii_net = _v(3) if len(row) > 3 else (dii_buy - dii_sell)
 
-        stored = 0
-        latest_date = None
-        for d, vals in date_data.items():
-            conn.execute("""
-                INSERT OR REPLACE INTO fiidii
-                (date, fii_buy, fii_sell, fii_net, dii_buy, dii_sell, dii_net, fetched_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (d, vals.get("fii_buy", 0), vals.get("fii_sell", 0), vals.get("fii_net", 0),
-                  vals.get("dii_buy", 0), vals.get("dii_sell", 0), vals.get("dii_net", 0), now))
-            stored += 1
-            if not latest_date or d > latest_date:
-                latest_date = d
+        if fii_buy == 0 and dii_buy == 0:
+            return None
 
-        conn.commit()
-        conn.close()
-        logger.info(f"✅ FII/DII via NSE API: {stored} entries (latest: {latest_date})")
-        return {"status": "ok", "entries": stored, "latest_date": latest_date}
+        return {
+            "date": iso_date,
+            "fii_buy": round(fii_buy, 2), "fii_sell": round(fii_sell, 2),
+            "fii_net": round(fii_net, 2),
+            "dii_buy": round(dii_buy, 2), "dii_sell": round(dii_sell, 2),
+            "dii_net": round(dii_net, 2),
+        }
+    except:
+        return None
 
-    except Exception as e:
-        logger.error(f"FII/DII NSE API fallback failed: {e}")
-        return {"status": "error", "message": str(e), "entries": 0}
+
+def _store_single(entry: dict):
+    """Store a single FII/DII entry."""
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute("""INSERT OR REPLACE INTO fiidii
+        (date, fii_buy, fii_sell, fii_net, dii_buy, dii_sell, dii_net, fetched_at)
+        VALUES (?,?,?,?,?,?,?,?)""",
+        (entry["date"], entry["fii_buy"], entry["fii_sell"], entry["fii_net"],
+         entry["dii_buy"], entry["dii_sell"], entry["dii_net"], now))
+    conn.commit()
+    conn.close()
 
 
 def get_fiidii_summary(days: int = 60) -> dict:
@@ -144,12 +288,11 @@ def get_fiidii_summary(days: int = 60) -> dict:
     fii_20d = sum(r["fii_net"] for r in rows[:20])
     dii_20d = sum(r["dii_net"] for r in rows[:20])
 
-    net_liquidity = latest.get("fii_net", 0) + latest.get("dii_net", 0)
+    net_liq = latest.get("fii_net", 0) + latest.get("dii_net", 0)
     total_act = abs(latest.get("fii_net", 0)) + abs(latest.get("dii_net", 0))
     fii_pct = round(abs(latest.get("fii_net", 0)) / total_act * 100) if total_act > 0 else 50
 
-    fn = latest.get("fii_net", 0)
-    dn = latest.get("dii_net", 0)
+    fn, dn = latest.get("fii_net", 0), latest.get("dii_net", 0)
     if fn < -500 and dn > 500:
         sentiment, scol = "AGGRESSIVE SELLING", "#ef4444"
     elif fn > 500 and dn > 0:
@@ -165,36 +308,35 @@ def get_fiidii_summary(days: int = 60) -> dict:
                 "dii_net": round(r["dii_net"], 2), "net": round(r["fii_net"] + r["dii_net"], 2)}
                for r in reversed(rows)]
 
+    n = min(5, len(rows))
     return {
         "latest": {
             "date": latest["date"],
             "fii_buy": round(latest["fii_buy"], 2), "fii_sell": round(latest["fii_sell"], 2),
-            "fii_net": round(latest["fii_net"], 2),
+            "fii_net": round(fn, 2),
             "dii_buy": round(latest["dii_buy"], 2), "dii_sell": round(latest["dii_sell"], 2),
-            "dii_net": round(latest["dii_net"], 2),
-            "net_liquidity": round(net_liquidity, 2),
+            "dii_net": round(dn, 2),
+            "net_liquidity": round(net_liq, 2),
             "fii_pct": fii_pct, "dii_pct": 100 - fii_pct,
         },
         "streaks": {"fii": fii_streak, "dii": dii_streak},
         "cumulative": {
             "fii_5d": round(fii_5d, 2), "dii_5d": round(dii_5d, 2),
             "fii_20d": round(fii_20d, 2), "dii_20d": round(dii_20d, 2),
-            "fii_5d_avg": round(fii_5d / min(5, len(rows)), 2) if rows else 0,
-            "dii_5d_avg": round(dii_5d / min(5, len(rows)), 2) if rows else 0,
+            "fii_5d_avg": round(fii_5d / n, 2) if n else 0,
+            "dii_5d_avg": round(dii_5d / n, 2) if n else 0,
         },
         "sentiment": sentiment, "sentiment_color": scol,
         "history": history, "days": len(rows),
     }
 
 
-def _compute_streak(net_values):
-    if not net_values:
-        return {"days": 0, "direction": "Neutral", "total": 0}
-    direction = "Buying" if net_values[0] >= 0 else "Selling"
+def _compute_streak(vals):
+    if not vals: return {"days": 0, "direction": "Neutral", "total": 0}
+    d = "Buying" if vals[0] >= 0 else "Selling"
     days = total = 0
-    for v in net_values:
-        if (direction == "Buying" and v >= 0) or (direction == "Selling" and v < 0):
+    for v in vals:
+        if (d == "Buying" and v >= 0) or (d == "Selling" and v < 0):
             days += 1; total += v
-        else:
-            break
-    return {"days": days, "direction": direction, "total": round(total, 2)}
+        else: break
+    return {"days": days, "direction": d, "total": round(total, 2)}
