@@ -184,6 +184,28 @@ async function refreshInsiderData() {
   if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
 }
 
+async function repairInsiderData() {
+  if (!confirm('This will delete records with missing dates or ₹0 values, then re-sync 90 days. Continue?')) return;
+  const btn = document.querySelector('.ins-repair-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '🔧 Repairing...'; }
+
+  try {
+    const res = await fetch(`${API}/api/insider/repair`, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      const r = data.resync;
+      alert(`Repair done!\nDeleted: ${data.deleted_empty_dates} empty-date + ${data.deleted_zero_values} ₹0 records\nRe-synced: ${r.fetched || 0} fetched, ${r.stored || 0} stored`);
+      loadInsiderData();
+    } else {
+      alert('Repair failed: ' + (data.message || 'unknown error'));
+    }
+  } catch (e) {
+    alert('Repair request failed: ' + e);
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔧 Repair DB'; }
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function _fmtVal(val) {
