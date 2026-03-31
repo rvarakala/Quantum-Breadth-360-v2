@@ -1372,35 +1372,33 @@ async def api_insider_sync(background_tasks: BackgroundTasks, days: int = 30):
 @app.post("/api/insider/repair")
 async def api_insider_repair():
     """
-    Repair existing insider_trades records that have empty transaction_date
-    or zero securities_value. Deletes bad records and re-fetches last 90 days.
-    Run this once after the acqfromDt / secVal fix.
+    Repair: delete all records with transaction_type='Unknown' (bad parse),
+    then re-sync last 90 days with the fixed parser that uses tdpTransactionType.
     """
     import sqlite3 as _sq
-    conn = _sq.connect("breadth_data.db", timeout=10)
-    # Count bad records
-    empty_dates = conn.execute(
-        "SELECT COUNT(*) FROM insider_trades WHERE transaction_date = '' OR transaction_date IS NULL"
+    db = os.path.join(os.path.dirname(__file__), "breadth_data.db")
+    conn = _sq.connect(db, timeout=10)
+
+    unknown_count = conn.execute(
+        "SELECT COUNT(*) FROM insider_trades WHERE transaction_type = 'Unknown'"
     ).fetchone()[0]
-    zero_values = conn.execute(
-        "SELECT COUNT(*) FROM insider_trades WHERE securities_value = 0 OR securities_value IS NULL"
-    ).fetchone()[0]
-    # Delete them — they'll be re-fetched cleanly
-    conn.execute("DELETE FROM insider_trades WHERE transaction_date = '' OR transaction_date IS NULL")
-    conn.execute("DELETE FROM insider_trades WHERE securities_value = 0 OR securities_value IS NULL")
+    total_before = conn.execute("SELECT COUNT(*) FROM insider_trades").fetchone()[0]
+
+    # Delete ALL records — re-fetch cleanly with fixed parser
+    conn.execute("DELETE FROM insider_trades")
     conn.commit()
-    remaining = conn.execute("SELECT COUNT(*) FROM insider_trades").fetchone()[0]
     conn.close()
 
-    # Now re-sync last 90 days with the fixed parser
+    logger.info(f"Repair: deleted {total_before} records ({unknown_count} were Unknown). Re-syncing 90 days...")
+
+    # Re-sync with fixed parser
     result = await asyncio.get_event_loop().run_in_executor(
         executor, lambda: sync_insider_data(days_back=90)
     )
     return {
         "status": "ok",
-        "deleted_empty_dates": empty_dates,
-        "deleted_zero_values": zero_values,
-        "remaining_before_sync": remaining,
+        "deleted_total": total_before,
+        "deleted_unknown": unknown_count,
         "resync": result
     }
 

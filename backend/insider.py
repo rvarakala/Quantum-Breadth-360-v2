@@ -132,15 +132,18 @@ def _parse_nse_pit_record(item: dict) -> dict:
         insider = item.get("acqName", item.get("Acquirer/Disposer", "")).strip()
         category = item.get("personCategory", item.get("Category of Person", "")).strip()
 
-        # Transaction type
-        tx_type_raw = item.get("tkdAcqDispType", item.get("TypeOfSecurity", "")).strip()
-        if "acqui" in tx_type_raw.lower() or "buy" in tx_type_raw.lower() or "purchase" in tx_type_raw.lower():
+        # Transaction type — NSE PIT API uses 'tdpTransactionType' field
+        tx_type_raw = item.get("tdpTransactionType",
+                      item.get("tkdAcqDispType",
+                      item.get("TypeOfSecurity", ""))).strip()
+        tx_lower = tx_type_raw.lower()
+        if "buy" in tx_lower or "acqui" in tx_lower or "purchase" in tx_lower:
             tx_type = "Buy"
-        elif "dispos" in tx_type_raw.lower() or "sell" in tx_type_raw.lower() or "sale" in tx_type_raw.lower():
+        elif "sell" in tx_lower or "sale" in tx_lower or "dispos" in tx_lower:
             tx_type = "Sell"
-        elif "pledge" in tx_type_raw.lower():
+        elif "pledge" in tx_lower and "revok" not in tx_lower and "invoc" not in tx_lower:
             tx_type = "Pledge"
-        elif "revoke" in tx_type_raw.lower() or "invocation" in tx_type_raw.lower():
+        elif "revok" in tx_lower or "invoc" in tx_lower:
             tx_type = "Revoke"
         else:
             tx_type = tx_type_raw or "Unknown"
