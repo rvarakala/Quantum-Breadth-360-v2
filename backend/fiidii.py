@@ -232,8 +232,21 @@ def _parse_xls_data(content: bytes, iso_date: str) -> dict:
     """Parse NSE FII/DII XLS file using xlrd."""
     try:
         import xlrd
+    except ImportError:
+        logger.error("xlrd not installed! Run: pip install xlrd")
+        return None
+
+    try:
         wb = xlrd.open_workbook(file_contents=content)
         ws = wb.sheet_by_index(0)
+
+        # Debug: log first file's structure
+        if not hasattr(_parse_xls_data, '_debug_logged'):
+            _parse_xls_data._debug_logged = True
+            logger.info(f"XLS DEBUG {iso_date}: {ws.nrows} rows x {ws.ncols} cols, sheets={wb.sheet_names()}")
+            for r in range(min(ws.nrows, 20)):
+                row_vals = [str(ws.cell_value(r, c)).strip() for c in range(min(ws.ncols, 10))]
+                logger.info(f"  XLS Row {r}: {row_vals}")
 
         fii_buy = fii_sell = fii_net = 0.0
         dii_buy = dii_sell = dii_net = 0.0
@@ -242,21 +255,33 @@ def _parse_xls_data(content: bytes, iso_date: str) -> dict:
             row = [str(ws.cell_value(row_idx, c)).strip() for c in range(ws.ncols)]
             if not row:
                 continue
-            cat = row[0].upper()
+            # Join all cells to search for FII/DII keywords anywhere in the row
+            row_text = " ".join(row).upper()
 
             def _v(idx):
                 try: return float(str(row[idx]).replace(",", "").strip())
                 except: return 0.0
 
-            if "FII" in cat or "FPI" in cat:
-                # Typical columns: Category, Buy, Sell, Net
-                fii_buy = _v(1) if len(row) > 1 else 0
-                fii_sell = _v(2) if len(row) > 2 else 0
-                fii_net = _v(3) if len(row) > 3 else (fii_buy - fii_sell)
-            elif "DII" in cat or "DOMESTIC" in cat or "MUTUAL" in cat:
-                dii_buy = _v(1) if len(row) > 1 else 0
-                dii_sell = _v(2) if len(row) > 2 else 0
-                dii_net = _v(3) if len(row) > 3 else (dii_buy - dii_sell)
+            if "FII" in row_text or "FPI" in row_text:
+                # Try to find numeric columns
+                for i in range(1, len(row)):
+                    v = _v(i)
+                    if v != 0:
+                        if fii_buy == 0: fii_buy = v
+                        elif fii_sell == 0: fii_sell = v
+                        elif fii_net == 0: fii_net = v
+                if fii_net == 0 and fii_buy != 0:
+                    fii_net = fii_buy - fii_sell
+
+            elif "DII" in row_text or "DOMESTIC" in row_text or "MUTUAL" in row_text:
+                for i in range(1, len(row)):
+                    v = _v(i)
+                    if v != 0:
+                        if dii_buy == 0: dii_buy = v
+                        elif dii_sell == 0: dii_sell = v
+                        elif dii_net == 0: dii_net = v
+                if dii_net == 0 and dii_buy != 0:
+                    dii_net = dii_buy - dii_sell
 
         if fii_buy == 0 and fii_sell == 0 and dii_buy == 0 and dii_sell == 0:
             return None
@@ -269,7 +294,11 @@ def _parse_xls_data(content: bytes, iso_date: str) -> dict:
             "dii_net": round(dii_net, 2),
         }
     except Exception as e:
-        logger.debug(f"XLS parse error for {iso_date}: {e}")
+        # Log the FIRST error with file content preview
+        if not hasattr(_parse_xls_data, '_error_logged'):
+            _parse_xls_data._error_logged = True
+            preview = content[:200] if content else b''
+            logger.warning(f"XLS parse FAILED for {iso_date}: {e} | First 200 bytes: {preview}")
         return None
 
 
