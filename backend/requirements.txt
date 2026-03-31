@@ -13,3 +13,4 @@ pytz
 jugaad-data>=0.32
 nsetools>=1.0.11
 requests>=2.31.0
+xlrd

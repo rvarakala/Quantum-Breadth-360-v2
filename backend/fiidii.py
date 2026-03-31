@@ -200,8 +200,12 @@ def _backfill_from_archives(days_back: int = 60) -> int:
         for url in urls:
             try:
                 r = client.get(url)
-                if r.status_code == 200 and len(r.text) > 50:
-                    entry = _parse_archive_data(r.text, iso)
+                if r.status_code == 200 and len(r.content) > 100:
+                    # XLS files need binary parsing, CSV files use text
+                    if url.endswith('.xls'):
+                        entry = _parse_xls_data(r.content, iso)
+                    else:
+                        entry = _parse_csv_data(r.text, iso)
                     if entry:
                         _store_single(entry)
                         filled += 1
@@ -224,13 +228,57 @@ def _backfill_from_archives(days_back: int = 60) -> int:
     return filled
 
 
-def _parse_archive_data(text: str, iso_date: str) -> dict:
-    """Parse NSE archive FII/DII data (CSV or XLS-as-text)."""
+def _parse_xls_data(content: bytes, iso_date: str) -> dict:
+    """Parse NSE FII/DII XLS file using xlrd."""
+    try:
+        import xlrd
+        wb = xlrd.open_workbook(file_contents=content)
+        ws = wb.sheet_by_index(0)
+
+        fii_buy = fii_sell = fii_net = 0.0
+        dii_buy = dii_sell = dii_net = 0.0
+
+        for row_idx in range(ws.nrows):
+            row = [str(ws.cell_value(row_idx, c)).strip() for c in range(ws.ncols)]
+            if not row:
+                continue
+            cat = row[0].upper()
+
+            def _v(idx):
+                try: return float(str(row[idx]).replace(",", "").strip())
+                except: return 0.0
+
+            if "FII" in cat or "FPI" in cat:
+                # Typical columns: Category, Buy, Sell, Net
+                fii_buy = _v(1) if len(row) > 1 else 0
+                fii_sell = _v(2) if len(row) > 2 else 0
+                fii_net = _v(3) if len(row) > 3 else (fii_buy - fii_sell)
+            elif "DII" in cat or "DOMESTIC" in cat or "MUTUAL" in cat:
+                dii_buy = _v(1) if len(row) > 1 else 0
+                dii_sell = _v(2) if len(row) > 2 else 0
+                dii_net = _v(3) if len(row) > 3 else (dii_buy - dii_sell)
+
+        if fii_buy == 0 and fii_sell == 0 and dii_buy == 0 and dii_sell == 0:
+            return None
+
+        return {
+            "date": iso_date,
+            "fii_buy": round(fii_buy, 2), "fii_sell": round(fii_sell, 2),
+            "fii_net": round(fii_net, 2),
+            "dii_buy": round(dii_buy, 2), "dii_sell": round(dii_sell, 2),
+            "dii_net": round(dii_net, 2),
+        }
+    except Exception as e:
+        logger.debug(f"XLS parse error for {iso_date}: {e}")
+        return None
+
+
+def _parse_csv_data(text: str, iso_date: str) -> dict:
+    """Parse NSE FII/DII CSV file."""
     try:
         fii_buy = fii_sell = fii_net = 0.0
         dii_buy = dii_sell = dii_net = 0.0
 
-        # Try CSV parsing
         reader = csv.reader(io.StringIO(text))
         for row in reader:
             if len(row) < 4:
@@ -242,12 +290,10 @@ def _parse_archive_data(text: str, iso_date: str) -> dict:
                 except: return 0.0
 
             if "FII" in cat or "FPI" in cat:
-                fii_buy = _v(1) if len(row) > 1 else 0
-                fii_sell = _v(2) if len(row) > 2 else 0
+                fii_buy = _v(1); fii_sell = _v(2)
                 fii_net = _v(3) if len(row) > 3 else (fii_buy - fii_sell)
             elif "DII" in cat or "DOMESTIC" in cat:
-                dii_buy = _v(1) if len(row) > 1 else 0
-                dii_sell = _v(2) if len(row) > 2 else 0
+                dii_buy = _v(1); dii_sell = _v(2)
                 dii_net = _v(3) if len(row) > 3 else (dii_buy - dii_sell)
 
         if fii_buy == 0 and dii_buy == 0:
