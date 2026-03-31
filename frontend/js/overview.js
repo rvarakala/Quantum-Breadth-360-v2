@@ -752,59 +752,43 @@ async function loadFiiDiiData() {
 function _renderFiiDii(data) {
   const s = data.latest;
   const st = data.streaks;
-  const c = data.cumulative;
   const fmtCr = v => {
     const sign = v >= 0 ? '+' : '';
-    return `${sign}₹${Math.abs(v).toLocaleString('en-IN', {maximumFractionDigits:2})} Cr`;
+    return `${sign}₹${Math.abs(v).toLocaleString('en-IN', {maximumFractionDigits:0})} Cr`;
   };
   const fiiColor = s.fii_net >= 0 ? 'var(--green)' : 'var(--red)';
   const diiColor = s.dii_net >= 0 ? 'var(--green)' : 'var(--red)';
   const netColor = s.net_liquidity >= 0 ? 'var(--green)' : 'var(--red)';
 
-  // Sentiment badge
   const sentEl = document.getElementById('fiidii-sentiment');
   if (sentEl) { sentEl.textContent = data.sentiment; sentEl.style.color = data.sentiment_color; sentEl.style.background = data.sentiment_color + '18'; sentEl.style.border = `1px solid ${data.sentiment_color}44`; }
 
   const body = document.getElementById('fiidii-body');
   body.innerHTML = `
-    <div class="fiidii-date">${s.date} · Cash Segment</div>
-    <div class="fiidii-grid">
-      <div class="fiidii-cell">
-        <div class="fiidii-label">FII / FPI NET</div>
-        <div class="fiidii-val" style="color:${fiiColor}">${fmtCr(s.fii_net)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">
+      <div style="text-align:center">
+        <div style="font-size:8px;color:var(--text3);letter-spacing:.08em">FII NET</div>
+        <div style="font-size:14px;font-weight:800;color:${fiiColor}">${fmtCr(s.fii_net)}</div>
       </div>
-      <div class="fiidii-cell">
-        <div class="fiidii-label">DII NET</div>
-        <div class="fiidii-val" style="color:${diiColor}">${fmtCr(s.dii_net)}</div>
+      <div style="text-align:center">
+        <div style="font-size:8px;color:var(--text3);letter-spacing:.08em">DII NET</div>
+        <div style="font-size:14px;font-weight:800;color:${diiColor}">${fmtCr(s.dii_net)}</div>
       </div>
-      <div class="fiidii-cell">
-        <div class="fiidii-label">NET LIQUIDITY</div>
-        <div class="fiidii-val" style="color:${netColor}">${fmtCr(s.net_liquidity)}</div>
+      <div style="text-align:center">
+        <div style="font-size:8px;color:var(--text3);letter-spacing:.08em">NET LIQ</div>
+        <div style="font-size:14px;font-weight:800;color:${netColor}">${fmtCr(s.net_liquidity)}</div>
       </div>
     </div>
-    <div class="fiidii-bar-wrap">
-      <span class="fiidii-bar-label" style="color:var(--red)">FII ${st.fii.direction === 'Selling' ? '📉' : '📈'}: ${s.fii_pct}%</span>
-      <div class="fiidii-bar-track">
+    <div class="fiidii-bar-wrap" style="margin-bottom:4px">
+      <span style="font-size:8px;color:var(--red);font-family:var(--font-mono);white-space:nowrap">${s.fii_pct}%</span>
+      <div class="fiidii-bar-track" style="height:6px">
         <div class="fiidii-bar-fill fii" style="width:${s.fii_pct}%"></div>
         <div class="fiidii-bar-fill dii" style="width:${s.dii_pct}%;left:${s.fii_pct}%"></div>
       </div>
-      <span class="fiidii-bar-label" style="color:var(--green)">DII ${st.dii.direction === 'Buying' ? '📈' : '📉'}: ${s.dii_pct}%</span>
+      <span style="font-size:8px;color:var(--green);font-family:var(--font-mono);white-space:nowrap">${s.dii_pct}%</span>
     </div>
-    <div class="fiidii-streaks">
-      <div class="fiidii-streak-item">
-        <span class="fiidii-streak-label">FII Streak</span>
-        <span class="fiidii-streak-val" style="color:${st.fii.direction==='Buying'?'var(--green)':'var(--red)'}">★ ${st.fii.days} Days ${st.fii.direction} ${fmtCr(st.fii.total)}</span>
-      </div>
-      <div class="fiidii-streak-item">
-        <span class="fiidii-streak-label">DII Streak</span>
-        <span class="fiidii-streak-val" style="color:${st.dii.direction==='Buying'?'var(--green)':'var(--red)'}">★ ${st.dii.days} Days ${st.dii.direction} ${fmtCr(st.dii.total)}</span>
-      </div>
-    </div>
-    <div class="fiidii-cumulative">
-      <div><span class="fiidii-cum-label">FII 5D</span><span style="color:${c.fii_5d>=0?'var(--green)':'var(--red)'}">${fmtCr(c.fii_5d)}</span></div>
-      <div><span class="fiidii-cum-label">DII 5D</span><span style="color:${c.dii_5d>=0?'var(--green)':'var(--red)'}">${fmtCr(c.dii_5d)}</span></div>
-      <div><span class="fiidii-cum-label">FII 20D</span><span style="color:${c.fii_20d>=0?'var(--green)':'var(--red)'}">${fmtCr(c.fii_20d)}</span></div>
-      <div><span class="fiidii-cum-label">DII 20D</span><span style="color:${c.dii_20d>=0?'var(--green)':'var(--red)'}">${fmtCr(c.dii_20d)}</span></div>
+    <div style="font-size:9px;color:var(--text3);font-family:var(--font-mono);text-align:center">
+      FII: ${st.fii.days}d ${st.fii.direction} · DII: ${st.dii.days}d ${st.dii.direction}
     </div>`;
 }
 

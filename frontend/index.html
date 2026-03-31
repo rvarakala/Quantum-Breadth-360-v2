@@ -837,156 +837,122 @@
     <!-- Divergence alert (conditionally shown) -->
     <div id="divergence-alert" style="display:none"></div>
 
-    <!-- HERO ROW -->
-    <div class="hero-row fade-in">
-
-      <!-- Score Card -->
-      <div class="score-card">
-        <div>
-          <div class="score-label" id="score-market-label">INDIA — NIFTY 500</div>
-          <div class="score-value" id="score-value" style="color:var(--amber)">—</div>
+    <!-- ROW 1: Score + 6 Metrics Strip + VIX — single horizontal band -->
+    <div class="ov-row1">
+      <!-- Score + Regime -->
+      <div class="ov-score">
+        <div class="ov-score-label" id="score-market-label">INDIA — NIFTY 500</div>
+        <div class="ov-score-num" id="score-value" style="color:var(--amber)">—</div>
+        <span class="regime-pill" id="regime-pill" style="font-size:10px;padding:3px 10px">LOADING...</span>
+        <p class="ov-score-interp" id="score-interp">Calculating...</p>
+        <div class="ov-score-meta">
+          <span><em>Universe:</em> <b id="universe-size">—</b></span>
+          <span><em>Valid:</em> <b id="valid-count">—</b></span>
         </div>
-        <div class="regime-row">
-          <span class="regime-pill" id="regime-pill">LOADING...</span>
-          <span style="font-size:11px;color:var(--text2);font-family:var(--font-mono)">BREADTH SCORE</span>
-        </div>
-        <p class="score-interpretation" id="score-interp">Calculating market breadth metrics across all constituents...</p>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <div style="flex:1;background:var(--bg3);border-radius:6px;padding:8px 10px">
-            <div style="font-size:9px;color:var(--text3);font-family:var(--font-mono);margin-bottom:2px">UNIVERSE</div>
-            <div style="font-size:16px;font-weight:700;font-family:var(--font-mono)" id="universe-size">—</div>
-          </div>
-          <div style="flex:1;background:var(--bg3);border-radius:6px;padding:8px 10px">
-            <div style="font-size:9px;color:var(--text3);font-family:var(--font-mono);margin-bottom:2px">VALID DATA</div>
-            <div style="font-size:16px;font-weight:700;font-family:var(--font-mono)" id="valid-count">—</div>
-          </div>
-        </div>
-        <!-- Data freshness notice -->
-        <div id="data-freshness-notice" style="display:none;align-items:center;gap:6px;
-          margin-top:8px;padding:6px 10px;background:rgba(245,158,11,.08);
-          border:1px solid rgba(245,158,11,.25);border-radius:6px;
-          font-size:10px;color:var(--text2);font-family:var(--font-mono)">
+        <div id="data-freshness-notice" style="display:none;align-items:center;gap:4px;
+          margin-top:4px;padding:4px 8px;background:rgba(245,158,11,.08);
+          border:1px solid rgba(245,158,11,.25);border-radius:4px;
+          font-size:9px;color:var(--text2);font-family:var(--font-mono)">
         </div>
       </div>
 
-      <!-- Metrics Grid -->
-      <div class="metrics-grid">
-        <div class="metric-card stagger-1 fade-in">
-          <div class="metric-name">% ABOVE 50 DMA</div>
-          <div class="metric-val" id="pct50" style="color:var(--text)">—</div>
-          <div class="metric-sub" id="pct50-sub">—</div>
+      <!-- 6 Metric Cards — 3×2 compact grid -->
+      <div class="ov-metrics">
+        <div class="ov-m">
+          <div class="ov-m-name">% > 50 DMA</div>
+          <div class="ov-m-val" id="pct50">—</div>
+          <div class="ov-m-sub" id="pct50-sub">—</div>
           <div class="metric-bar"><div class="metric-bar-fill" id="pct50-bar" style="width:0%;background:var(--blue)"></div></div>
         </div>
-        <div class="metric-card stagger-2 fade-in">
-          <div class="metric-name">% ABOVE 200 DMA</div>
-          <div class="metric-val" id="pct200" style="color:var(--text)">—</div>
-          <div class="metric-sub" id="pct200-sub">—</div>
+        <div class="ov-m">
+          <div class="ov-m-name">% > 200 DMA</div>
+          <div class="ov-m-val" id="pct200">—</div>
+          <div class="ov-m-sub" id="pct200-sub">—</div>
           <div class="metric-bar"><div class="metric-bar-fill" id="pct200-bar" style="width:0%;background:var(--purple)"></div></div>
         </div>
-        <div class="metric-card stagger-1 fade-in">
-          <div class="metric-name">% ABOVE 20 DMA</div>
-          <div class="metric-val" id="pct20" style="color:var(--text)">—</div>
-          <div class="metric-sub" id="pct20-sub">—</div>
+        <div class="ov-m">
+          <div class="ov-m-name">% > 20 DMA</div>
+          <div class="ov-m-val" id="pct20">—</div>
+          <div class="ov-m-sub" id="pct20-sub">—</div>
           <div class="metric-bar"><div class="metric-bar-fill" id="pct20-bar" style="width:0%;background:var(--cyan)"></div></div>
         </div>
-        <div class="metric-card stagger-2 fade-in">
-          <div class="metric-name">A/D RATIO</div>
-          <div class="metric-val" id="ad-ratio" style="color:var(--text)">—</div>
-          <div class="metric-sub" id="ad-ratio-sub">—</div>
+        <div class="ov-m">
+          <div class="ov-m-name">A/D RATIO</div>
+          <div class="ov-m-val" id="ad-ratio">—</div>
+          <div class="ov-m-sub" id="ad-ratio-sub">—</div>
           <div class="metric-bar"><div class="metric-bar-fill" id="ad-ratio-bar" style="width:0%;background:var(--green)"></div></div>
         </div>
-        <div class="metric-card stagger-3 fade-in">
-          <div class="metric-name">NEW 52W HIGHS</div>
-          <div class="metric-val" id="new-highs" style="color:var(--green)">—</div>
-          <div class="metric-sub" id="new-highs-sub">—</div>
+        <div class="ov-m">
+          <div class="ov-m-name">52W HIGHS</div>
+          <div class="ov-m-val" id="new-highs" style="color:var(--green)">—</div>
+          <div class="ov-m-sub" id="new-highs-sub">—</div>
         </div>
-        <div class="metric-card stagger-4 fade-in">
-          <div class="metric-name">NEW 52W LOWS</div>
-          <div class="metric-val" id="new-lows" style="color:var(--red)">—</div>
-          <div class="metric-sub" id="new-lows-sub">—</div>
+        <div class="ov-m">
+          <div class="ov-m-name">52W LOWS</div>
+          <div class="ov-m-val" id="new-lows" style="color:var(--red)">—</div>
+          <div class="ov-m-sub" id="new-lows-sub">—</div>
         </div>
       </div>
 
-      <!-- VIX + Index side card -->
-      <div class="side-card stagger-2 fade-in">
-        <div>
-          <div class="score-label">VOLATILITY INDEX</div>
-          <div style="display:flex;align-items:baseline;gap:12px;margin-top:6px">
-            <div class="vix-big" id="vix-val" style="color:var(--text)">—</div>
-            <span class="vix-level" id="vix-level">—</span>
+      <!-- VIX + A/D + NH-NL compact -->
+      <div class="ov-sidebar">
+        <div class="ov-vix">
+          <div class="ov-m-name">VOLATILITY INDEX</div>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <div class="ov-vix-num" id="vix-val">—</div>
+            <span class="vix-level" id="vix-level" style="font-size:9px">—</span>
           </div>
         </div>
-
-        <div class="index-row">
-          <div>
-            <div class="index-name" id="index-label">INDEX</div>
-            <div class="index-val" id="index-price">—</div>
-          </div>
-          <div style="text-align:right">
-            <div class="index-name">CHANGE</div>
-            <div class="index-val" id="index-chg">—</div>
-          </div>
+        <div class="ov-index">
+          <span class="ov-m-name" id="index-label">INDEX</span>
+          <span class="ov-idx-price" id="index-price">—</span>
+          <span class="ov-idx-chg" id="index-chg">—</span>
         </div>
-
-        <div class="ad-summary">
-          <div class="score-label" style="margin-bottom:8px">ADVANCE / DECLINE</div>
-          <div class="ad-row">
-            <span class="ad-label">▲ Advancing</span>
-            <span class="ad-val" id="adv-count" style="color:var(--green)">—</span>
+        <div class="ov-ad">
+          <div class="ov-ad-nums">
+            <span style="color:var(--green)">▲ <b id="adv-count">—</b></span>
+            <span style="color:var(--red)">▼ <b id="dec-count">—</b></span>
+            <span style="color:var(--text3)">— <b id="unch-count">—</b></span>
           </div>
-          <div class="ad-row">
-            <span class="ad-label">▼ Declining</span>
-            <span class="ad-val" id="dec-count" style="color:var(--red)">—</span>
-          </div>
-          <div class="ad-row">
-            <span class="ad-label">— Unchanged</span>
-            <span class="ad-val" id="unch-count" style="color:var(--text2)">—</span>
-          </div>
-          <div class="ad-bar-wrap" style="margin-top:10px">
+          <div class="ad-bar-wrap" style="margin-top:4px">
             <div class="ad-bar-adv" id="ad-bar-adv" style="width:50%"></div>
             <div class="ad-bar-dec" id="ad-bar-dec" style="width:50%"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;margin-top:4px">
-            <span style="font-size:9px;color:var(--green);font-family:var(--font-mono)" id="adv-pct">—</span>
-            <span style="font-size:9px;color:var(--red);font-family:var(--font-mono)" id="dec-pct">—</span>
+          <div style="display:flex;justify-content:space-between;margin-top:2px">
+            <span style="font-size:8px;color:var(--green);font-family:var(--font-mono)" id="adv-pct">—</span>
+            <span style="font-size:8px;color:var(--red);font-family:var(--font-mono)" id="dec-pct">—</span>
           </div>
         </div>
-
-        <!-- NH-NL Net Bar -->
-        <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-top:4px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-            <span style="font-size:9px;color:var(--text3);font-family:var(--font-mono)">NET HI-LO BALANCE</span>
-            <span style="font-size:12px;font-weight:700;font-family:var(--font-mono)" id="nh-nl-val">—</span>
+        <div class="ov-nhnl">
+          <div style="display:flex;justify-content:space-between">
+            <span class="ov-m-name">NET HI-LO</span>
+            <span style="font-size:11px;font-weight:700;font-family:var(--font-mono)" id="nh-nl-val">—</span>
           </div>
-          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;position:relative">
+          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;position:relative;margin-top:4px">
             <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border2)"></div>
             <div id="nh-nl-bar" style="height:100%;position:absolute;border-radius:3px;transition:all .8s ease"></div>
           </div>
         </div>
       </div>
-    </div><!-- /hero-row -->
+    </div>
 
-    <!-- Liquidity Stress + Alerts row -->
-    <div class="ls-alerts-row fade-in">
+    <!-- ROW 2: Liq Stress + Q-BRAM Alerts + FII/DII compact — 3 columns -->
+    <div class="ov-row2">
       <div id="liq-stress-card" class="ls-card"></div>
       <div id="qbram-alerts-card" class="qa-card"></div>
-    </div>
-
-    <!-- FII/DII Institutional Flow (India only) -->
-    <div class="fiidii-card fade-in" id="fiidii-card" style="display:none">
-      <div class="fiidii-hdr">
-        <span class="fiidii-title">🏛 FII / DII INSTITUTIONAL FLOW</span>
-        <span class="fiidii-sentiment" id="fiidii-sentiment"></span>
-        <button class="fiidii-sync-btn" onclick="syncFiiDii()" title="Sync from NSE">⟳ Sync</button>
-      </div>
-      <div class="fiidii-body" id="fiidii-body">
-        <div style="text-align:center;padding:20px;color:var(--text3);font-size:12px">Loading FII/DII data...</div>
+      <div class="ov-fiidii-compact" id="fiidii-card" style="display:none">
+        <div class="ov-fiidii-hdr">
+          <span>🏛 FII/DII</span>
+          <span class="fiidii-sentiment" id="fiidii-sentiment" style="font-size:9px;padding:2px 8px"></span>
+        </div>
+        <div id="fiidii-body" class="ov-fiidii-body">
+          <div style="text-align:center;padding:8px;color:var(--text3);font-size:10px">Loading...</div>
+        </div>
       </div>
     </div>
 
-
-    <!-- AI Market Intelligence Card -->
-    <div class="ai-card fade-in" id="ai-market-card">
+    <!-- ROW 3: AI Intelligence — full width, compact -->
+    <div class="ai-card fade-in" id="ai-market-card" style="margin-bottom:12px">
       <div class="ai-card-hdr">
         <div class="ai-card-icon">🧠</div>
         <span class="ai-card-title">Q-BRAM AI MARKET INTELLIGENCE</span>

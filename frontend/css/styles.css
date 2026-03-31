@@ -2117,7 +2117,7 @@ body::before {
 
 .ls-alerts-row {
   display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-  padding: 0 16px 16px;
+  padding: 0;
 }
 @media (max-width: 768px) { .ls-alerts-row { grid-template-columns: 1fr; } }
 
@@ -3847,3 +3847,83 @@ select option:checked {
 .fd-matrix-legend {
   display: flex; gap: 12px; margin-top: 8px; font-size: 10px; font-family: var(--font-mono); flex-wrap: wrap;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OVERVIEW — COMMAND CENTER LAYOUT (minimal scroll, single-glance)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ROW 1: Score + Metrics + Sidebar — fills top of screen */
+.ov-row1 {
+  display: grid;
+  grid-template-columns: 240px 1fr 220px;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+@media (max-width: 1100px) { .ov-row1 { grid-template-columns: 1fr 1fr; }
+  .ov-sidebar { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+}
+@media (max-width: 700px) { .ov-row1 { grid-template-columns: 1fr; }
+  .ov-sidebar { grid-template-columns: 1fr 1fr; }
+}
+
+/* Score card — compact */
+.ov-score {
+  background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px;
+  padding: 16px; display: flex; flex-direction: column; gap: 6px;
+  position: relative; overflow: hidden;
+}
+.ov-score::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 0% 0%, rgba(6,182,212,.08), transparent 60%);
+  pointer-events: none;
+}
+.ov-score-label { font-size: 10px; letter-spacing: .12em; color: var(--text3); font-family: var(--font-mono); }
+.ov-score-num { font-size: 56px; font-weight: 800; line-height: 1; font-family: var(--font-mono); }
+.ov-score-interp { font-size: 11px; color: var(--text2); line-height: 1.4; margin: 0; }
+.ov-score-meta { display: flex; gap: 12px; font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
+.ov-score-meta em { font-style: normal; color: var(--text3); }
+.ov-score-meta b { color: var(--text); }
+
+/* Metrics — 3×2 compact grid */
+.ov-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 700px) { .ov-metrics { grid-template-columns: repeat(2, 1fr); } }
+.ov-m {
+  background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px;
+  padding: 10px 12px;
+}
+.ov-m-name { font-size: 9px; letter-spacing: .1em; color: var(--text3); font-family: var(--font-mono); margin-bottom: 3px; }
+.ov-m-val { font-size: 20px; font-weight: 700; font-family: var(--font-mono); line-height: 1; }
+.ov-m-sub { font-size: 10px; color: var(--text2); margin-top: 2px; font-family: var(--font-mono); }
+
+/* Sidebar — VIX + Index + A/D + NH-NL stacked compact */
+.ov-sidebar {
+  background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px;
+  padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.ov-vix-num { font-size: 32px; font-weight: 800; font-family: var(--font-mono); line-height: 1; }
+.ov-index { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-mono); }
+.ov-idx-price { font-size: 14px; font-weight: 700; color: var(--text); }
+.ov-idx-chg { font-size: 12px; font-weight: 600; }
+.ov-ad-nums { display: flex; gap: 10px; font-size: 11px; font-family: var(--font-mono); }
+.ov-nhnl { background: var(--bg3); border-radius: 6px; padding: 8px; }
+
+/* ROW 2: Liq Stress + Alerts + FII/DII — 3 columns */
+.ov-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+@media (max-width: 900px) { .ov-row2 { grid-template-columns: 1fr; } }
+
+/* Compact FII/DII for overview */
+.ov-fiidii-compact {
+  background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px;
+  padding: 12px; min-height: 0;
+}
+.ov-fiidii-hdr {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  font-size: 11px; font-weight: 800; letter-spacing: .08em; color: var(--text);
+  font-family: var(--font-mono);
+}
+.ov-fiidii-body { font-family: var(--font-mono); }
