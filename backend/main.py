@@ -61,7 +61,7 @@ from insider import (
     import_insider_csv, compute_buy_score, _ensure_tables as _ensure_insider_tables,
 )
 from fvalue import run_fvalue_screener
-from fiidii import fetch_fiidii_from_nse, get_fiidii_summary
+from fiidii import fetch_fiidii_from_nse, get_fiidii_summary, import_fiidii_csv
 from nse_data_adapter import (
     sync_insider_with_fallback,
     sync_fundamentals_indian_api,
@@ -1442,6 +1442,15 @@ async def api_fiidii_sync(background_tasks: BackgroundTasks, days: int = 30):
     result = await loop.run_in_executor(
         executor, lambda: fetch_fiidii_from_nse(days_back=days)
     )
+    return result
+
+
+@app.post("/api/fiidii/import-csv")
+async def api_fiidii_import_csv(file: UploadFile):
+    """Import FII/DII historical data from CSV file."""
+    content = (await file.read()).decode("utf-8-sig")
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(executor, lambda: import_fiidii_csv(content))
     return result
 
 

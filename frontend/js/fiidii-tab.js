@@ -179,3 +179,20 @@ async function syncFiiDiiTab() {
   }
   if (btn) { btn.disabled = false; btn.textContent = '⟳ Force Sync'; }
 }
+
+async function importFiiDiiCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch(`${API}/api/fiidii/import-csv`, { method: 'POST', body: formData });
+    const data = await res.json();
+    alert(`Imported ${data.imported} entries (${data.skipped} skipped, ${data.errors} errors). Total in DB: ${data.total_in_db}`);
+    _fdLoaded = false;
+    loadFiiDiiTab();
+  } catch (e) {
+    alert('Import failed: ' + e.message);
+  }
+  input.value = '';
+}

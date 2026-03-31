@@ -249,6 +249,10 @@
           <div class="fd-subtitle">INSTITUTIONAL MONEY MATRIX</div>
         </div>
         <button class="fd-sync-btn" onclick="syncFiiDiiTab()">⟳ Force Sync</button>
+        <label class="fd-sync-btn" style="cursor:pointer">
+          📥 Import CSV
+          <input type="file" accept=".csv" onchange="importFiiDiiCSV(this)" style="display:none">
+        </label>
         <span class="fd-live" id="fd-live">● LIVE</span>
       </div>
 
