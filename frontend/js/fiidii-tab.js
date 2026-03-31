@@ -12,7 +12,7 @@ async function onFiiDiiTabLoad() {
 
 async function loadFiiDiiTab() {
   try {
-    const res = await fetch(`${API}/api/fiidii/summary?days=45`);
+    const res = await fetch(`${API}/api/fiidii/summary?days=60`);
     const data = await res.json();
     if (data.error) {
       document.getElementById('fd-session-date').textContent = data.error;
