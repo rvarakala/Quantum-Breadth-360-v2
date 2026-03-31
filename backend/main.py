@@ -63,7 +63,6 @@ from insider import (
 from fvalue import run_fvalue_screener
 from fiidii import fetch_fiidii_from_nse, get_fiidii_summary
 from nse_data_adapter import (
-    sync_fiidii_with_fallback,
     sync_insider_with_fallback,
     sync_fundamentals_indian_api,
     fetch_fundamentals_batch,
@@ -1441,7 +1440,7 @@ async def api_fiidii_sync(background_tasks: BackgroundTasks, days: int = 30):
     """
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
-        executor, lambda: sync_fiidii_with_fallback(days_back=days)
+        executor, lambda: fetch_fiidii_from_nse(days_back=days)
     )
     return result
 
@@ -1843,7 +1842,7 @@ async def _auto_sync_fiidii():
     await asyncio.sleep(15)  # Wait for server to stabilize
     try:
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(executor, fetch_fiidii_from_nse)
+        result = await loop.run_in_executor(executor, lambda: fetch_fiidii_from_nse(days_back=60))
         if result.get("entries", 0) > 0:
             logger.info(f"✅ FII/DII auto-sync: {result['entries']} entries (latest: {result.get('latest_date')})")
         else:

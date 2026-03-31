@@ -329,24 +329,26 @@
         </div>
       </div>
 
-      <!-- Row 3: 45-Day Matrices -->
-      <div class="fd-matrix-row">
+      <!-- Row 3: 3 Side-by-Side 60-Day Matrices -->
+      <div class="fd-matrix-row fd-matrix-3col">
         <div class="fd-matrix-card">
-          <div class="fd-matrix-title">FII 45-DAY CONCENTRATION MATRIX</div>
-          <div class="fd-matrix-sub">Visualizing the sell-off depth and density</div>
+          <div class="fd-matrix-title" style="color:#ef4444">FII 60-DAY FLOW MATRIX</div>
+          <div class="fd-matrix-sub">Red = selling · Green = buying · Size = intensity</div>
           <div class="fd-matrix-dots" id="fd-fii-matrix"></div>
+          <div class="fd-matrix-legend" id="fd-fii-matrix-legend"></div>
         </div>
         <div class="fd-matrix-card">
-          <div class="fd-matrix-title">DII 45-DAY BUFFER MATRIX</div>
-          <div class="fd-matrix-sub">Visualizing domestic absorption</div>
+          <div class="fd-matrix-title" style="color:#22c55e">DII 60-DAY FLOW MATRIX</div>
+          <div class="fd-matrix-sub">Green = buying · Red = selling · Size = intensity</div>
           <div class="fd-matrix-dots" id="fd-dii-matrix"></div>
+          <div class="fd-matrix-legend" id="fd-dii-matrix-legend"></div>
         </div>
-      </div>
-
-      <!-- Row 4: Daily bar chart -->
-      <div class="fd-chart-card">
-        <div class="fd-chart-title">30-DAY FII/DII NET FLOW</div>
-        <canvas id="fd-chart-canvas" height="200"></canvas>
+        <div class="fd-matrix-card">
+          <div class="fd-matrix-title" style="color:#60a5fa">NET FLOW 60-DAY MATRIX</div>
+          <div class="fd-matrix-sub">FII + DII combined · Green = net inflow · Red = net outflow</div>
+          <div class="fd-matrix-dots" id="fd-net-matrix"></div>
+          <div class="fd-matrix-legend" id="fd-net-matrix-legend"></div>
+        </div>
       </div>
     </div>
   </div><!-- /tab-fiidii -->

@@ -3840,3 +3840,10 @@ select option:checked {
   background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 16px; margin-bottom: 14px;
 }
 .fd-chart-title { font-size: 12px; font-weight: 800; color: var(--text); font-family: var(--font-mono); letter-spacing: .08em; margin-bottom: 10px; }
+
+/* FII/DII 3-column matrix layout */
+.fd-matrix-3col { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 1100px) { .fd-matrix-3col { grid-template-columns: 1fr; } }
+.fd-matrix-legend {
+  display: flex; gap: 12px; margin-top: 8px; font-size: 10px; font-family: var(--font-mono); flex-wrap: wrap;
+}

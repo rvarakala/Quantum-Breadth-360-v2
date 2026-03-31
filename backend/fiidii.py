@@ -1,12 +1,12 @@
 """
 FII/DII Institutional Money Flow — India Market
-Fetches daily FII/DII cash market data from NSE.
-Uses same proven session pattern as insider.py.
+Primary: nsearchives.nseindia.com via nse_data_adapter (no Cloudflare)
+Fallback: NSE API fiidiiTradeReact (needs cookies)
 """
 
-import sqlite3, logging, time, httpx
+import sqlite3, logging, time
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 
 logger = logging.getLogger(__name__)
 DB_PATH = Path(__file__).parent / "breadth_data.db"
@@ -26,22 +26,34 @@ def _ensure_fiidii_table():
     conn.close()
 
 
-def _parse_cr(val) -> float:
-    if not val: return 0.0
-    try: return float(str(val).replace(",", "").strip())
-    except: return 0.0
+def fetch_fiidii_from_nse(days_back: int = 60) -> dict:
+    """
+    Fetch FII/DII data — tries jugaad adapter first (reliable),
+    falls back to NSE API (needs cookies).
+    """
+    _ensure_fiidii_table()
 
-
-def fetch_fiidii_from_nse() -> dict:
-    """Fetch FII/DII data from NSE — uses same session pattern as insider.py."""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.nseindia.com/reports/fii-dii",
-    }
+    # Method 1: jugaad adapter — hits nsearchives (no Cloudflare)
     try:
+        from nse_data_adapter import fetch_fiidii_jugaad
+        result = fetch_fiidii_jugaad(days_back=days_back)
+        if result.get("status") == "ok" and result.get("entries", 0) > 0:
+            logger.info(f"✅ FII/DII via jugaad: {result['entries']} entries (latest: {result.get('latest_date')})")
+            return result
+        logger.info(f"Jugaad FII/DII: {result.get('message', 'no data')} — trying NSE API...")
+    except Exception as e:
+        logger.warning(f"Jugaad FII/DII failed: {e} — trying NSE API fallback...")
+
+    # Method 2: NSE API (needs session cookies)
+    try:
+        import httpx
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                           "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://www.nseindia.com/reports/fii-dii",
+        }
         client = httpx.Client(follow_redirects=True, timeout=20)
         r0 = client.get("https://www.nseindia.com/", headers={"User-Agent": headers["User-Agent"]})
         logger.info(f"NSE session: {r0.status_code}, cookies: {len(r0.cookies)}")
@@ -51,60 +63,65 @@ def fetch_fiidii_from_nse() -> dict:
         client.close()
 
         if r.status_code != 200:
-            return {"error": f"NSE returned {r.status_code}", "entries": 0}
+            return {"status": "error", "message": f"NSE returned {r.status_code}", "entries": 0}
 
         data = r.json()
         if not isinstance(data, list):
-            return {"error": "Unexpected response format", "entries": 0}
+            return {"status": "error", "message": "Unexpected format", "entries": 0}
 
-        logger.info(f"Fetched {len(data)} FII/DII entries from NSE")
-        _ensure_fiidii_table()
+        logger.info(f"NSE API returned {len(data)} FII/DII entries")
         conn = sqlite3.connect(str(DB_PATH), timeout=10)
+        now = datetime.now(timezone.utc).isoformat()
 
         date_data = {}
         for entry in data:
             cat = entry.get("category", "").strip()
             date_str = entry.get("date", "").strip()
-            if not date_str: continue
+            if not date_str:
+                continue
             try:
                 dt = datetime.strptime(date_str, "%d-%b-%Y")
                 iso_date = dt.strftime("%Y-%m-%d")
-            except: continue
+            except:
+                continue
 
             if iso_date not in date_data:
                 date_data[iso_date] = {}
 
-            buy = _parse_cr(entry.get("buyValue", "0"))
-            sell = _parse_cr(entry.get("sellValue", "0"))
-            net = _parse_cr(entry.get("netValue", "0"))
+            def _pcr(v):
+                try: return float(str(v).replace(",", "").strip() or "0")
+                except: return 0.0
+
+            buy = _pcr(entry.get("buyValue", "0"))
+            sell = _pcr(entry.get("sellValue", "0"))
+            net = _pcr(entry.get("netValue", "0"))
 
             if "FII" in cat or "FPI" in cat:
                 date_data[iso_date].update({"fii_buy": buy, "fii_sell": sell, "fii_net": net})
             elif "DII" in cat:
                 date_data[iso_date].update({"dii_buy": buy, "dii_sell": sell, "dii_net": net})
 
-        now = datetime.now(timezone.utc).isoformat()
         stored = 0
         latest_date = None
-        for date, vals in date_data.items():
+        for d, vals in date_data.items():
             conn.execute("""
                 INSERT OR REPLACE INTO fiidii
                 (date, fii_buy, fii_sell, fii_net, dii_buy, dii_sell, dii_net, fetched_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (date, vals.get("fii_buy",0), vals.get("fii_sell",0), vals.get("fii_net",0),
-                  vals.get("dii_buy",0), vals.get("dii_sell",0), vals.get("dii_net",0), now))
+            """, (d, vals.get("fii_buy", 0), vals.get("fii_sell", 0), vals.get("fii_net", 0),
+                  vals.get("dii_buy", 0), vals.get("dii_sell", 0), vals.get("dii_net", 0), now))
             stored += 1
-            if not latest_date or date > latest_date: latest_date = date
+            if not latest_date or d > latest_date:
+                latest_date = d
 
         conn.commit()
         conn.close()
-        logger.info(f"Stored {stored} FII/DII entries (latest: {latest_date})")
-        return {"entries": stored, "latest_date": latest_date}
+        logger.info(f"✅ FII/DII via NSE API: {stored} entries (latest: {latest_date})")
+        return {"status": "ok", "entries": stored, "latest_date": latest_date}
 
     except Exception as e:
-        logger.error(f"FII/DII fetch failed: {e}")
-        import traceback; traceback.print_exc()
-        return {"error": str(e), "entries": 0}
+        logger.error(f"FII/DII NSE API fallback failed: {e}")
+        return {"status": "error", "message": str(e), "entries": 0}
 
 
 def get_fiidii_summary(days: int = 60) -> dict:
@@ -116,7 +133,7 @@ def get_fiidii_summary(days: int = 60) -> dict:
     conn.close()
 
     if not rows:
-        return {"error": "No FII/DII data. Click Force Sync to fetch from NSE.", "data": []}
+        return {"error": "No FII/DII data. Click Force Sync to fetch from NSE."}
 
     latest = dict(rows[0])
     fii_streak = _compute_streak([r["fii_net"] for r in rows])
@@ -128,28 +145,25 @@ def get_fiidii_summary(days: int = 60) -> dict:
     dii_20d = sum(r["dii_net"] for r in rows[:20])
 
     net_liquidity = latest.get("fii_net", 0) + latest.get("dii_net", 0)
-    total_activity = abs(latest.get("fii_net", 0)) + abs(latest.get("dii_net", 0))
-    fii_pct = round(abs(latest.get("fii_net", 0)) / total_activity * 100) if total_activity > 0 else 50
+    total_act = abs(latest.get("fii_net", 0)) + abs(latest.get("dii_net", 0))
+    fii_pct = round(abs(latest.get("fii_net", 0)) / total_act * 100) if total_act > 0 else 50
 
-    fii_net = latest.get("fii_net", 0)
-    dii_net = latest.get("dii_net", 0)
-    if fii_net < -500 and dii_net > 500:
-        sentiment, sentiment_color = "AGGRESSIVE SELLING", "#ef4444"
-    elif fii_net > 500 and dii_net > 0:
-        sentiment, sentiment_color = "STRONG BUYING", "#22c55e"
-    elif fii_net > 0:
-        sentiment, sentiment_color = "FII BUYING", "#4ade80"
-    elif fii_net < 0 and dii_net > 0:
-        sentiment, sentiment_color = "DII SUPPORT", "#f59e0b"
+    fn = latest.get("fii_net", 0)
+    dn = latest.get("dii_net", 0)
+    if fn < -500 and dn > 500:
+        sentiment, scol = "AGGRESSIVE SELLING", "#ef4444"
+    elif fn > 500 and dn > 0:
+        sentiment, scol = "STRONG BUYING", "#22c55e"
+    elif fn > 0:
+        sentiment, scol = "FII BUYING", "#4ade80"
+    elif fn < 0 and dn > 0:
+        sentiment, scol = "DII SUPPORT", "#f59e0b"
     else:
-        sentiment, sentiment_color = "NEUTRAL", "#64748b"
+        sentiment, scol = "NEUTRAL", "#64748b"
 
     history = [{"date": r["date"], "fii_net": round(r["fii_net"], 2),
                 "dii_net": round(r["dii_net"], 2), "net": round(r["fii_net"] + r["dii_net"], 2)}
                for r in reversed(rows)]
-
-    fii_5d_avg = round(fii_5d / min(5, len(rows)), 2) if rows else 0
-    dii_5d_avg = round(dii_5d / min(5, len(rows)), 2) if rows else 0
 
     return {
         "latest": {
@@ -165,23 +179,22 @@ def get_fiidii_summary(days: int = 60) -> dict:
         "cumulative": {
             "fii_5d": round(fii_5d, 2), "dii_5d": round(dii_5d, 2),
             "fii_20d": round(fii_20d, 2), "dii_20d": round(dii_20d, 2),
-            "fii_5d_avg": fii_5d_avg, "dii_5d_avg": dii_5d_avg,
+            "fii_5d_avg": round(fii_5d / min(5, len(rows)), 2) if rows else 0,
+            "dii_5d_avg": round(dii_5d / min(5, len(rows)), 2) if rows else 0,
         },
-        "sentiment": sentiment, "sentiment_color": sentiment_color,
+        "sentiment": sentiment, "sentiment_color": scol,
         "history": history, "days": len(rows),
     }
 
 
-def _compute_streak(net_values: list) -> dict:
+def _compute_streak(net_values):
     if not net_values:
         return {"days": 0, "direction": "Neutral", "total": 0}
     direction = "Buying" if net_values[0] >= 0 else "Selling"
-    streak_days = 0
-    streak_total = 0
-    for val in net_values:
-        if (direction == "Buying" and val >= 0) or (direction == "Selling" and val < 0):
-            streak_days += 1
-            streak_total += val
+    days = total = 0
+    for v in net_values:
+        if (direction == "Buying" and v >= 0) or (direction == "Selling" and v < 0):
+            days += 1; total += v
         else:
             break
-    return {"days": streak_days, "direction": direction, "total": round(streak_total, 2)}
+    return {"days": days, "direction": direction, "total": round(total, 2)}

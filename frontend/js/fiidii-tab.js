@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    FII/DII TAB — Institutional Money Matrix
-   Full dashboard: session data, streaks, velocity, matrices, chart
+   3 × 60-day dot matrices: FII, DII, Net (FII+DII)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 let _fdLoaded = false;
@@ -29,14 +29,6 @@ async function loadFiiDiiTab() {
 function _fmtCr(v) {
   if (v == null) return '—';
   const sign = v >= 0 ? '+' : '';
-  const abs = Math.abs(v);
-  if (abs >= 10000) return `${sign}₹${(v/100).toFixed(0)}L Cr`;
-  return `${sign}₹${v.toLocaleString('en-IN', {maximumFractionDigits:2})} Cr`;
-}
-
-function _fmtCrBig(v) {
-  if (v == null) return '—';
-  const sign = v >= 0 ? '+' : '';
   return `${sign}₹${Math.abs(v).toLocaleString('en-IN', {maximumFractionDigits:2})} Cr`;
 }
 
@@ -63,66 +55,41 @@ function _renderFiiDiiTab(data) {
   }
 
   // FII/DII Net values
-  const fiiNetEl = document.getElementById('fd-fii-net');
-  if (fiiNetEl) { fiiNetEl.textContent = _fmtCrBig(s.fii_net); fiiNetEl.style.color = s.fii_net >= 0 ? '#22c55e' : '#ef4444'; }
-  const diiNetEl = document.getElementById('fd-dii-net');
-  if (diiNetEl) { diiNetEl.textContent = _fmtCrBig(s.dii_net); diiNetEl.style.color = s.dii_net >= 0 ? '#22c55e' : '#ef4444'; }
+  _setVal('fd-fii-net', s.fii_net);
+  _setVal('fd-dii-net', s.dii_net);
 
   // Balance bar
   const fiiFill = document.getElementById('fd-bal-fii');
   const diiFill = document.getElementById('fd-bal-dii');
   if (fiiFill) fiiFill.style.width = s.fii_pct + '%';
   if (diiFill) { diiFill.style.width = s.dii_pct + '%'; diiFill.style.left = s.fii_pct + '%'; }
-  const fiiPctEl = document.getElementById('fd-fii-pct');
-  const diiPctEl = document.getElementById('fd-dii-pct');
-  if (fiiPctEl) fiiPctEl.textContent = `FII ${st.fii.direction === 'Selling' ? 'SELLING' : 'BUYING'}: ${s.fii_pct}%`;
-  if (diiPctEl) diiPctEl.textContent = `DII ${st.dii.direction === 'Buying' ? 'SUPPORT' : 'SELLING'}: ${s.dii_pct}%`;
+  _setText('fd-fii-pct', `FII ${st.fii.direction === 'Selling' ? 'SELLING' : 'BUYING'}: ${s.fii_pct}%`);
+  _setText('fd-dii-pct', `DII ${st.dii.direction === 'Buying' ? 'SUPPORT' : 'SELLING'}: ${s.dii_pct}%`);
 
   // Net liquidity
-  const nlEl = document.getElementById('fd-net-liq');
-  if (nlEl) { nlEl.textContent = _fmtCrBig(s.net_liquidity); nlEl.style.color = s.net_liquidity >= 0 ? '#22c55e' : '#ef4444'; }
+  _setVal('fd-net-liq', s.net_liquidity);
 
   // FII Streak
-  const fiiStrEl = document.getElementById('fd-fii-streak');
-  if (fiiStrEl) {
-    const col = st.fii.direction === 'Selling' ? '#ef4444' : '#22c55e';
-    fiiStrEl.innerHTML = `<span style="color:${col}">★ ${st.fii.days} Days ${st.fii.direction}</span> <span style="color:${col}">${_fmtCrBig(st.fii.total)}</span>`;
-  }
-  const fiiStrCard = document.getElementById('fd-fii-streak-card');
-  if (fiiStrCard) fiiStrCard.style.borderLeftColor = st.fii.direction === 'Selling' ? '#ef4444' : '#22c55e';
+  _setStreak('fd-fii-streak', st.fii);
+  _setBorderColor('fd-fii-streak-card', st.fii.direction === 'Selling' ? '#ef4444' : '#22c55e');
 
   // 5-Day FII Velocity
-  const fii5dEl = document.getElementById('fd-fii-5d');
-  if (fii5dEl) { fii5dEl.textContent = _fmtCrBig(c.fii_5d); fii5dEl.style.color = c.fii_5d >= 0 ? '#22c55e' : '#ef4444'; }
-  const fii5dAvg = document.getElementById('fd-fii-5d-avg');
-  if (fii5dAvg) { const avg = c.fii_5d / 5; fii5dAvg.textContent = `Avg daily selling: ${_fmtCrBig(avg)} Cr/day over the last 5 sessions.`; }
-  const fiiVelCard = document.getElementById('fd-fii-velocity-card');
-  if (fiiVelCard) fiiVelCard.style.borderLeftColor = c.fii_5d >= 0 ? '#22c55e' : '#f59e0b';
+  _setVal('fd-fii-5d', c.fii_5d);
+  _setText('fd-fii-5d-avg', `Avg daily: ${_fmtCr(c.fii_5d_avg)} /day over last 5 sessions.`);
+  _setBorderColor('fd-fii-velocity-card', c.fii_5d >= 0 ? '#22c55e' : '#f59e0b');
 
   // DII Streak
-  const diiStrEl = document.getElementById('fd-dii-streak');
-  if (diiStrEl) {
-    const col = st.dii.direction === 'Buying' ? '#22c55e' : '#ef4444';
-    diiStrEl.innerHTML = `<span style="color:${col}">★ ${st.dii.days} Days ${st.dii.direction}</span> <span style="color:${col}">${_fmtCrBig(st.dii.total)}</span>`;
-  }
-  const diiStrCard = document.getElementById('fd-dii-streak-card');
-  if (diiStrCard) diiStrCard.style.borderLeftColor = st.dii.direction === 'Buying' ? '#22c55e' : '#ef4444';
+  _setStreak('fd-dii-streak', st.dii);
+  _setBorderColor('fd-dii-streak-card', st.dii.direction === 'Buying' ? '#22c55e' : '#ef4444');
 
   // Metric cards
-  const fii20 = document.getElementById('fd-fii-cum');
-  if (fii20) fii20.textContent = _fmtCrBig(c.fii_20d);
-  const dii20 = document.getElementById('fd-dii-cum');
-  if (dii20) dii20.textContent = _fmtCrBig(c.dii_20d);
+  _setVal('fd-fii-cum', c.fii_20d, '#ef4444');
+  _setVal('fd-dii-cum', c.dii_20d, '#22c55e');
+  const mn = c.fii_20d + c.dii_20d;
+  const mnEl = document.getElementById('fd-monthly-net');
+  if (mnEl) { mnEl.textContent = _fmtCr(mn); mnEl.style.color = mn >= 0 ? '#22c55e' : '#ef4444'; }
 
-  // Monthly net = approximate from 20d
-  const monthNet = document.getElementById('fd-monthly-net');
-  if (monthNet) {
-    const mn = c.fii_20d + c.dii_20d;
-    monthNet.textContent = _fmtCrBig(mn);
-    monthNet.style.color = mn >= 0 ? '#22c55e' : '#ef4444';
-  }
-
-  // FII Intensity (today's selling vs 20d avg)
+  // FII Intensity
   const intEl = document.getElementById('fd-fii-intensity');
   const intSub = document.getElementById('fd-fii-intensity-sub');
   if (intEl && c.fii_20d !== 0) {
@@ -131,98 +98,84 @@ function _renderFiiDiiTab(data) {
     const ratio = avgDaily > 0 ? (todayAbs / avgDaily * 100).toFixed(0) : 0;
     intEl.textContent = ratio + '%';
     intEl.style.color = ratio > 150 ? '#ef4444' : ratio > 100 ? '#f59e0b' : '#22c55e';
-    intSub.textContent = ratio > 150 ? 'Heavy selling vs average' : ratio > 100 ? 'Above average activity' : 'Below average activity';
+    if (intSub) intSub.textContent = ratio > 150 ? 'Heavy activity vs average' : ratio > 100 ? 'Above average' : 'Below average';
   }
 
-  // 45-Day Matrices
-  _renderDotMatrix('fd-fii-matrix', h.slice(-45), 'fii_net', true);
-  _renderDotMatrix('fd-dii-matrix', h.slice(-45), 'dii_net', false);
-
-  // Bar chart
-  _renderFiiDiiChart(h);
+  // ── 3 × 60-Day Matrices ──
+  _renderMatrix60('fd-fii-matrix', 'fd-fii-matrix-legend', h, 'fii_net', 'FII');
+  _renderMatrix60('fd-dii-matrix', 'fd-dii-matrix-legend', h, 'dii_net', 'DII');
+  _renderMatrix60('fd-net-matrix', 'fd-net-matrix-legend', h, 'net', 'NET');
 }
 
-function _renderDotMatrix(containerId, days, key, invertColor) {
+function _renderMatrix60(containerId, legendId, days, key, label) {
   const el = document.getElementById(containerId);
   if (!el || !days.length) return;
 
-  const maxAbs = Math.max(...days.map(d => Math.abs(d[key] || 0)), 1);
+  const vals = days.map(d => d[key] || 0);
+  const maxAbs = Math.max(...vals.map(Math.abs), 1);
+
   el.innerHTML = days.map(d => {
     const val = d[key] || 0;
     const intensity = Math.min(Math.abs(val) / maxAbs, 1);
-    let color;
-    if (invertColor) {
-      // FII: red = selling (negative), green = buying (positive)
-      color = val < 0
-        ? `rgba(239,68,68,${0.2 + intensity * 0.8})`
-        : `rgba(34,197,94,${0.2 + intensity * 0.8})`;
-    } else {
-      // DII: green = buying (positive), red = selling (negative)
-      color = val >= 0
-        ? `rgba(34,197,94,${0.2 + intensity * 0.8})`
-        : `rgba(239,68,68,${0.2 + intensity * 0.8})`;
-    }
-    const size = 8 + intensity * 6;
-    return `<div class="fd-dot" style="background:${color};width:${size}px;height:${size}px" title="${d.date}: ${_fmtCrBig(val)}"></div>`;
+    const color = val >= 0
+      ? `rgba(34,197,94,${0.15 + intensity * 0.85})`
+      : `rgba(239,68,68,${0.15 + intensity * 0.85})`;
+    const size = 10 + intensity * 8;
+    const dt = new Date(d.date);
+    const tip = `${dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}: ${_fmtCr(val)}`;
+    return `<div class="fd-dot" style="background:${color};width:${size}px;height:${size}px" title="${tip}"></div>`;
   }).join('');
+
+  // Legend: count buying vs selling days
+  const buyDays = vals.filter(v => v > 0).length;
+  const sellDays = vals.filter(v => v < 0).length;
+  const total = vals.reduce((a, b) => a + b, 0);
+  const legEl = document.getElementById(legendId);
+  if (legEl) {
+    legEl.innerHTML = `
+      <span style="color:#22c55e">● ${buyDays} buy days</span>
+      <span style="color:#ef4444">● ${sellDays} sell days</span>
+      <span style="color:var(--text3)">Net: ${_fmtCr(total)}</span>
+    `;
+  }
 }
 
-function _renderFiiDiiChart(history) {
-  const canvas = document.getElementById('fd-chart-canvas');
-  if (!canvas || !history.length) return;
-
-  const ctx = canvas.getContext('2d');
-  if (window._fdChart) window._fdChart.destroy();
-
-  const labels = history.map(d => {
-    const dt = new Date(d.date);
-    return dt.toLocaleDateString('en-IN', {day:'2-digit', month:'short'});
-  });
-
-  window._fdChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'FII Net',
-          data: history.map(d => d.fii_net),
-          backgroundColor: history.map(d => d.fii_net >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'),
-          borderWidth: 0,
-          borderRadius: 2,
-        },
-        {
-          label: 'DII Net',
-          data: history.map(d => d.dii_net),
-          backgroundColor: history.map(d => d.dii_net >= 0 ? 'rgba(96,165,250,0.7)' : 'rgba(251,146,60,0.7)'),
-          borderWidth: 0,
-          borderRadius: 2,
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { labels: { color: '#94a3b8', font: { size: 10, family: 'var(--font-mono)' } } },
-        tooltip: {
-          callbacks: {
-            label: ctx => `${ctx.dataset.label}: ₹${ctx.raw?.toLocaleString('en-IN')} Cr`
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { color: '#64748b', font: { size: 9 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.04)' } },
-        y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => `₹${v}Cr` }, grid: { color: 'rgba(255,255,255,0.06)' } }
-      }
-    }
-  });
+// ── Helpers ──
+function _setVal(id, val, forceColor) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = _fmtCr(val);
+  el.style.color = forceColor || (val >= 0 ? '#22c55e' : '#ef4444');
+}
+function _setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+function _setBorderColor(id, color) {
+  const el = document.getElementById(id);
+  if (el) el.style.borderLeftColor = color;
+}
+function _setStreak(id, streak) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const col = streak.direction === 'Selling' ? '#ef4444' : '#22c55e';
+  el.innerHTML = `<span style="color:${col}">★ ${streak.days} Days ${streak.direction}</span> <span style="color:${col}">${_fmtCr(streak.total)}</span>`;
 }
 
 async function syncFiiDiiTab() {
+  const btn = document.querySelector('.fd-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing...'; }
   try {
-    await fetch(`${API}/api/fiidii/sync`, { method: 'POST' });
-    _fdLoaded = false;
-    loadFiiDiiTab();
-  } catch (e) { console.warn('FII/DII sync failed:', e); }
+    const res = await fetch(`${API}/api/fiidii/sync`, { method: 'POST' });
+    const data = await res.json();
+    if (data.entries > 0) {
+      _fdLoaded = false;
+      loadFiiDiiTab();
+    } else {
+      alert('Sync returned 0 entries: ' + (data.message || data.error || 'Check server logs'));
+    }
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '⟳ Force Sync'; }
 }
