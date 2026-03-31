@@ -145,43 +145,58 @@ def _parse_nse_pit_record(item: dict) -> dict:
         else:
             tx_type = tx_type_raw or "Unknown"
 
-        # Securities count and value — NSE uses various field names
+        # Securities count and value — NSE PIT API confirmed field names:
+        # secAcq  = number of securities acquired/disposed (share count)
+        # secVal  = value of securities in rupees (monetary value)
+        # NOTE: secVal also appears in sec_count chain in old code — that was the bug causing ₹0
         sec_count = _safe_num(
-            item.get("secAcq", 
-            item.get("securitiesAcquired",
-            item.get("securitiesValue",
+            item.get("secAcq",           # NSE PIT primary: share count
             item.get("noOfShareAcq",
-            item.get("No. of shares",
-            item.get("befAcqSharesNo",
-            item.get("secVal", 0)))))))
+            item.get("securitiesAcquired",
+            item.get("noOfShares",
+            item.get("befAcqSharesNo", 0)))))
         )
         sec_value = _safe_num(
-            item.get("secVal",
-            item.get("securitiesTransacted",
-            item.get("afterAcqSharesPer",
-            item.get("totAcqShare",
-            item.get("Value",
-            item.get("acquiredValue", 0))))))
+            item.get("secVal",           # NSE PIT primary: rupee value
+            item.get("acquiredValue",
+            item.get("securitiesValue",
+            item.get("transactionValue",
+            item.get("Value", 0)))))
         )
-        
-        # If both are 0, try alternate field combinations
-        if sec_count == 0 and sec_value == 0:
-            # Try all numeric fields to find the right ones
+
+        # Log first record's raw values for debugging
+        if sec_count == 0 or sec_value == 0:
+            logger.debug(f"Zero fields for {item.get('symbol','?')}: "
+                         f"secAcq={item.get('secAcq')} secVal={item.get('secVal')} "
+                         f"all_keys={list(item.keys())}")
+
+        # Fallback: scan all numeric fields if still zero
+        if sec_count == 0 or sec_value == 0:
             for k, v in item.items():
                 val = _safe_num(v)
-                if val > 0:
-                    kl = k.lower()
-                    if ('share' in kl or 'secacq' in kl or 'qty' in kl or 'quantity' in kl) and 'per' not in kl:
-                        if sec_count == 0: sec_count = val
-                    elif ('val' in kl or 'amount' in kl or 'worth' in kl) and 'per' not in kl and 'date' not in kl:
-                        if sec_value == 0: sec_value = val
+                if val <= 0:
+                    continue
+                kl = k.lower()
+                if sec_count == 0 and ('secacq' in kl or 'noofshar' in kl or 'qty' in kl) \
+                        and 'per' not in kl and 'post' not in kl and 'bef' not in kl:
+                    sec_count = val
+                elif sec_value == 0 and ('secval' in kl or 'value' in kl or 'amount' in kl) \
+                        and 'per' not in kl and 'date' not in kl and 'post' not in kl:
+                    sec_value = val
 
-        # If count > value, they might be swapped in NSE's response
-        if sec_count > 0 and sec_value > 0 and sec_count > sec_value * 10:
-            sec_count, sec_value = sec_value, sec_count
+        # Sanity: if value < 1000 and count is large, value may be in Lakhs — scale up
+        if sec_count > 1000 and 0 < sec_value < sec_count / 100:
+            sec_value = sec_value * 1_00_000
+            logger.debug(f"Scaled secVal from Lakhs for {item.get('symbol','?')}")
 
-        tx_date = item.get("date", item.get("Date of Allotment/Acquisition",
-                  item.get("acqfromDt", ""))).strip()
+        # NSE PIT primary date field is acqfromDt (DD-MMM-YYYY format e.g. "01-Jan-2025")
+        tx_date = (item.get("acqfromDt") or item.get("date") or
+                   item.get("acqToDt") or item.get("Date of Allotment/Acquisition") or "").strip()
+        # Fallback: use broadcast date if tx_date still empty
+        if not tx_date:
+            tx_date = (item.get("brdcstDt") or "").strip()
+            logger.debug(f"Using brdcstDt as fallback date for {item.get('symbol','?')}: {tx_date}")
+
         mode = item.get("tdpTransactionType", item.get("Mode of Acquisition", "")).strip()
         broadcast = item.get("brdcstDt", item.get("Date of Broadcast", "")).strip()
 
@@ -216,15 +231,21 @@ def _safe_num(val):
 
 
 def _normalize_date(ds: str) -> str:
-    """Normalize various date formats to YYYY-MM-DD."""
+    """Normalize various NSE date formats to YYYY-MM-DD."""
     if not ds:
         return ""
-    for fmt in ("%d-%b-%Y", "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%b %d, %Y"):
+    ds = ds.strip()
+    # NSE broadcast date includes time: "01-Jan-2025 18:30:00" — strip time part
+    if " " in ds and ":" in ds:
+        ds = ds.split(" ")[0].strip()
+    for fmt in ("%d-%b-%Y", "%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%b %d, %Y",
+                "%d-%B-%Y", "%Y/%m/%d"):
         try:
-            return datetime.strptime(ds.strip(), fmt).strftime("%Y-%m-%d")
+            return datetime.strptime(ds, fmt).strftime("%Y-%m-%d")
         except:
             continue
-    return ds.strip()
+    logger.debug(f"Could not normalize date: '{ds}'")
+    return ds
 
 
 # ── CSV Import (fallback / manual upload) ─────────────────────────────────────
