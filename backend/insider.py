@@ -103,6 +103,10 @@ def fetch_insider_data_nse(from_date: str = None, to_date: str = None) -> list:
             return []
 
         trades = []
+        if data:
+            # Log first record's keys for debugging field names
+            logger.info(f"NSE PIT sample keys: {list(data[0].keys()) if data else 'empty'}")
+            logger.info(f"NSE PIT sample record: {data[0] if data else 'empty'}")
         for item in data:
             trade = _parse_nse_pit_record(item)
             if trade:
@@ -141,11 +145,36 @@ def _parse_nse_pit_record(item: dict) -> dict:
         else:
             tx_type = tx_type_raw or "Unknown"
 
-        # Securities count and value
-        sec_count = _safe_num(item.get("securitiesValue",
-                    item.get("No. of shares", item.get("noOfShareAcq", 0))))
-        sec_value = _safe_num(item.get("securitiesTransacted",
-                    item.get("Value", item.get("totAcqShare", 0))))
+        # Securities count and value — NSE uses various field names
+        sec_count = _safe_num(
+            item.get("secAcq", 
+            item.get("securitiesAcquired",
+            item.get("securitiesValue",
+            item.get("noOfShareAcq",
+            item.get("No. of shares",
+            item.get("befAcqSharesNo",
+            item.get("secVal", 0)))))))
+        )
+        sec_value = _safe_num(
+            item.get("secVal",
+            item.get("securitiesTransacted",
+            item.get("afterAcqSharesPer",
+            item.get("totAcqShare",
+            item.get("Value",
+            item.get("acquiredValue", 0))))))
+        )
+        
+        # If both are 0, try alternate field combinations
+        if sec_count == 0 and sec_value == 0:
+            # Try all numeric fields to find the right ones
+            for k, v in item.items():
+                val = _safe_num(v)
+                if val > 0:
+                    kl = k.lower()
+                    if ('share' in kl or 'secacq' in kl or 'qty' in kl or 'quantity' in kl) and 'per' not in kl:
+                        if sec_count == 0: sec_count = val
+                    elif ('val' in kl or 'amount' in kl or 'worth' in kl) and 'per' not in kl and 'date' not in kl:
+                        if sec_value == 0: sec_value = val
 
         # If count > value, they might be swapped in NSE's response
         if sec_count > 0 and sec_value > 0 and sec_count > sec_value * 10:
