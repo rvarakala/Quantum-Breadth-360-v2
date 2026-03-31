@@ -63,11 +63,16 @@ def fetch_fiidii_from_nse(days_back: int = 60) -> dict:
 
     # Method 3: Backfill missing dates from archives
     try:
+        logger.info(f"Starting archives backfill for {days_back} days...")
         filled = _backfill_from_archives(days_back)
         if filled > 0:
             total_stored += filled
+            logger.info(f"✅ Archives backfill: {filled} new entries")
+        else:
+            logger.info("Archives backfill: 0 entries found")
     except Exception as e:
-        logger.info(f"Archives backfill: {e}")
+        logger.warning(f"Archives backfill error: {e}")
+        import traceback; traceback.print_exc()
 
     # Check total in DB
     conn = sqlite3.connect(str(DB_PATH), timeout=10)
@@ -152,66 +157,70 @@ def _fetch_from_nse_api() -> int:
 
 
 def _backfill_from_archives(days_back: int = 60) -> int:
-    """
-    Backfill missing dates from NSE archives.
-    Tries multiple URL patterns for FII/DII CSVs.
-    """
-    import requests
+    """Backfill missing dates from NSE archives day-by-day using httpx."""
+    import httpx
 
     conn = sqlite3.connect(str(DB_PATH), timeout=10)
     existing = set(r[0] for r in conn.execute("SELECT date FROM fiidii").fetchall())
     conn.close()
 
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36",
-        "Accept-Encoding": "gzip, deflate",
-    })
+    client = httpx.Client(
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36"},
+        follow_redirects=True, timeout=10,
+    )
 
     today = date.today()
     filled = 0
+    tried = 0
+    errors = 0
 
     for i in range(days_back):
         dt = today - timedelta(days=i)
-        # Skip weekends
-        if dt.weekday() >= 5:
+        if dt.weekday() >= 5:  # Skip weekends
             continue
         iso = dt.isoformat()
         if iso in existing:
             continue
 
+        tried += 1
         dd = dt.strftime("%d")
-        mon = dt.strftime("%b").upper()
-        mon_cap = dt.strftime("%b").capitalize()
+        mon_cap = dt.strftime("%b").capitalize()  # "Mar"
+        mon_up = dt.strftime("%b").upper()  # "MAR"
         yyyy = str(dt.year)
 
-        # Try multiple URL patterns
+        # Try multiple URL patterns — NSE uses inconsistent formats
         urls = [
             f"https://archives.nseindia.com/content/fo/fii_stats_{dd}-{mon_cap}-{yyyy}.xls",
             f"https://nsearchives.nseindia.com/content/fo/fii_stats_{dd}-{mon_cap}-{yyyy}.xls",
-            f"https://archives.nseindia.com/content/fo/fii{dd}{mon}{yyyy}.csv",
-            f"https://nsearchives.nseindia.com/content/fo/fii{dd}{mon}{yyyy}.csv",
+            f"https://archives.nseindia.com/content/fo/fii{dd}{mon_up}{yyyy}.csv",
+            f"https://nsearchives.nseindia.com/content/fo/fii{dd}{mon_up}{yyyy}.csv",
         ]
 
+        found = False
         for url in urls:
             try:
-                r = session.get(url, timeout=8)
-                if r.status_code != 200 or len(r.text) < 50:
-                    continue
-
-                entry = _parse_archive_data(r.text, iso)
-                if entry:
-                    _store_single(entry)
-                    filled += 1
-                    existing.add(iso)
-                    break
-            except:
+                r = client.get(url)
+                if r.status_code == 200 and len(r.text) > 50:
+                    entry = _parse_archive_data(r.text, iso)
+                    if entry:
+                        _store_single(entry)
+                        filled += 1
+                        existing.add(iso)
+                        found = True
+                        if filled <= 3:
+                            logger.info(f"  Archive hit: {iso} from {url.split('/')[-1]}")
+                        break
+            except Exception as e:
+                errors += 1
                 continue
 
-        time.sleep(0.1)
+        if not found and tried <= 3:
+            logger.debug(f"  Archive miss: {iso} (tried {len(urls)} URLs)")
 
-    if filled:
-        logger.info(f"Archives backfill: {filled} new entries")
+        time.sleep(0.12)
+
+    client.close()
+    logger.info(f"Archives backfill done: {filled} found, {tried} tried, {errors} errors")
     return filled
 
 
