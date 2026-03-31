@@ -936,7 +936,7 @@
       </div>
     </div>
 
-    <!-- ROW 2: Liq Stress + Q-BRAM Alerts + FII/DII compact — 3 columns -->
+    <!-- ROW 2: Liq Stress + Alerts + FII/DII + AI — 4 equal columns, fills remaining viewport -->
     <div class="ov-row2">
       <div id="liq-stress-card" class="ls-card"></div>
       <div id="qbram-alerts-card" class="qa-card"></div>
@@ -949,27 +949,24 @@
           <div style="text-align:center;padding:8px;color:var(--text3);font-size:10px">Loading...</div>
         </div>
       </div>
-    </div>
-
-    <!-- ROW 3: AI Intelligence — full width, compact -->
-    <div class="ai-card fade-in" id="ai-market-card" style="margin-bottom:12px">
-      <div class="ai-card-hdr">
-        <div class="ai-card-icon">🧠</div>
-        <span class="ai-card-title">Q-BRAM AI MARKET INTELLIGENCE</span>
-        <span class="ai-card-model">Qwen 3 32B</span>
-        <button class="ai-card-refresh" onclick="loadMarketIntelligence(true)">⟳</button>
-      </div>
-      <div id="ai-market-body">
-        <div class="ai-no-key" id="ai-market-nokey" style="display:none">
-          <span>🔑 Groq API key not configured</span>
-          <button class="ai-setup-btn" onclick="openAiSettings()">Setup →</button>
+      <div class="ov-ai-card" id="ai-market-card">
+        <div class="ov-ai-hdr">
+          <span>🧠 AI INTELLIGENCE</span>
+          <span class="ai-card-model" style="font-size:8px">Qwen 3 32B</span>
+          <button class="ai-card-refresh" onclick="loadMarketIntelligence(true)" style="font-size:10px;padding:2px 6px">⟳</button>
         </div>
-        <div class="ai-loading" id="ai-market-loading" style="display:none">
-          <div class="ai-spinner"></div>
-          <span>Analysing market breadth...</span>
+        <div class="ov-ai-scroll" id="ai-market-body">
+          <div class="ai-no-key" id="ai-market-nokey" style="display:none">
+            <span>🔑 Groq API key not set</span>
+            <button class="ai-setup-btn" onclick="openAiSettings()" style="font-size:9px;padding:2px 8px">Setup →</button>
+          </div>
+          <div class="ai-loading" id="ai-market-loading" style="display:none">
+            <div class="ai-spinner"></div>
+            <span style="font-size:10px">Analysing...</span>
+          </div>
+          <div class="ai-body" id="ai-market-text" style="font-size:11px;line-height:1.5"></div>
+          <div class="ai-meta" id="ai-market-meta" style="display:none"></div>
         </div>
-        <div class="ai-body" id="ai-market-text"></div>
-        <div class="ai-meta" id="ai-market-meta" style="display:none"></div>
       </div>
     </div>
 
