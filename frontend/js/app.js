@@ -1,4 +1,59 @@
 
+// ─── AUTH ENFORCEMENT ─────────────────────────────────────────────────────
+// Check JWT on page load, lock tabs by tier, redirect if not logged in
+let _currentUser = null;
+const _FREE_TABS = ['overview', 'breadth', 'sectors'];
+
+(async function enforceAuth() {
+  const token = localStorage.getItem('qb360_token');
+  if (!token) {
+    window.location.href = '/';
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (data.error || !data.tier) {
+      localStorage.removeItem('qb360_token');
+      window.location.href = '/';
+      return;
+    }
+    _currentUser = data;
+    _applyTierRestrictions(data.tier);
+    // Show user info in sidebar
+    const userEl = document.getElementById('sidebar-user-info');
+    if (userEl) userEl.innerHTML = `<span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">${data.email} · <b style="color:var(--cyan)">${data.tier.toUpperCase()}</b></span>`;
+  } catch (e) {
+    // API unreachable — allow access (local dev)
+    console.warn('Auth check failed:', e);
+  }
+})();
+
+function _applyTierRestrictions(tier) {
+  if (tier === 'admin') return; // Admin sees everything
+  document.querySelectorAll('.sidebar .nav-item[data-tab]').forEach(btn => {
+    const tab = btn.dataset.tab;
+    if (!tab) return;
+    const allowed = tier === 'pro' || _FREE_TABS.includes(tab);
+    if (!allowed) {
+      btn.classList.add('locked-tab');
+      btn.setAttribute('title', 'Pro plan required');
+      // Add lock icon
+      const label = btn.querySelector('.nav-label');
+      if (label && !label.textContent.includes('🔒')) {
+        label.textContent = label.textContent + ' 🔒';
+      }
+    }
+  });
+}
+
+function logout() {
+  localStorage.removeItem('qb360_token');
+  window.location.href = '/';
+}
+
 // ─── CLEAR CACHE ───────────────────────────────────────────────────────────
 async function clearBreadthCache() {
   const btn = document.getElementById('sidebar-clear-cache-btn');
@@ -84,6 +139,12 @@ function toggleSidebarCollapse() {
 })();
 
 function switchTab(tab) {
+  // Tier gate: block free users from Pro-only tabs
+  if (_currentUser && _currentUser.tier === 'explorer' && !_FREE_TABS.includes(tab)) {
+    _showUpgradeModal();
+    return;
+  }
+
   // Update sidebar nav items
   document.querySelectorAll('.sidebar .nav-item[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   // Keep old tab-btn compat
@@ -416,4 +477,10 @@ async function startFundamentalsSync() {
       }
     } catch(e) {}
   }, 3000);
+}
+
+// ─── UPGRADE MODAL ───────────────────────────────────────────────────────
+function _showUpgradeModal() {
+  const m = document.getElementById('upgrade-modal');
+  if (m) m.style.display = 'flex';
 }

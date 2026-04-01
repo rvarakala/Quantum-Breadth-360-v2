@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Breadth 360 — Market Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e17;--bg2:#111827;--bg3:#1a2035;
+  --card:#141b2d;--border:#1e293b;--border2:#334155;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --cyan:#06b6d4;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--purple:#a78bfa;
+  --mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden;min-height:100vh}
+
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 24px;display:flex;align-items:center;
+  background:rgba(10,14,23,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.nav-logo{font-family:var(--mono);font-weight:800;font-size:16px;letter-spacing:.04em;color:var(--text)}
+.nav-logo span{color:var(--cyan)}
+.nav-links{margin-left:auto;display:flex;gap:8px}
+.nav-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
+  font-family:var(--mono);border:none;transition:all .2s}
+.nav-btn.ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.nav-btn.ghost:hover{color:var(--text);border-color:var(--cyan)}
+.nav-btn.primary{background:var(--cyan);color:#0a0e17}
+.nav-btn.primary:hover{background:#22d3ee;transform:translateY(-1px)}
+
+/* ── HERO ── */
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;
+  padding:100px 24px 60px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);
+  width:800px;height:800px;background:radial-gradient(circle,rgba(6,182,212,.08),transparent 70%);
+  pointer-events:none}
+.hero-content{max-width:720px;position:relative;z-index:1}
+.hero-badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:700;
+  letter-spacing:.1em;color:var(--cyan);border:1px solid rgba(6,182,212,.3);
+  background:rgba(6,182,212,.06);font-family:var(--mono);margin-bottom:24px}
+.hero h1{font-family:var(--mono);font-size:clamp(32px,5vw,56px);font-weight:800;line-height:1.1;
+  margin-bottom:20px;letter-spacing:-.02em}
+.hero h1 em{font-style:normal;color:var(--cyan)}
+.hero p{font-size:clamp(15px,2vw,18px);color:var(--text2);line-height:1.7;margin-bottom:36px;max-width:560px;margin-inline:auto}
+.hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-lg{padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;
+  font-family:var(--mono);border:none;transition:all .2s;letter-spacing:.02em}
+.btn-lg.primary{background:var(--cyan);color:#0a0e17}
+.btn-lg.primary:hover{background:#22d3ee;transform:translateY(-2px);box-shadow:0 8px 30px rgba(6,182,212,.3)}
+.btn-lg.outline{background:transparent;color:var(--text);border:1px solid var(--border2)}
+.btn-lg.outline:hover{border-color:var(--cyan);color:var(--cyan)}
+.hero-stats{display:flex;gap:32px;justify-content:center;margin-top:48px}
+.hero-stat{text-align:center}
+.hero-stat-num{font-family:var(--mono);font-size:28px;font-weight:800;color:var(--cyan)}
+.hero-stat-label{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono);letter-spacing:.08em}
+
+/* ── FEATURES ── */
+.features{padding:80px 24px;max-width:1100px;margin:0 auto}
+.section-title{font-family:var(--mono);font-size:28px;font-weight:800;text-align:center;margin-bottom:12px}
+.section-sub{text-align:center;color:var(--text2);font-size:15px;margin-bottom:48px;max-width:500px;margin-inline:auto}
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:768px){.features-grid{grid-template-columns:1fr}}
+.feat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;
+  transition:border-color .2s,transform .2s}
+.feat-card:hover{border-color:var(--cyan);transform:translateY(-2px)}
+.feat-icon{font-size:28px;margin-bottom:12px}
+.feat-title{font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.06em;margin-bottom:8px}
+.feat-desc{font-size:13px;color:var(--text2);line-height:1.6}
+
+/* ── PRICING ── */
+.pricing{padding:80px 24px;background:var(--bg2)}
+.pricing-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:800px;margin:0 auto}
+@media(max-width:600px){.pricing-grid{grid-template-columns:1fr}}
+.price-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;
+  position:relative;overflow:hidden}
+.price-card.featured{border-color:var(--cyan)}
+.price-card.featured::before{content:'MOST POPULAR';position:absolute;top:12px;right:-32px;
+  background:var(--cyan);color:#0a0e17;font-size:9px;font-weight:800;letter-spacing:.1em;
+  padding:4px 40px;transform:rotate(45deg);font-family:var(--mono)}
+.price-tier{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--text3);margin-bottom:8px}
+.price-amount{font-family:var(--mono);font-size:42px;font-weight:800;margin-bottom:4px}
+.price-amount span{font-size:16px;color:var(--text3);font-weight:400}
+.price-annual{font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:20px}
+.price-annual em{font-style:normal;color:var(--green)}
+.price-features{list-style:none;margin-bottom:24px}
+.price-features li{padding:6px 0;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px}
+.price-features li::before{content:'✓';color:var(--green);font-weight:700;font-size:14px}
+.price-features li.locked::before{content:'✗';color:var(--text3)}
+.price-features li.locked{color:var(--text3)}
+.price-btn{width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;
+  font-family:var(--mono);border:none;transition:all .2s}
+.price-btn.primary{background:var(--cyan);color:#0a0e17}
+.price-btn.primary:hover{background:#22d3ee}
+.price-btn.outline{background:transparent;color:var(--text);border:1px solid var(--border2)}
+.price-btn.outline:hover{border-color:var(--cyan)}
+
+/* ── AUTH MODAL ── */
+.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.auth-overlay.active{display:flex}
+.auth-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;
+  padding:36px;width:100%;max-width:400px;position:relative}
+.auth-close{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text3);
+  font-size:20px;cursor:pointer}
+.auth-close:hover{color:var(--text)}
+.auth-title{font-family:var(--mono);font-size:20px;font-weight:800;margin-bottom:4px}
+.auth-sub{font-size:13px;color:var(--text2);margin-bottom:24px}
+.auth-field{margin-bottom:16px}
+.auth-field label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text3);
+  font-family:var(--mono);margin-bottom:6px}
+.auth-field input{width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:14px;font-family:var(--mono);outline:none;
+  transition:border-color .2s}
+.auth-field input:focus{border-color:var(--cyan)}
+.auth-submit{width:100%;padding:14px;border-radius:10px;background:var(--cyan);color:#0a0e17;
+  font-size:14px;font-weight:700;cursor:pointer;font-family:var(--mono);border:none;
+  transition:all .2s;margin-top:8px}
+.auth-submit:hover{background:#22d3ee}
+.auth-submit:disabled{opacity:.5;cursor:not-allowed}
+.auth-error{color:var(--red);font-size:12px;font-family:var(--mono);margin-top:8px;display:none}
+.auth-switch{text-align:center;margin-top:16px;font-size:13px;color:var(--text2)}
+.auth-switch a{color:var(--cyan);cursor:pointer;text-decoration:none}
+.auth-switch a:hover{text-decoration:underline}
+
+/* ── FOOTER ── */
+.footer{padding:40px 24px;text-align:center;font-size:12px;color:var(--text3);font-family:var(--mono);
+  border-top:1px solid var(--border)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px){
+  .nav{padding:10px 16px}
+  .nav-logo{font-size:13px}
+  .hero-stats{gap:16px}
+  .hero-stat-num{font-size:20px}
+  .auth-box{padding:24px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">QUANTUM <span>BREADTH 360</span></div>
+  <div class="nav-links">
+    <button class="nav-btn ghost" onclick="openAuth('login')">Login</button>
+    <button class="nav-btn primary" onclick="openAuth('register')">Get Started Free</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">Q-BRAM POWERED</div>
+    <h1>Market Intelligence<br>at a <em>Single Glance</em></h1>
+    <p>Real-time breadth analysis, institutional flow tracking, and AI-driven insights for systematic traders. Built on the Q-BRAM regime model.</p>
+    <div class="hero-ctas">
+      <button class="btn-lg primary" onclick="openAuth('register')">Start Free →</button>
+      <a href="#pricing" class="btn-lg outline">View Pricing</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hero-stat-num">2,500+</div><div class="hero-stat-label">STOCKS TRACKED</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">50+</div><div class="hero-stat-label">BREADTH METRICS</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">Live</div><div class="hero-stat-label">FII/DII FLOW</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+  <div class="section-title">Everything You Need</div>
+  <div class="section-sub">From breadth analysis to insider tracking — one platform, zero noise.</div>
+  <div class="features-grid">
+    <div class="feat-card"><div class="feat-icon">📊</div><div class="feat-title">Q-BRAM SCORE</div><div class="feat-desc">Proprietary composite breadth score with 5-regime classification. Know the market's true state in one number.</div></div>
+    <div class="feat-card"><div class="feat-icon">🔥</div><div class="feat-title">SECTOR ROTATION</div><div class="feat-desc">RRG-style rotation map + heatmap. Spot sector leadership shifts before the crowd.</div></div>
+    <div class="feat-card"><div class="feat-icon">🏛</div><div class="feat-title">FII / DII FLOW</div><div class="feat-desc">Institutional money matrix with streak analysis, 60-day dot matrices, and velocity tracking.</div></div>
+    <div class="feat-card"><div class="feat-icon">👁</div><div class="feat-title">INSIDER ACTIVITY</div><div class="feat-desc">NSE SEBI PIT disclosures with smart scoring, clustered buying detection, and value ranking.</div></div>
+    <div class="feat-card"><div class="feat-icon">💎</div><div class="feat-title">F-VALUE SCREENER</div><div class="feat-desc">7-factor fundamental scoring (A→E grades) with Justified PE fair value estimation.</div></div>
+    <div class="feat-card"><div class="feat-icon">🧠</div><div class="feat-title">AI INTELLIGENCE</div><div class="feat-desc">LLM-powered market analysis synthesizing breadth, regime, and institutional data into actionable insight.</div></div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="section-title">Simple Pricing</div>
+  <div class="section-sub">Start free. Upgrade when you're ready.</div>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="price-tier">EXPLORER</div>
+      <div class="price-amount">Free<span></span></div>
+      <div class="price-annual">Forever. No credit card needed.</div>
+      <ul class="price-features">
+        <li>Market Overview & Q-BRAM Score</li>
+        <li>Breadth Charts (DMA, A/D)</li>
+        <li>Sector Heatmap & Rotation Map</li>
+        <li class="locked">Scanner & Leaders</li>
+        <li class="locked">FII/DII Institutional Flow</li>
+        <li class="locked">Insider Activity & F-Value</li>
+        <li class="locked">AI Market Intelligence</li>
+      </ul>
+      <button class="price-btn outline" onclick="openAuth('register')">Create Free Account</button>
+    </div>
+    <div class="price-card featured">
+      <div class="price-tier">PRO</div>
+      <div class="price-amount">₹299<span>/mo</span></div>
+      <div class="price-annual">or ₹2,870/year — <em>save 20%</em></div>
+      <ul class="price-features">
+        <li>Everything in Explorer</li>
+        <li>Scanner & RS Leaders</li>
+        <li>FII/DII Institutional Flow</li>
+        <li>Insider Activity (SEBI PIT)</li>
+        <li>F-Value Fundamental Screener</li>
+        <li>AI Market Intelligence</li>
+        <li>Smart Screener & Watchlist</li>
+      </ul>
+      <button class="price-btn primary" onclick="openAuth('register')">Start Pro Trial →</button>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  © 2026 QuantumTrade Pro — Powered by Q-BRAM Engine
+</footer>
+
+<!-- AUTH MODAL -->
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-box">
+    <button class="auth-close" onclick="closeAuth()">×</button>
+    <div id="auth-login-form">
+      <div class="auth-title">Welcome Back</div>
+      <div class="auth-sub">Login to your Quantum Breadth 360 account</div>
+      <div class="auth-field"><label>EMAIL</label><input type="email" id="login-email" placeholder="you@example.com"></div>
+      <div class="auth-field"><label>PASSWORD</label><input type="password" id="login-password" placeholder="••••••••"></div>
+      <div class="auth-error" id="login-error"></div>
+      <button class="auth-submit" onclick="doLogin()">Login →</button>
+      <div class="auth-switch">Don't have an account? <a onclick="switchAuth('register')">Register free</a></div>
+    </div>
+    <div id="auth-register-form" style="display:none">
+      <div class="auth-title">Create Account</div>
+      <div class="auth-sub">Start with Explorer (free) — upgrade anytime</div>
+      <div class="auth-field"><label>FULL NAME</label><input type="text" id="reg-name" placeholder="Your name"></div>
+      <div class="auth-field"><label>EMAIL</label><input type="email" id="reg-email" placeholder="you@example.com"></div>
+      <div class="auth-field"><label>PASSWORD</label><input type="password" id="reg-password" placeholder="Min 6 characters"></div>
+      <div class="auth-error" id="reg-error"></div>
+      <button class="auth-submit" onclick="doRegister()">Create Account →</button>
+      <div class="auth-switch">Already have an account? <a onclick="switchAuth('login')">Login</a></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+
+function openAuth(mode) {
+  document.getElementById('auth-overlay').classList.add('active');
+  switchAuth(mode);
+}
+function closeAuth() {
+  document.getElementById('auth-overlay').classList.remove('active');
+}
+function switchAuth(mode) {
+  document.getElementById('auth-login-form').style.display = mode === 'login' ? '' : 'none';
+  document.getElementById('auth-register-form').style.display = mode === 'register' ? '' : 'none';
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('reg-error').style.display = 'none';
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  try {
+    const res = await fetch(`${API}/api/auth/login`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    const data = await res.json();
+    if (data.error) { errEl.textContent = data.error; errEl.style.display = ''; return; }
+    localStorage.setItem('qb360_token', data.token);
+    localStorage.setItem('qb360_user', JSON.stringify(data.user));
+    window.location.href = '/app';
+  } catch (e) { errEl.textContent = 'Network error'; errEl.style.display = ''; }
+}
+
+async function doRegister() {
+  const name = document.getElementById('reg-name').value;
+  const email = document.getElementById('reg-email').value;
+  const password = document.getElementById('reg-password').value;
+  const errEl = document.getElementById('reg-error');
+  errEl.style.display = 'none';
+  try {
+    const res = await fetch(`${API}/api/auth/register`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, email, password})
+    });
+    const data = await res.json();
+    if (data.error) { errEl.textContent = data.error; errEl.style.display = ''; return; }
+    localStorage.setItem('qb360_token', data.token);
+    localStorage.setItem('qb360_user', JSON.stringify(data.user));
+    window.location.href = '/app';
+  } catch (e) { errEl.textContent = 'Network error'; errEl.style.display = ''; }
+}
+
+// Auto-redirect if already logged in
+const token = localStorage.getItem('qb360_token');
+if (token) {
+  fetch(`${API}/api/auth/me`, { headers: {'Authorization': 'Bearer ' + token} })
+    .then(r => r.json())
+    .then(d => { if (d.id) window.location.href = '/app'; });
+}
+
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('auth-overlay').classList.contains('active')) {
+    if (document.getElementById('auth-login-form').style.display !== 'none') doLogin();
+    else doRegister();
+  }
+});
+</script>
+</body>
+</html>

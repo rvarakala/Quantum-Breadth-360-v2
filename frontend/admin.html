@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QB360 Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e17;--bg2:#111827;--card:#141b2d;--border:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --cyan:#06b6d4;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);padding:20px;max-width:1200px;margin:0 auto}
+h1{font-family:var(--mono);font-size:24px;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+h1 a{color:var(--text3);font-size:13px;text-decoration:none;font-weight:400}
+h1 a:hover{color:var(--cyan)}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.stat-num{font-family:var(--mono);font-size:28px;font-weight:800}
+.stat-label{font-size:10px;color:var(--text3);font-family:var(--mono);letter-spacing:.08em;margin-top:4px}
+
+/* Add user form */
+.add-form{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:24px;
+  display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.add-form .field{display:flex;flex-direction:column;gap:4px}
+.add-form label{font-size:9px;font-weight:700;color:var(--text3);font-family:var(--mono);letter-spacing:.08em}
+.add-form input,.add-form select{padding:8px 12px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:12px;font-family:var(--mono);outline:none}
+.add-form input:focus,.add-form select:focus{border-color:var(--cyan)}
+.add-form button{padding:8px 20px;border-radius:6px;border:none;background:var(--cyan);color:#0a0e17;
+  font-size:12px;font-weight:700;cursor:pointer;font-family:var(--mono)}
+
+/* Users table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)}
+th{text-align:left;padding:10px 12px;font-size:9px;letter-spacing:.1em;color:var(--text3);
+  border-bottom:1px solid var(--border);font-weight:700}
+td{padding:10px 12px;border-bottom:1px solid var(--border)}
+tr:hover td{background:rgba(6,182,212,.04)}
+.badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.05em}
+.badge.explorer{background:rgba(100,116,139,.15);color:var(--text2)}
+.badge.pro{background:rgba(6,182,212,.12);color:var(--cyan)}
+.badge.admin{background:rgba(168,85,247,.12);color:#a78bfa}
+.badge.active{background:rgba(34,197,94,.12);color:var(--green)}
+.badge.held{background:rgba(245,158,11,.12);color:var(--amber)}
+.badge.banned{background:rgba(239,68,68,.12);color:var(--red)}
+.act-btn{padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;
+  color:var(--text2);font-size:10px;cursor:pointer;font-family:var(--mono);margin-right:4px}
+.act-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.act-btn.danger:hover{border-color:var(--red);color:var(--red)}
+#msg{font-size:11px;color:var(--green);font-family:var(--mono);margin:8px 0;min-height:16px}
+</style>
+</head>
+<body>
+<h1>🛡 QB360 Admin <a href="/app">← Back to App</a></h1>
+<div id="msg"></div>
+
+<!-- Stats -->
+<div class="stats" id="stats"></div>
+
+<!-- Add User -->
+<div class="add-form">
+  <div class="field"><label>NAME</label><input id="add-name" placeholder="Full name"></div>
+  <div class="field"><label>EMAIL</label><input id="add-email" placeholder="email@example.com"></div>
+  <div class="field"><label>PASSWORD</label><input id="add-pass" type="password" placeholder="Min 6 chars"></div>
+  <div class="field"><label>TIER</label>
+    <select id="add-tier"><option value="explorer">Explorer</option><option value="pro">Pro</option></select>
+  </div>
+  <button onclick="addUser()">+ Add User</button>
+</div>
+
+<!-- Users Table -->
+<div class="tbl-wrap">
+<table>
+  <thead><tr><th>ID</th><th>NAME</th><th>EMAIL</th><th>TIER</th><th>STATUS</th><th>CREATED</th><th>LAST LOGIN</th><th>ACTIONS</th></tr></thead>
+  <tbody id="users-tbody"></tbody>
+</table>
+</div>
+
+<script>
+const TOKEN = localStorage.getItem('qb360_token');
+if (!TOKEN) window.location.href = '/';
+
+const H = {'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json'};
+
+async function loadData() {
+  const [statsRes, usersRes] = await Promise.all([
+    fetch('/api/admin/stats', {headers: H}),
+    fetch('/api/admin/users', {headers: H})
+  ]);
+  const stats = await statsRes.json();
+  const users = await usersRes.json();
+  if (stats.error || users.error) { window.location.href = '/'; return; }
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-num" style="color:var(--text)">${stats.total}</div><div class="stat-label">TOTAL USERS</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--green)">${stats.active}</div><div class="stat-label">ACTIVE</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--amber)">${stats.held}</div><div class="stat-label">ON HOLD</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--text2)">${stats.explorers}</div><div class="stat-label">EXPLORERS</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--cyan)">${stats.pros}</div><div class="stat-label">PRO USERS</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--green)">₹${stats.mrr_estimate}</div><div class="stat-label">EST. MRR</div></div>
+  `;
+
+  document.getElementById('users-tbody').innerHTML = users.map(u => `<tr>
+    <td>${u.id}</td>
+    <td>${u.name}</td>
+    <td>${u.email}</td>
+    <td><span class="badge ${u.tier}">${u.tier.toUpperCase()}</span></td>
+    <td><span class="badge ${u.status}">${u.status.toUpperCase()}</span></td>
+    <td>${u.created_at ? u.created_at.slice(0,10) : '—'}</td>
+    <td>${u.last_login ? u.last_login.slice(0,10) : '—'}</td>
+    <td>${u.tier !== 'admin' ? `
+      <button class="act-btn" onclick="setTier(${u.id},'${u.tier==='pro'?'explorer':'pro'}')">${u.tier==='pro'?'↓ Explorer':'↑ Pro'}</button>
+      <button class="act-btn" onclick="setStatus(${u.id},'${u.status==='active'?'held':'active'}')">${u.status==='active'?'⏸ Hold':'▶ Activate'}</button>
+      <button class="act-btn danger" onclick="deleteUser(${u.id},'${u.email}')">✗ Delete</button>
+    ` : '<span style="color:var(--text3);font-size:10px">Master Admin</span>'}</td>
+  </tr>`).join('');
+}
+
+async function addUser() {
+  const name = document.getElementById('add-name').value;
+  const email = document.getElementById('add-email').value;
+  const password = document.getElementById('add-pass').value;
+  const tier = document.getElementById('add-tier').value;
+  const res = await fetch('/api/admin/add-user', {method:'POST', headers:H, body:JSON.stringify({name,email,password,tier})});
+  const d = await res.json();
+  document.getElementById('msg').textContent = d.error || `✅ User ${email} added as ${tier}`;
+  if (!d.error) { document.getElementById('add-name').value=''; document.getElementById('add-email').value=''; document.getElementById('add-pass').value=''; }
+  loadData();
+}
+
+async function setTier(id, tier) {
+  await fetch('/api/admin/update-user', {method:'POST', headers:H, body:JSON.stringify({user_id:id, tier})});
+  document.getElementById('msg').textContent = `✅ Tier updated to ${tier}`;
+  loadData();
+}
+
+async function setStatus(id, status) {
+  await fetch('/api/admin/update-user', {method:'POST', headers:H, body:JSON.stringify({user_id:id, status})});
+  document.getElementById('msg').textContent = `✅ Status changed to ${status}`;
+  loadData();
+}
+
+async function deleteUser(id, email) {
+  if (!confirm(`Delete user ${email}?`)) return;
+  await fetch('/api/admin/delete-user', {method:'POST', headers:H, body:JSON.stringify({user_id:id})});
+  document.getElementById('msg').textContent = `✅ User ${email} deleted`;
+  loadData();
+}
+
+loadData();
+</script>
+</body>
+</html>

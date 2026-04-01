@@ -3953,3 +3953,8 @@ select option:checked {
 
 /* Make all Row 2 cards same min-height */
 .ov-row2 > * { min-height: 200px; }
+
+/* Locked tabs for free tier */
+.locked-tab { opacity: 0.4; position: relative; }
+.locked-tab:hover { opacity: 0.6; }
+.locked-tab .nav-label { color: var(--text3) !important; }

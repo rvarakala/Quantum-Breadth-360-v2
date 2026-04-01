@@ -6,10 +6,11 @@ Market Breadth Engine — Backend
 - /api/sync/update  → daily incremental update
 - /api/sync/status  → see what's stored locally
 """
-from fastapi import FastAPI, BackgroundTasks, UploadFile
+from fastapi import FastAPI, BackgroundTasks, UploadFile, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import pandas as pd
 from datetime import datetime, timezone, date, timedelta
 from typing import Dict
@@ -62,6 +63,11 @@ from insider import (
 )
 from fvalue import run_fvalue_screener
 from fiidii import fetch_fiidii_from_nse, get_fiidii_summary, import_fiidii_csv
+from auth import (
+    ensure_auth_tables, register_user, login_user, verify_token,
+    check_tab_access, admin_list_users, admin_update_user, admin_delete_user,
+    admin_add_user, admin_stats, TIERS,
+)
 from nse_data_adapter import (
     sync_insider_with_fallback,
     sync_fundamentals_indian_api,
@@ -119,13 +125,117 @@ def _serve_index_html():
     html = html.replace("__ASSET_VERSION__", _ASSET_VERSION)
     return HTMLResponse(content=html, headers=_NO_CACHE)
 
+def _serve_html(filename):
+    from fastapi.responses import HTMLResponse
+    html = (FRONTEND_DIR / filename).read_text(encoding="utf-8")
+    return HTMLResponse(content=html, headers=_NO_CACHE)
+
 @app.get("/")
 def serve_root():
+    """Landing page — login/register."""
+    return _serve_html("landing.html")
+
+@app.get("/app")
+def serve_app():
+    """Main dashboard — requires auth (checked client-side)."""
     return _serve_index_html()
+
+@app.get("/admin")
+def serve_admin():
+    """Admin panel."""
+    return _serve_html("admin.html")
 
 @app.get("/index.html")
 def serve_index():
     return _serve_index_html()
+
+
+# ── Auth API ──────────────────────────────────────────────────────────────────
+
+class AuthLogin(BaseModel):
+    email: str
+    password: str
+
+class AuthRegister(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class AdminUpdateUser(BaseModel):
+    user_id: int
+    tier: str = None
+    status: str = None
+
+class AdminAddUser(BaseModel):
+    name: str
+    email: str
+    password: str
+    tier: str = "explorer"
+
+class AdminDeleteUser(BaseModel):
+    user_id: int
+
+def _get_current_user(request: Request) -> dict:
+    """Extract and verify JWT from Authorization header."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:]
+    return verify_token(token)
+
+@app.post("/api/auth/register")
+def api_auth_register(body: AuthRegister):
+    return register_user(body.email, body.name, body.password)
+
+@app.post("/api/auth/login")
+def api_auth_login(body: AuthLogin):
+    return login_user(body.email, body.password)
+
+@app.get("/api/auth/me")
+def api_auth_me(request: Request):
+    user = _get_current_user(request)
+    if not user:
+        return {"error": "Not authenticated"}
+    return user
+
+@app.get("/api/auth/tiers")
+def api_auth_tiers():
+    return {k: {"name": v["name"], "tabs": v["tabs"], "price_monthly": v["price_monthly"],
+                "price_annual": v["price_annual"]} for k, v in TIERS.items() if k != "admin"}
+
+
+# ── Admin API ─────────────────────────────────────────────────────────────────
+
+def _require_admin(request: Request):
+    user = _get_current_user(request)
+    if not user or user.get("tier") != "admin":
+        return None
+    return user
+
+@app.get("/api/admin/stats")
+def api_admin_stats(request: Request):
+    if not _require_admin(request): return {"error": "Admin required"}
+    return admin_stats()
+
+@app.get("/api/admin/users")
+def api_admin_users(request: Request):
+    if not _require_admin(request): return {"error": "Admin required"}
+    return admin_list_users()
+
+@app.post("/api/admin/update-user")
+def api_admin_update(request: Request, body: AdminUpdateUser):
+    if not _require_admin(request): return {"error": "Admin required"}
+    return admin_update_user(body.user_id, tier=body.tier, status=body.status)
+
+@app.post("/api/admin/delete-user")
+def api_admin_delete(request: Request, body: AdminDeleteUser):
+    if not _require_admin(request): return {"error": "Admin required"}
+    return admin_delete_user(body.user_id)
+
+@app.post("/api/admin/add-user")
+def api_admin_add(request: Request, body: AdminAddUser):
+    if not _require_admin(request): return {"error": "Admin required"}
+    return admin_add_user(body.email, body.name, body.password, body.tier)
 
 # Serve static assets if any
 if FRONTEND_DIR.exists():
@@ -1752,6 +1862,13 @@ async def startup_event():
         asyncio.create_task(_auto_sync_insider())
     except Exception as e:
         logger.warning(f"Insider table init failed: {e}")
+
+    # 3b. Auth tables
+    try:
+        ensure_auth_tables()
+        logger.info("✅ Auth tables ready")
+    except Exception as e:
+        logger.warning(f"Auth table init failed: {e}")
 
     # 4. Start daily insider sync scheduler (runs at ~6:30 PM IST / 1 PM UTC)
     asyncio.create_task(_insider_daily_scheduler())
