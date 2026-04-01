@@ -146,7 +146,7 @@ function _createCharts() {
 
   // Candlestick series
   const candles = (_sc.data.chart?.candles || []).map(c => ({
-    time: c.date, open: c.open, high: c.high, low: c.low, close: c.close,
+    time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
   }));
   _sc.candleSeries = _sc.priceChart.addCandlestickSeries({
     upColor: '#22c55e', downColor: '#ef4444', borderUpColor: '#22c55e', borderDownColor: '#ef4444',
@@ -160,9 +160,10 @@ function _createCharts() {
   _sc.volChart = LWC.createChart(volEl, { ...chartOpts, height: 80 });
   _sc.volChart.timeScale().applyOptions({ visible: true });
 
-  const volData = (_sc.data.chart?.candles || []).map(c => ({
-    time: c.date, value: c.volume || 0,
-    color: c.close >= c.open ? SC_COLORS.volUp : SC_COLORS.volDn,
+  const volBars = _sc.data.chart?.volume?.bars || [];
+  const volData = volBars.map(v => ({
+    time: v.time, value: v.value || 0,
+    color: v.color || SC_COLORS.volUp,
   }));
   _sc.volSeries = _sc.volChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
   _sc.volSeries.setData(volData);
@@ -242,7 +243,7 @@ function _addMAs(candles) {
     for (let i = period - 1; i < closes.length; i++) {
       const slice = closes.slice(i - period + 1, i + 1);
       const avg = slice.reduce((a, b) => a + b, 0) / period;
-      maData.push({ time: candles[i].date, value: avg });
+      maData.push({ time: candles[i].time, value: avg });
     }
     const s = _sc.priceChart.addLineSeries({ color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     s.setData(maData);
@@ -267,7 +268,7 @@ function _addRSLine(candles) {
     const change = (window[window.length - 1] - window[0]) / window[0] * 100;
     // Normalize to 1-99 range approximation
     const rs = Math.min(99, Math.max(1, 50 + change * 2));
-    rsData.push({ time: candles[i].date, value: rs });
+    rsData.push({ time: candles[i].time, value: rs });
   }
 
   const s = _sc.priceChart.addLineSeries({
@@ -294,7 +295,7 @@ function _addSectorRS() {
   const candles = _sc.data.chart?.candles || [];
   if (candles.length < 2) return;
 
-  const sectorLine = candles.map(c => ({ time: c.date, value: rs }));
+  const sectorLine = candles.map(c => ({ time: c.time, value: rs }));
   const s = _sc.priceChart.addLineSeries({
     color: SC_COLORS.secRs, lineWidth: 1, lineStyle: 2, // dashed
     priceLineVisible: false, lastValueVisible: false,
@@ -326,14 +327,14 @@ function _addQuarterlyMarkers() {
   candles.forEach(c => {
     Object.keys(quarterDateMap).forEach(qd => {
       // Match if within 15 days
-      const cd = new Date(c.date);
+      const cd = new Date(c.time);
       const qDate = new Date(qd);
       const diff = Math.abs(cd - qDate) / (1000 * 60 * 60 * 24);
       if (diff < 15) {
         const q = quarterDateMap[qd];
         const epsChg = q.eps !== undefined ? (q.eps >= 0 ? '+' : '') + q.eps.toFixed(2) : '';
         markers.push({
-          time: c.date,
+          time: c.time,
           position: 'aboveBar',
           color: (q.profit || 0) >= 0 ? SC_COLORS.qBuy : SC_COLORS.qSell,
           shape: 'circle',

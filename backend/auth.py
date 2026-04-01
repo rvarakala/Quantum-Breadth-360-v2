@@ -35,7 +35,8 @@ TIERS = {
         "price_annual": 2870,  # 239/mo × 12 = 2868 ≈ 2870
         "tabs": ["overview", "breadth", "sectors", "scanner", "leaders", "fiidii",
                  "fvalue", "insider", "stockbee", "smart-metrics", "charts-tab",
-                 "smart-screener", "watchlist", "importer", "compare", "peep"],
+                 "smart-screener", "watchlist", "importer", "compare", "peep",
+                 "smart-chart"],
     },
     "admin": {
         "name": "Admin",
