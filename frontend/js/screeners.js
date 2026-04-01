@@ -421,7 +421,7 @@ const QUICK_SCANS = {
 let _scannerData=null;
 
 async function loadScannerData(){
-  if(_scannerData) return _scannerData;
+  if(_scannerData && _scannerData.length > 0) return _scannerData;
   try{
     const minMcap = _getMinMcap();
     const params = new URLSearchParams({market: currentMarket, min_rs: '1'});
@@ -430,8 +430,9 @@ async function loadScannerData(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const d=await res.json();
     if(d.error) throw new Error(d.error);
-    _scannerData=d.stocks||[];
-    return _scannerData;
+    const stocks = d.stocks||[];
+    if(stocks.length > 0) _scannerData = stocks;  // Only cache if non-empty
+    return stocks;
   }catch(e){
     console.warn('Scanner RS load failed:',e.message);
     return[];
@@ -530,10 +531,10 @@ async function runQuickScan(scanId){
   } else {
     const stocks=await loadScannerData();
     if(!stocks.length){
-      body.innerHTML='<div class="scn-mover-empty" style="color:var(--amber)">⏳ RS data not available yet.<br><span style="color:var(--text3);font-size:10px">RS rankings compute on first scan click (takes 15-30s).<br>Try again in a moment, or use a backend scan instead.</span></div>';
+      body.innerHTML='<div class="scn-mover-empty" style="color:var(--amber)">⏳ RS data loading...<br><span style="color:var(--text3);font-size:10px">RS rankings compute on startup (takes 15-30s).<br>Wait a moment and click again.</span></div>';
       return;
     }
-    results=stocks.filter(def.filter).sort((a,b)=>b.rs_rating-a.rs_rating);
+    results=stocks.filter(def.filter).sort((a,b)=>(b.rs_rating||0)-(a.rs_rating||0));
   }
   const elapsed=((Date.now()-t0)/1000).toFixed(1);
   stat.textContent=`${results.length} stocks · ${elapsed}s`;

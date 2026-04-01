@@ -448,7 +448,7 @@ def screen_vcp(df):
                  (15 if vol_dry else 0) +
                  (15 if near_pivot else 5 if pct_from_pivot <= 15 else 0))
 
-    passes = vcp_detected and trend_pass and vol_dry and near_pivot
+    passes = vcp_score >= 50  # Relaxed: score 50+ instead of all 4 conditions
     details = {
         'trend_score': trend_score, 'trend_pass': trend_pass,
         'vcp_detected': vcp_detected, 'num_contractions': num_contractions,
