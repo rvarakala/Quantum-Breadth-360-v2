@@ -271,6 +271,7 @@ function _computeBreadthLocal(stockData, market) {
 async function impCheckStored() {
   const meta = await _idbGetMeta();
   const banner = $('stored-banner');
+  if (!banner) return; // Element not in current tab
   if (meta && meta.total_rows > 0) {
     banner.style.display = 'flex';
     $('stored-banner-text').textContent =

@@ -838,39 +838,40 @@ async def get_rs_rankings(
     min_mcap: float = 0,
     refresh: bool = False
 ):
-    """
-    IBD-Style RS Rankings for NIFTY 500 universe.
-    Returns stocks ranked 1-99 by relative strength.
-    """
-    cache_key = _rs_cache_key(market)
+    """IBD-Style RS Rankings for NIFTY 500 universe."""
+    try:
+        cache_key = _rs_cache_key(market)
 
-    if not refresh and cache_key in _rs_cache:
-        age = (datetime.now(timezone.utc) - _rs_cache[cache_key]["ts"]).total_seconds()
-        if age < RS_CACHE_TTL:
-            data = _rs_cache[cache_key]["data"]
-            stocks = data["stocks"]
-            if min_rs > 0:
-                stocks = [s for s in stocks if s["rs_rating"] >= min_rs]
-            if min_mcap > 0:
-                stocks = [s for s in stocks if s.get("mcap_cr", 0) >= min_mcap]
-            return {**data, "stocks": stocks, "filtered": len(stocks), "cached": True}
+        if not refresh and cache_key in _rs_cache:
+            age = (datetime.now(timezone.utc) - _rs_cache[cache_key]["ts"]).total_seconds()
+            if age < RS_CACHE_TTL:
+                data = _rs_cache[cache_key]["data"]
+                stocks = data.get("stocks", [])
+                if min_rs > 0:
+                    stocks = [s for s in stocks if s.get("rs_rating", 0) >= min_rs]
+                if min_mcap > 0:
+                    stocks = [s for s in stocks if s.get("mcap_cr", 0) >= min_mcap]
+                return {**data, "stocks": stocks, "filtered": len(stocks), "cached": True}
 
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(executor, _compute_rs_rankings, market)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(executor, _compute_rs_rankings, market)
 
-    if "error" not in result:
-        # Enrich stocks with mcap data
-        _enrich_stocks_mcap(result.get("stocks", []))
-        result.pop("_stock_data", None)  # strip DataFrames before caching
-        _rs_cache[cache_key] = {"data": result, "ts": datetime.now(timezone.utc)}
+        if "error" not in result:
+            _enrich_stocks_mcap(result.get("stocks", []))
+            result.pop("_stock_data", None)
+            _rs_cache[cache_key] = {"data": result, "ts": datetime.now(timezone.utc)}
 
-    stocks = result.get("stocks", [])
-    if min_rs > 0:
-        stocks = [s for s in stocks if s["rs_rating"] >= min_rs]
-    if min_mcap > 0:
-        stocks = [s for s in stocks if s.get("mcap_cr", 0) >= min_mcap]
+        stocks = result.get("stocks", [])
+        if min_rs > 0:
+            stocks = [s for s in stocks if s.get("rs_rating", 0) >= min_rs]
+        if min_mcap > 0:
+            stocks = [s for s in stocks if s.get("mcap_cr", 0) >= min_mcap]
 
-    return {**result, "stocks": stocks, "filtered": len(stocks)}
+        return {**result, "stocks": stocks, "filtered": len(stocks)}
+    except Exception as e:
+        logger.error(f"RS screener error: {e}")
+        import traceback; traceback.print_exc()
+        return {"error": str(e), "stocks": [], "filtered": 0}
 
 
 @app.get("/api/leaders")
