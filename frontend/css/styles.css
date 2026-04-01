@@ -2852,7 +2852,7 @@ body::before {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 10px;
-  overflow: hidden;
+  margin-bottom: 16px;
 }
 .scn-results-hdr {
   display: flex;
@@ -2887,8 +2887,9 @@ body::before {
   border-color: var(--red);
 }
 .scn-results-body {
-  max-height: 400px;
+  max-height: 500px;
   overflow-y: auto;
+  overflow-x: auto;
   padding: 0;
 }
 
