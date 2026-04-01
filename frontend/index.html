@@ -152,6 +152,10 @@
       </div>
       <div class="nav-group">
         <div class="nav-group-label">TOOLS</div>
+        <button class="nav-item" data-tab="smart-chart" onclick="switchTab('smart-chart')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 6-6"/><circle cx="7" cy="16" r="1.5" fill="currentColor"/><circle cx="11" cy="8" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/><circle cx="21" cy="6" r="1.5" fill="currentColor"/></svg>
+          <span class="nav-label">Smart Chart</span>
+        </button>
         <button class="nav-item" data-tab="charts" onclick="switchTab('charts')">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
           <span class="nav-label">Charts</span>
@@ -517,6 +521,65 @@
     </div>
 
   </div><!-- /tab-smart-metrics -->
+
+  <!-- SMART CHART TAB -->
+  <div class="tab-content" id="tab-smart-chart">
+    <!-- Header bar: search + ticker info -->
+    <div class="sc-header">
+      <div class="sc-search-wrap">
+        <input type="text" id="sc-ticker-input" placeholder="Enter ticker (e.g. RELIANCE)" autocomplete="off" spellcheck="false">
+        <button onclick="loadSmartChart()" class="sc-load-btn">Load</button>
+      </div>
+      <div class="sc-ticker-info" id="sc-ticker-info" style="display:none">
+        <span class="sc-ticker-name" id="sc-name"></span>
+        <span class="sc-price" id="sc-price"></span>
+        <span class="sc-change" id="sc-change"></span>
+        <span class="sc-badge" id="sc-rs-badge"></span>
+        <span class="sc-badge" id="sc-ad-badge"></span>
+        <span class="sc-badge" id="sc-sector-badge"></span>
+      </div>
+    </div>
+
+    <!-- Toggle bar for overlays -->
+    <div class="sc-toggle-bar" id="sc-toggle-bar" style="display:none">
+      <button class="sc-toggle active" data-overlay="ohlcv" onclick="toggleOverlay('ohlcv',this)">📊 OHLCV</button>
+      <button class="sc-toggle" data-overlay="ma" onclick="toggleOverlay('ma',this)">〰 MA 50/150/200</button>
+      <button class="sc-toggle" data-overlay="rs" onclick="toggleOverlay('rs',this)">📈 RS Line</button>
+      <button class="sc-toggle" data-overlay="sector_rs" onclick="toggleOverlay('sector_rs',this)">🏢 Sector RS</button>
+      <button class="sc-toggle" data-overlay="quarterly" onclick="toggleOverlay('quarterly',this)">💰 Quarterly</button>
+      <button class="sc-toggle" data-overlay="ownership" onclick="toggleOverlay('ownership',this)">👥 Ownership</button>
+      <button class="sc-toggle" data-overlay="funds" onclick="toggleOverlay('funds',this)">🏦 Funds</button>
+      <button class="sc-toggle" data-overlay="fundamentals" onclick="toggleOverlay('fundamentals',this)">📋 Fundamentals</button>
+    </div>
+
+    <!-- Chart area -->
+    <div class="sc-chart-wrap" id="sc-chart-wrap">
+      <div class="sc-placeholder" id="sc-placeholder">
+        <div style="font-size:48px;margin-bottom:12px">📊</div>
+        <div style="font-family:var(--font-mono);font-size:14px;font-weight:700;margin-bottom:8px">Smart Chart</div>
+        <div style="font-size:12px;color:var(--text3);max-width:400px;line-height:1.6">
+          Enter a ticker above to load an advanced chart with overlay toggles:
+          RS Line, Sector RS, Quarterly Results, Ownership Pattern, Fund Holdings, and Fundamentals.
+        </div>
+      </div>
+      <div id="sc-chart-container" style="display:none">
+        <div id="sc-price-chart" style="width:100%;height:400px"></div>
+        <div id="sc-vol-chart" style="width:100%;height:80px;margin-top:-1px"></div>
+      </div>
+      <!-- Fundamental overlay panel (floats top-right of chart) -->
+      <div class="sc-fund-panel" id="sc-fund-panel" style="display:none"></div>
+      <!-- Quarterly results overlay (floats bottom-left) -->
+      <div class="sc-quarterly-panel" id="sc-quarterly-panel" style="display:none"></div>
+      <!-- Ownership overlay (floats bottom-right) -->
+      <div class="sc-ownership-panel" id="sc-ownership-panel" style="display:none"></div>
+    </div>
+
+    <!-- Peers row -->
+    <div class="sc-peers" id="sc-peers" style="display:none">
+      <div class="sc-peers-title">🏆 Top RS in Sector</div>
+      <div class="sc-peers-list" id="sc-peers-list"></div>
+    </div>
+  </div><!-- /tab-smart-chart -->
 
   <!-- CHARTS TAB -->
   <div class="tab-content" id="tab-charts">
@@ -1748,6 +1811,7 @@
 <script src="/static/js/fiidii-tab.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/smart-screener.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/ai-insights.js?v=__ASSET_VERSION__"></script>
+<script src="/static/js/smart-chart.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/app.js?v=__ASSET_VERSION__"></script>
 
 

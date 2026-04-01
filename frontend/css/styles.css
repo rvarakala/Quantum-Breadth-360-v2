@@ -3964,3 +3964,135 @@ select option:checked {
 .scn-progress-bar{width:200px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0;overflow:hidden}
 .scn-progress-fill{height:100%;width:30%;background:var(--cyan);border-radius:2px;animation:scn-prog 2s ease-in-out infinite}
 @keyframes scn-prog{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SMART CHART TAB
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.sc-header {
+  display: flex; align-items: center; gap: 16px; padding: 12px 0;
+  flex-wrap: wrap;
+}
+.sc-search-wrap {
+  display: flex; gap: 6px;
+}
+.sc-search-wrap input {
+  padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg2); color: var(--text); font-size: 13px; font-family: var(--font-mono);
+  width: 220px; outline: none;
+}
+.sc-search-wrap input:focus { border-color: var(--cyan); }
+.sc-load-btn {
+  padding: 8px 18px; border-radius: 8px; border: none; background: var(--cyan); color: #0a0e17;
+  font-size: 12px; font-weight: 700; cursor: pointer; font-family: var(--font-mono);
+}
+.sc-load-btn:hover { background: #22d3ee; }
+
+.sc-ticker-info {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.sc-ticker-name {
+  font-family: var(--font-mono); font-size: 18px; font-weight: 800; letter-spacing: .04em;
+}
+.sc-price {
+  font-family: var(--font-mono); font-size: 16px; font-weight: 700;
+}
+.sc-change {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+}
+.sc-badge {
+  padding: 3px 10px; border-radius: 6px; font-size: 10px; font-weight: 700;
+  font-family: var(--font-mono); letter-spacing: .06em;
+  background: rgba(100,116,139,.12); color: var(--text2);
+}
+
+/* Toggle bar */
+.sc-toggle-bar {
+  display: flex; gap: 4px; padding: 8px 0; flex-wrap: wrap;
+}
+.sc-toggle {
+  padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text3); font-size: 11px; cursor: pointer;
+  font-family: var(--font-mono); transition: all .2s; white-space: nowrap;
+}
+.sc-toggle:hover { border-color: var(--cyan); color: var(--text); }
+.sc-toggle.active {
+  background: rgba(6,182,212,.12); border-color: var(--cyan); color: var(--cyan);
+}
+
+/* Chart wrapper */
+.sc-chart-wrap {
+  position: relative; background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 10px; padding: 8px; min-height: 500px;
+}
+.sc-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 480px; color: var(--text2);
+}
+
+/* Overlay panels — float on top of chart */
+.sc-fund-panel, .sc-quarterly-panel, .sc-ownership-panel {
+  position: absolute; background: rgba(10,14,23,.92); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px; backdrop-filter: blur(8px);
+  font-size: 11px; font-family: var(--font-mono); z-index: 10;
+  max-height: 320px; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+}
+.sc-fund-panel { top: 12px; right: 12px; width: 200px; }
+.sc-quarterly-panel { bottom: 100px; left: 12px; width: 320px; }
+.sc-ownership-panel { bottom: 100px; right: 12px; width: 340px; }
+
+.sc-panel-title {
+  font-size: 11px; font-weight: 800; letter-spacing: .08em; margin-bottom: 8px;
+  color: var(--text);
+}
+.sc-mini-table {
+  width: 100%; border-collapse: collapse; font-size: 10px;
+}
+.sc-mini-table th {
+  text-align: left; padding: 3px 6px; color: var(--text3); font-weight: 700;
+  border-bottom: 1px solid var(--border); font-size: 9px; letter-spacing: .06em;
+}
+.sc-mini-table td {
+  padding: 3px 6px; border-bottom: 1px solid rgba(30,41,59,.5); color: var(--text2);
+}
+.sc-mini-table tr:hover td { background: rgba(6,182,212,.04); }
+
+/* Fundamentals grid */
+.sc-fund-grid { display: flex; flex-direction: column; gap: 4px; }
+.sc-fund-row { display: flex; justify-content: space-between; padding: 2px 0; }
+.sc-fund-label { color: var(--text3); font-size: 10px; }
+.sc-fund-value { font-weight: 700; font-size: 11px; }
+
+/* Peers */
+.sc-peers {
+  padding: 12px 0;
+}
+.sc-peers-title {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 800;
+  letter-spacing: .06em; margin-bottom: 8px;
+}
+.sc-peers-list { display: flex; gap: 8px; flex-wrap: wrap; }
+.sc-peer-chip {
+  display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px;
+  font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: all .2s;
+}
+.sc-peer-chip:hover { border-color: var(--cyan); }
+.sc-peer-rs {
+  background: rgba(59,130,246,.12); color: #60a5fa; padding: 1px 6px;
+  border-radius: 4px; font-size: 9px; font-weight: 700;
+}
+.sc-peer-ad {
+  font-size: 9px; color: var(--text3);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sc-header { flex-direction: column; align-items: flex-start; }
+  .sc-search-wrap input { width: 160px; }
+  .sc-fund-panel, .sc-quarterly-panel, .sc-ownership-panel {
+    position: relative; width: 100%; top: auto; right: auto; bottom: auto; left: auto;
+    margin-top: 8px;
+  }
+}

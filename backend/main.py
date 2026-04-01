@@ -2168,6 +2168,85 @@ async def smart_metrics(ticker: str):
     return data
 
 
+# ── Smart Chart API ──────────────────────────────────────────────────────────
+
+@app.get("/api/smart-chart/{ticker}")
+async def smart_chart_data(ticker: str, days: int = 500):
+    """
+    All-in-one data for Smart Chart: OHLCV + RS + A/D + fundamentals + screener.in data.
+    Returns everything the Smart Chart tab needs in a single call.
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        # 1. OHLCV + technicals from our DB
+        chart = await loop.run_in_executor(executor, get_chart_data, ticker, "daily", days)
+        if "error" in chart:
+            return {"error": chart["error"], "ticker": ticker}
+
+        # 2. RS + A/D from screener cache (if available)
+        rs_data = {}
+        cache_key = _rs_cache_key("INDIA")
+        if cache_key in _rs_cache:
+            stocks = _rs_cache[cache_key]["data"].get("stocks", [])
+            for s in stocks:
+                if s.get("ticker") == ticker.upper():
+                    rs_data = {
+                        "rs_rating": s.get("rs_rating"),
+                        "rs_trend": s.get("rs_trend"),
+                        "ad_rating": s.get("ad_rating"),
+                        "ad_line": s.get("ad_line_val"),
+                        "pct_from_high": s.get("pct_from_high"),
+                        "vol_ratio": s.get("vol_ratio"),
+                        "chg_1w": s.get("chg_1w"),
+                        "chg_1m": s.get("chg_1m"),
+                        "chg_3m": s.get("chg_3m"),
+                        "sector": s.get("sector"),
+                        "mcap_cr": s.get("mcap_cr"),
+                        "trend_template": s.get("trend_template"),
+                    }
+                    break
+
+        # 3. TV Fundamentals (PE, ROE, etc.)
+        tv_data = {}
+        try:
+            from tv_fundamentals import get_screener_data_fast
+            tv_data = get_screener_data_fast(ticker) or {}
+        except Exception:
+            pass
+
+        # 4. Screener.in data (quarterly, shareholding, ratios)
+        scr_data = {}
+        try:
+            from screener_in import get_screener_in_data
+            scr_data = await loop.run_in_executor(executor, get_screener_in_data, ticker)
+        except Exception as e:
+            logger.warning(f"Smart Chart screener.in error for {ticker}: {e}")
+            scr_data = {"quarterly": [], "annual": [], "shareholding": [], "ratios": {}}
+
+        # 5. Sector peers (top RS in same sector)
+        peers = []
+        if rs_data.get("sector") and cache_key in _rs_cache:
+            sector = rs_data["sector"]
+            all_stocks = _rs_cache[cache_key]["data"].get("stocks", [])
+            sector_stocks = [s for s in all_stocks if s.get("sector") == sector and s.get("ticker") != ticker.upper()]
+            sector_stocks.sort(key=lambda x: x.get("rs_rating", 0), reverse=True)
+            peers = [{"ticker": s["ticker"], "rs": s.get("rs_rating", 0), "ad": s.get("ad_rating", "?")}
+                     for s in sector_stocks[:5]]
+
+        return {
+            "ticker": ticker.upper(),
+            "chart": chart,
+            "rs": rs_data,
+            "fundamentals": tv_data,
+            "screener_in": scr_data,
+            "peers": peers,
+        }
+    except Exception as e:
+        logger.error(f"Smart Chart error for {ticker}: {e}")
+        import traceback; traceback.print_exc()
+        return {"error": str(e), "ticker": ticker}
+
+
 # ── Ticker Search (Autocomplete) ──────────────────────────────────────────────
 
 @app.get("/api/tickers/search")
