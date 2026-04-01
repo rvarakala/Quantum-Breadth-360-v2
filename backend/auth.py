@@ -64,8 +64,8 @@ def ensure_auth_tables():
     """)
     conn.commit()
 
-    # Seed admin if not exists
-    admin = conn.execute("SELECT id FROM users WHERE email = ?", ("admin@quantumtrade.pro",)).fetchone()
+    # Seed admin if not exists, or fix tier/password if exists
+    admin = conn.execute("SELECT id, tier FROM users WHERE email = ?", ("admin@quantumtrade.pro",)).fetchone()
     if not admin:
         pw_hash = bcrypt.hashpw("QTP@admin2026".encode(), bcrypt.gensalt()).decode()
         conn.execute("""
@@ -75,6 +75,14 @@ def ensure_auth_tables():
               datetime.now(timezone.utc).isoformat()))
         conn.commit()
         logger.info("✅ Admin account seeded: admin@quantumtrade.pro")
+    else:
+        # Always ensure admin tier + reset password to known value
+        pw_hash = bcrypt.hashpw("QTP@admin2026".encode(), bcrypt.gensalt()).decode()
+        conn.execute("UPDATE users SET tier = 'admin', password_hash = ?, status = 'active' WHERE email = ?",
+                     (pw_hash, "admin@quantumtrade.pro"))
+        conn.commit()
+        if admin[1] != "admin":
+            logger.info("✅ Admin account fixed: tier upgraded to admin")
 
     conn.close()
 

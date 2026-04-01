@@ -25,6 +25,11 @@ const _FREE_TABS = ['overview', 'breadth', 'sectors'];
     // Show user info in sidebar
     const userEl = document.getElementById('sidebar-user-info');
     if (userEl) userEl.innerHTML = `<span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">${data.email} · <b style="color:var(--cyan)">${data.tier.toUpperCase()}</b></span>`;
+    // Show admin link if admin
+    if (data.tier === 'admin') {
+      const adminLink = document.getElementById('sidebar-admin-link');
+      if (adminLink) adminLink.style.display = '';
+    }
   } catch (e) {
     // API unreachable — allow access (local dev)
     console.warn('Auth check failed:', e);
