@@ -196,7 +196,23 @@ def api_auth_me(request: Request):
     user = _get_current_user(request)
     if not user:
         return {"error": "Not authenticated"}
-    return user
+    # Always fetch REAL tier from DB (token may be stale)
+    from auth import get_user_by_id, _generate_token
+    db_user = get_user_by_id(user["id"])
+    if not db_user:
+        return {"error": "User not found"}
+    if db_user["status"] != "active":
+        return {"error": "Account suspended"}
+    # Return real tier from DB + fresh token if tier changed
+    result = {
+        "id": db_user["id"],
+        "email": db_user["email"],
+        "name": db_user.get("name", ""),
+        "tier": db_user["tier"],
+    }
+    if db_user["tier"] != user.get("tier"):
+        result["refreshed_token"] = _generate_token(db_user["id"], db_user["email"], db_user["tier"])
+    return result
 
 @app.get("/api/auth/tiers")
 def api_auth_tiers():

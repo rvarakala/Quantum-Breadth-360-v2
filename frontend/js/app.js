@@ -21,6 +21,10 @@ const _FREE_TABS = ['overview', 'breadth', 'sectors'];
       return;
     }
     _currentUser = data;
+    // Auto-refresh token if tier changed in DB
+    if (data.refreshed_token) {
+      localStorage.setItem('qb360_token', data.refreshed_token);
+    }
     _applyTierRestrictions(data.tier);
     // Show user info in sidebar
     const userEl = document.getElementById('sidebar-user-info');
