@@ -848,9 +848,9 @@ async def get_rs_rankings(
                 data = _rs_cache[cache_key]["data"]
                 stocks = data.get("stocks", [])
                 if min_rs > 0:
-                    stocks = [s for s in stocks if s.get("rs_rating", 0) >= min_rs]
+                    stocks = [s for s in stocks if (s.get("rs_rating") or 0) >= min_rs]
                 if min_mcap > 0:
-                    stocks = [s for s in stocks if s.get("mcap_cr", 0) >= min_mcap]
+                    stocks = [s for s in stocks if (s.get("mcap_cr") or 0) >= min_mcap]
                 return {**data, "stocks": stocks, "filtered": len(stocks), "cached": True}
 
         loop = asyncio.get_event_loop()
@@ -863,9 +863,9 @@ async def get_rs_rankings(
 
         stocks = result.get("stocks", [])
         if min_rs > 0:
-            stocks = [s for s in stocks if s.get("rs_rating", 0) >= min_rs]
+            stocks = [s for s in stocks if (s.get("rs_rating") or 0) >= min_rs]
         if min_mcap > 0:
-            stocks = [s for s in stocks if s.get("mcap_cr", 0) >= min_mcap]
+            stocks = [s for s in stocks if (s.get("mcap_cr") or 0) >= min_mcap]
 
         return {**result, "stocks": stocks, "filtered": len(stocks)}
     except Exception as e:
