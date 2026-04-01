@@ -518,31 +518,47 @@ async function runQuickScan(scanId){
   stat.textContent='';
   body.innerHTML='<div class="scn-mover-empty">⏳ Running scan... (may take 15-30s on first load)</div>';
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+
   let results=[]; const t0=Date.now();
-  if(def.backend){
-    try{
+  try {
+    if(def.backend){
       const p=new URLSearchParams({market:currentMarket,screeners:def.backend});
+      console.log('Scanner: fetching', `${API}/api/screener/multi?${p}`);
       const res=await fetch(`${API}/api/screener/multi?${p}`);
       if(!res.ok) throw new Error('HTTP '+res.status);
       const d=await res.json();
+      console.log('Scanner response:', d.total, 'stocks,', d.elapsed, 's');
       if(d.error) throw new Error(d.error);
       results=d.stocks||[];
-    }catch(e){body.innerHTML=`<div class="scn-mover-empty" style="color:var(--red)">⚠ ${e.message}</div>`;return;}
-  } else {
-    const stocks=await loadScannerData();
-    if(!stocks.length){
-      body.innerHTML=`<div class="scn-mover-empty" style="color:var(--amber)">⏳ RS data loading...
-        <br><span style="color:var(--text3);font-size:10px">RS rankings compute on startup (~30s). Wait and try again.</span>
-        <br><button onclick="runQuickScan('${scanId}')" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--cyan);font-size:11px;cursor:pointer;font-family:var(--font-mono)">🔄 Retry Now</button>
-      </div>`;
-      return;
+    } else {
+      const stocks=await loadScannerData();
+      console.log('Scanner: RS data loaded,', stocks.length, 'stocks');
+      if(!stocks.length){
+        body.innerHTML=`<div class="scn-mover-empty" style="color:var(--amber)">⏳ RS data loading...
+          <br><span style="color:var(--text3);font-size:10px">RS rankings compute on startup (~30s). Wait and try again.</span>
+          <br><button onclick="runQuickScan('${scanId}')" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--cyan);font-size:11px;cursor:pointer;font-family:var(--font-mono)">🔄 Retry Now</button>
+        </div>`;
+        return;
+      }
+      results=stocks.filter(def.filter).sort((a,b)=>(b.rs_rating||0)-(a.rs_rating||0));
     }
-    results=stocks.filter(def.filter).sort((a,b)=>(b.rs_rating||0)-(a.rs_rating||0));
+  } catch(e) {
+    console.error('Scanner error:', e);
+    body.innerHTML=`<div class="scn-mover-empty" style="color:var(--red)">⚠ ${e.message}
+      <br><button onclick="runQuickScan('${scanId}')" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--cyan);font-size:11px;cursor:pointer;font-family:var(--font-mono)">🔄 Retry</button>
+    </div>`;
+    return;
   }
+
   const elapsed=((Date.now()-t0)/1000).toFixed(1);
   stat.textContent=`${results.length} stocks · ${elapsed}s`;
   badge.textContent=results.length+' matches'; badge.style.display='inline-block';
-  if(!results.length){body.innerHTML='<div class="scn-mover-empty">🔍 No stocks matched</div>';return;}
+  if(!results.length){
+    body.innerHTML=`<div class="scn-mover-empty">🔍 No stocks matched this scan.
+      <br><span style="color:var(--text3);font-size:10px">Try a less strict scan or wait for fresh data.</span>
+    </div>`;
+    return;
+  }
   const gc=v=>v>=0?'var(--green)':'var(--red)';
   const f=(v,d=1)=>v==null?'—':Number(v).toFixed(d);
   body.innerHTML=`<table class="scn-results-tbl"><thead><tr>
