@@ -531,7 +531,10 @@ async function runQuickScan(scanId){
   } else {
     const stocks=await loadScannerData();
     if(!stocks.length){
-      body.innerHTML='<div class="scn-mover-empty" style="color:var(--amber)">⏳ RS data loading...<br><span style="color:var(--text3);font-size:10px">RS rankings compute on startup (takes 15-30s).<br>Wait a moment and click again.</span></div>';
+      body.innerHTML=`<div class="scn-mover-empty" style="color:var(--amber)">⏳ RS data loading...
+        <br><span style="color:var(--text3);font-size:10px">RS rankings compute on startup (~30s). Wait and try again.</span>
+        <br><button onclick="runQuickScan('${scanId}')" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--cyan);font-size:11px;cursor:pointer;font-family:var(--font-mono)">🔄 Retry Now</button>
+      </div>`;
       return;
     }
     results=stocks.filter(def.filter).sort((a,b)=>(b.rs_rating||0)-(a.rs_rating||0));
