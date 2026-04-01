@@ -3,149 +3,407 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QB360 Admin</title>
+<title>QB360 Admin — User Management</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0e17;--bg2:#111827;--card:#141b2d;--border:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
-  --cyan:#06b6d4;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);padding:20px;max-width:1200px;margin:0 auto}
-h1{font-family:var(--mono);font-size:24px;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:12px}
-h1 a{color:var(--text3);font-size:13px;text-decoration:none;font-weight:400}
-h1 a:hover{color:var(--cyan)}
+:root{
+  --bg:#0a0e17;--bg2:#111827;--bg3:#1a2035;
+  --card:#141b2d;--border:#1e293b;--border2:#334155;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --cyan:#06b6d4;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--purple:#a78bfa;--pink:#f472b6;
+  --mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif;
+  --radius:12px;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
 
-/* Stats */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
-.stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
-.stat-num{font-family:var(--mono);font-size:28px;font-weight:800}
-.stat-label{font-size:10px;color:var(--text3);font-family:var(--mono);letter-spacing:.08em;margin-top:4px}
+/* ── TOP NAV ── */
+.admin-nav{
+  display:flex;align-items:center;padding:14px 28px;
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
+}
+.admin-logo{font-family:var(--mono);font-size:16px;font-weight:800;letter-spacing:.04em}
+.admin-logo span{color:var(--cyan)}
+.admin-nav-tabs{display:flex;gap:4px;margin-left:40px}
+.admin-tab{padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;
+  font-family:var(--mono);border:none;background:transparent;color:var(--text3);transition:all .2s}
+.admin-tab.active{background:var(--cyan);color:#0a0e17}
+.admin-tab:hover:not(.active){color:var(--text);background:var(--bg3)}
+.admin-nav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.admin-nav-right a{color:var(--text3);text-decoration:none;font-size:12px;font-family:var(--mono)}
+.admin-nav-right a:hover{color:var(--cyan)}
+.admin-avatar{width:32px;height:32px;border-radius:50%;background:var(--purple);display:flex;
+  align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;cursor:pointer}
 
-/* Add user form */
-.add-form{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:24px;
-  display:flex;gap:10px;flex-wrap:wrap;align-items:end}
-.add-form .field{display:flex;flex-direction:column;gap:4px}
-.add-form label{font-size:9px;font-weight:700;color:var(--text3);font-family:var(--mono);letter-spacing:.08em}
-.add-form input,.add-form select{padding:8px 12px;border-radius:6px;border:1px solid var(--border);
-  background:var(--bg);color:var(--text);font-size:12px;font-family:var(--mono);outline:none}
-.add-form input:focus,.add-form select:focus{border-color:var(--cyan)}
-.add-form button{padding:8px 20px;border-radius:6px;border:none;background:var(--cyan);color:#0a0e17;
-  font-size:12px;font-weight:700;cursor:pointer;font-family:var(--mono)}
+/* ── LAYOUT ── */
+.admin-body{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:calc(100vh - 57px)}
+@media(max-width:900px){.admin-body{grid-template-columns:1fr}}
+
+/* ── LEFT SIDEBAR — STAT CARDS ── */
+.admin-sidebar{padding:20px;display:flex;flex-direction:column;gap:12px;border-right:1px solid var(--border)}
+@media(max-width:900px){.admin-sidebar{flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--border)}}
+
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;display:flex;align-items:center;gap:14px;transition:border-color .2s;
+}
+.stat-card:hover{border-color:var(--border2)}
+@media(max-width:900px){.stat-card{flex:1;min-width:160px}}
+
+.stat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.stat-icon.total{background:rgba(6,182,212,.1)}
+.stat-icon.active{background:rgba(34,197,94,.1)}
+.stat-icon.held{background:rgba(245,158,11,.1)}
+.stat-icon.pro{background:rgba(167,139,250,.1)}
+.stat-icon.revenue{background:rgba(244,114,182,.1)}
+.stat-icon.new{background:rgba(96,165,250,.1)}
+
+.stat-num{font-family:var(--mono);font-size:28px;font-weight:800;line-height:1}
+.stat-label{font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.06em;margin-top:2px}
+
+/* ── MAIN CONTENT ── */
+.admin-main{padding:20px;overflow-y:auto}
+
+/* Recent Subscriptions card */
+.panel-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:0;margin-bottom:20px;overflow:hidden;
+}
+.panel-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1px solid var(--border);
+}
+.panel-title{font-family:var(--mono);font-size:14px;font-weight:800;letter-spacing:.04em}
+.panel-filter-tabs{display:flex;gap:4px}
+.panel-filter{padding:4px 12px;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;
+  font-family:var(--mono);border:none;background:transparent;color:var(--text3);letter-spacing:.06em}
+.panel-filter.active{color:var(--text);background:var(--bg3)}
+.panel-filter:hover:not(.active){color:var(--text2)}
 
 /* Users table */
-.tbl-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)}
-th{text-align:left;padding:10px 12px;font-size:9px;letter-spacing:.1em;color:var(--text3);
-  border-bottom:1px solid var(--border);font-weight:700}
-td{padding:10px 12px;border-bottom:1px solid var(--border)}
-tr:hover td{background:rgba(6,182,212,.04)}
-.badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.05em}
-.badge.explorer{background:rgba(100,116,139,.15);color:var(--text2)}
+.users-table{width:100%;border-collapse:collapse;font-size:12px}
+.users-table th{text-align:left;padding:10px 16px;font-size:9px;letter-spacing:.1em;color:var(--text3);
+  font-family:var(--mono);font-weight:700;background:var(--bg2);border-bottom:1px solid var(--border)}
+.users-table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+.users-table tr:hover td{background:rgba(6,182,212,.03)}
+
+.user-cell{display:flex;align-items:center;gap:10px}
+.user-avatar{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.user-avatar.a{background:#06b6d4}.user-avatar.b{background:#22c55e}
+.user-avatar.c{background:#a78bfa}.user-avatar.d{background:#f59e0b}
+.user-avatar.e{background:#f472b6}.user-avatar.f{background:#60a5fa}
+.user-name{font-weight:600;font-size:13px}
+.user-email{font-size:10px;color:var(--text3);font-family:var(--mono)}
+
+.badge{padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:.05em;font-family:var(--mono)}
+.badge.explorer{background:rgba(100,116,139,.12);color:var(--text2)}
 .badge.pro{background:rgba(6,182,212,.12);color:var(--cyan)}
-.badge.admin{background:rgba(168,85,247,.12);color:#a78bfa}
-.badge.active{background:rgba(34,197,94,.12);color:var(--green)}
-.badge.held{background:rgba(245,158,11,.12);color:var(--amber)}
-.badge.banned{background:rgba(239,68,68,.12);color:var(--red)}
-.act-btn{padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;
-  color:var(--text2);font-size:10px;cursor:pointer;font-family:var(--mono);margin-right:4px}
-.act-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.act-btn.danger:hover{border-color:var(--red);color:var(--red)}
-#msg{font-size:11px;color:var(--green);font-family:var(--mono);margin:8px 0;min-height:16px}
+.badge.admin{background:rgba(167,139,250,.12);color:var(--purple)}
+.badge.active{background:rgba(34,197,94,.1);color:var(--green)}
+.badge.held{background:rgba(245,158,11,.1);color:var(--amber)}
+.badge.banned{background:rgba(239,68,68,.1);color:var(--red)}
+
+.act-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;
+  color:var(--text2);font-size:10px;cursor:pointer;font-family:var(--mono);margin-right:4px;transition:all .2s}
+.act-btn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(6,182,212,.05)}
+.act-btn.danger:hover{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.05)}
+.act-btn.upgrade:hover{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,.05)}
+
+/* Add user form row */
+.add-row{
+  display:flex;gap:8px;padding:12px 16px;background:var(--bg2);border-top:1px solid var(--border);
+  align-items:center;flex-wrap:wrap;
+}
+.add-row input,.add-row select{
+  padding:7px 12px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:11px;font-family:var(--mono);outline:none;
+  flex:1;min-width:120px;
+}
+.add-row input:focus,.add-row select:focus{border-color:var(--cyan)}
+.add-row button{
+  padding:7px 18px;border-radius:6px;border:none;background:var(--cyan);color:#0a0e17;
+  font-size:11px;font-weight:700;cursor:pointer;font-family:var(--mono);white-space:nowrap;
+}
+.add-row button:hover{background:#22d3ee}
+
+#msg{font-size:11px;color:var(--green);font-family:var(--mono);padding:0 20px;min-height:20px;line-height:20px}
+
+/* ── BOTTOM ROW — Analysis Cards ── */
+.bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.bottom-row{grid-template-columns:1fr}}
+.chart-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;
+}
+.chart-card-title{font-family:var(--mono);font-size:13px;font-weight:800;margin-bottom:16px;
+  display:flex;align-items:center;justify-content:space-between}
+
+/* Donut chart */
+.donut-wrap{position:relative;width:160px;height:160px;margin:0 auto}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-center-num{font-family:var(--mono);font-size:24px;font-weight:800}
+.donut-center-label{font-size:10px;color:var(--text3);font-family:var(--mono)}
+.donut-legend{display:flex;gap:16px;justify-content:center;margin-top:16px;font-size:11px;font-family:var(--mono)}
+.donut-legend span::before{content:'●';margin-right:4px}
+
+/* Responsive */
+@media(max-width:600px){
+  .admin-nav{padding:10px 16px;flex-wrap:wrap;gap:8px}
+  .admin-nav-tabs{margin-left:0}
+  .admin-body{grid-template-columns:1fr}
+  .stat-num{font-size:22px}
+}
 </style>
 </head>
 <body>
-<h1>🛡 QB360 Admin <a href="/app">← Back to App</a></h1>
-<div id="msg"></div>
 
-<!-- Stats -->
-<div class="stats" id="stats"></div>
-
-<!-- Add User -->
-<div class="add-form">
-  <div class="field"><label>NAME</label><input id="add-name" placeholder="Full name"></div>
-  <div class="field"><label>EMAIL</label><input id="add-email" placeholder="email@example.com"></div>
-  <div class="field"><label>PASSWORD</label><input id="add-pass" type="password" placeholder="Min 6 chars"></div>
-  <div class="field"><label>TIER</label>
-    <select id="add-tier"><option value="explorer">Explorer</option><option value="pro">Pro</option></select>
+<!-- NAV -->
+<nav class="admin-nav">
+  <div class="admin-logo">QB<span>360</span> Admin</div>
+  <div class="admin-nav-tabs">
+    <button class="admin-tab active">Dashboard</button>
+    <button class="admin-tab" onclick="document.getElementById('users-section').scrollIntoView({behavior:'smooth'})">Users</button>
   </div>
-  <button onclick="addUser()">+ Add User</button>
-</div>
+  <div class="admin-nav-right">
+    <a href="/app">← Back to App</a>
+    <div class="admin-avatar" title="Admin">A</div>
+  </div>
+</nav>
 
-<!-- Users Table -->
-<div class="tbl-wrap">
-<table>
-  <thead><tr><th>ID</th><th>NAME</th><th>EMAIL</th><th>TIER</th><th>STATUS</th><th>CREATED</th><th>LAST LOGIN</th><th>ACTIONS</th></tr></thead>
-  <tbody id="users-tbody"></tbody>
-</table>
+<div class="admin-body">
+  <!-- LEFT: Stat Cards -->
+  <aside class="admin-sidebar" id="sidebar-stats">
+    <div class="stat-card">
+      <div class="stat-icon total">👥</div>
+      <div><div class="stat-num" id="s-total" style="color:var(--text)">—</div><div class="stat-label">Total Users</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon active">💚</div>
+      <div><div class="stat-num" id="s-active" style="color:var(--green)">—</div><div class="stat-label">Active Users</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon held">⏸</div>
+      <div><div class="stat-num" id="s-held" style="color:var(--amber)">—</div><div class="stat-label">On Hold</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon pro">⭐</div>
+      <div><div class="stat-num" id="s-pro" style="color:var(--purple)">—</div><div class="stat-label">Pro Users</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon revenue">💰</div>
+      <div><div class="stat-num" id="s-mrr" style="color:var(--pink)">—</div><div class="stat-label">Est. MRR</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon new">🆓</div>
+      <div><div class="stat-num" id="s-free" style="color:var(--text2)">—</div><div class="stat-label">Free Users</div></div>
+    </div>
+  </aside>
+
+  <!-- RIGHT: Main Content -->
+  <div class="admin-main">
+    <div id="msg"></div>
+
+    <!-- Users Table Card -->
+    <div class="panel-card" id="users-section">
+      <div class="panel-hdr">
+        <span class="panel-title">User Management</span>
+        <div class="panel-filter-tabs">
+          <button class="panel-filter active" onclick="filterUsers('all',this)">All</button>
+          <button class="panel-filter" onclick="filterUsers('active',this)">Active</button>
+          <button class="panel-filter" onclick="filterUsers('held',this)">Held</button>
+          <button class="panel-filter" onclick="filterUsers('pro',this)">Pro</button>
+          <button class="panel-filter" onclick="filterUsers('explorer',this)">Free</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="users-table">
+          <thead><tr>
+            <th>USER</th><th>JOINED</th><th>TIER</th><th>STATUS</th><th>LAST LOGIN</th><th>ACTIONS</th>
+          </tr></thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+      <!-- Add User Row -->
+      <div class="add-row">
+        <input id="add-name" placeholder="Full Name">
+        <input id="add-email" placeholder="email@example.com">
+        <input id="add-pass" type="password" placeholder="Password (6+ chars)">
+        <select id="add-tier"><option value="explorer">Free</option><option value="pro">Pro</option></select>
+        <button onclick="addUser()">+ Add User</button>
+      </div>
+    </div>
+
+    <!-- Bottom Row: Tier Distribution + Activity -->
+    <div class="bottom-row">
+      <div class="chart-card">
+        <div class="chart-card-title">Tier Distribution</div>
+        <div class="donut-wrap"><canvas id="tier-donut" width="160" height="160"></canvas>
+          <div class="donut-center"><div class="donut-center-num" id="donut-total">—</div><div class="donut-center-label">Users</div></div>
+        </div>
+        <div class="donut-legend">
+          <span style="color:var(--purple)">Pro</span>
+          <span style="color:var(--text3)">Free</span>
+          <span style="color:var(--cyan)">Admin</span>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Quick Actions</div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:10px 0">
+          <button class="act-btn" style="padding:12px;font-size:12px;width:100%;text-align:left" onclick="window.location.href='/app'">
+            📊 Open Dashboard
+          </button>
+          <button class="act-btn" style="padding:12px;font-size:12px;width:100%;text-align:left" onclick="exportCSV()">
+            📥 Export Users CSV
+          </button>
+          <button class="act-btn danger" style="padding:12px;font-size:12px;width:100%;text-align:left" onclick="if(confirm('Purge all held users?')) purgeHeld()">
+            🗑 Purge Held Users
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 const TOKEN = localStorage.getItem('qb360_token');
 if (!TOKEN) window.location.href = '/';
-
-const H = {'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json'};
+const H = {'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'};
+let _allUsers = [];
+let _currentFilter = 'all';
 
 async function loadData() {
-  const [statsRes, usersRes] = await Promise.all([
-    fetch('/api/admin/stats', {headers: H}),
-    fetch('/api/admin/users', {headers: H})
+  const [sr, ur] = await Promise.all([
+    fetch('/api/admin/stats',{headers:H}), fetch('/api/admin/users',{headers:H})
   ]);
-  const stats = await statsRes.json();
-  const users = await usersRes.json();
-  if (stats.error || users.error) { window.location.href = '/'; return; }
+  const stats = await sr.json();
+  const users = await ur.json();
+  if (stats.error || users.error) { window.location.href='/'; return; }
 
-  document.getElementById('stats').innerHTML = `
-    <div class="stat"><div class="stat-num" style="color:var(--text)">${stats.total}</div><div class="stat-label">TOTAL USERS</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--green)">${stats.active}</div><div class="stat-label">ACTIVE</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--amber)">${stats.held}</div><div class="stat-label">ON HOLD</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--text2)">${stats.explorers}</div><div class="stat-label">EXPLORERS</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--cyan)">${stats.pros}</div><div class="stat-label">PRO USERS</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--green)">₹${stats.mrr_estimate}</div><div class="stat-label">EST. MRR</div></div>
-  `;
+  document.getElementById('s-total').textContent = stats.total;
+  document.getElementById('s-active').textContent = stats.active;
+  document.getElementById('s-held').textContent = stats.held;
+  document.getElementById('s-pro').textContent = stats.pros;
+  document.getElementById('s-mrr').textContent = '₹'+stats.mrr_estimate;
+  document.getElementById('s-free').textContent = stats.explorers;
 
-  document.getElementById('users-tbody').innerHTML = users.map(u => `<tr>
-    <td>${u.id}</td>
-    <td>${u.name}</td>
-    <td>${u.email}</td>
-    <td><span class="badge ${u.tier}">${u.tier.toUpperCase()}</span></td>
-    <td><span class="badge ${u.status}">${u.status.toUpperCase()}</span></td>
-    <td>${u.created_at ? u.created_at.slice(0,10) : '—'}</td>
-    <td>${u.last_login ? u.last_login.slice(0,10) : '—'}</td>
-    <td>${u.tier !== 'admin' ? `
-      <button class="act-btn" onclick="setTier(${u.id},'${u.tier==='pro'?'explorer':'pro'}')">${u.tier==='pro'?'↓ Explorer':'↑ Pro'}</button>
-      <button class="act-btn" onclick="setStatus(${u.id},'${u.status==='active'?'held':'active'}')">${u.status==='active'?'⏸ Hold':'▶ Activate'}</button>
-      <button class="act-btn danger" onclick="deleteUser(${u.id},'${u.email}')">✗ Delete</button>
-    ` : '<span style="color:var(--text3);font-size:10px">Master Admin</span>'}</td>
-  </tr>`).join('');
+  _allUsers = users;
+  renderUsers(users);
+  drawDonut(stats);
+}
+
+function renderUsers(users) {
+  const avatarColors = ['a','b','c','d','e','f'];
+  document.getElementById('users-tbody').innerHTML = users.map((u,i) => {
+    const ac = avatarColors[i % avatarColors.length];
+    const initial = (u.name||u.email||'?')[0].toUpperCase();
+    const joined = u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const login = u.last_login ? new Date(u.last_login).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    return `<tr>
+      <td><div class="user-cell">
+        <div class="user-avatar ${ac}">${initial}</div>
+        <div><div class="user-name">${u.name||'—'}</div><div class="user-email">${u.email}</div></div>
+      </div></td>
+      <td style="font-family:var(--mono);font-size:11px">${joined}</td>
+      <td><span class="badge ${u.tier}">${u.tier.toUpperCase()}</span></td>
+      <td><span class="badge ${u.status}">${u.status.toUpperCase()}</span></td>
+      <td style="font-family:var(--mono);font-size:11px">${login}</td>
+      <td>${u.tier!=='admin'?`
+        <button class="act-btn upgrade" onclick="setTier(${u.id},'${u.tier==='pro'?'explorer':'pro'}')" title="${u.tier==='pro'?'Downgrade':'Upgrade'}">${u.tier==='pro'?'↓ Free':'↑ Pro'}</button>
+        <button class="act-btn" onclick="setStatus(${u.id},'${u.status==='active'?'held':'active'}')">${u.status==='active'?'⏸':'▶'}</button>
+        <button class="act-btn danger" onclick="deleteUser(${u.id},'${u.email}')">✗</button>
+      `:'<span style="color:var(--purple);font-size:10px;font-family:var(--mono)">MASTER</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterUsers(filter, btn) {
+  _currentFilter = filter;
+  document.querySelectorAll('.panel-filter').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  let filtered = _allUsers;
+  if (filter==='active') filtered = _allUsers.filter(u=>u.status==='active');
+  else if (filter==='held') filtered = _allUsers.filter(u=>u.status==='held');
+  else if (filter==='pro') filtered = _allUsers.filter(u=>u.tier==='pro');
+  else if (filter==='explorer') filtered = _allUsers.filter(u=>u.tier==='explorer');
+  renderUsers(filtered);
+}
+
+function drawDonut(stats) {
+  const c = document.getElementById('tier-donut');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const total = stats.total || 1;
+  const slices = [
+    {val:stats.pros, color:'#a78bfa'},
+    {val:stats.explorers, color:'#64748b'},
+    {val:(stats.total-stats.pros-stats.explorers), color:'#06b6d4'},
+  ];
+  let start = -Math.PI/2;
+  ctx.clearRect(0,0,160,160);
+  slices.forEach(s=>{
+    if(s.val<=0) return;
+    const angle = (s.val/total)*Math.PI*2;
+    ctx.beginPath();
+    ctx.arc(80,80,65,start,start+angle);
+    ctx.arc(80,80,45,start+angle,start,true);
+    ctx.closePath();
+    ctx.fillStyle=s.color;
+    ctx.fill();
+    start+=angle;
+  });
+  document.getElementById('donut-total').textContent = stats.total;
 }
 
 async function addUser() {
-  const name = document.getElementById('add-name').value;
-  const email = document.getElementById('add-email').value;
-  const password = document.getElementById('add-pass').value;
-  const tier = document.getElementById('add-tier').value;
-  const res = await fetch('/api/admin/add-user', {method:'POST', headers:H, body:JSON.stringify({name,email,password,tier})});
-  const d = await res.json();
-  document.getElementById('msg').textContent = d.error || `✅ User ${email} added as ${tier}`;
-  if (!d.error) { document.getElementById('add-name').value=''; document.getElementById('add-email').value=''; document.getElementById('add-pass').value=''; }
+  const name=document.getElementById('add-name').value;
+  const email=document.getElementById('add-email').value;
+  const password=document.getElementById('add-pass').value;
+  const tier=document.getElementById('add-tier').value;
+  if(!name||!email||!password){document.getElementById('msg').textContent='⚠ Fill all fields';return}
+  const r=await fetch('/api/admin/add-user',{method:'POST',headers:H,body:JSON.stringify({name,email,password,tier})});
+  const d=await r.json();
+  document.getElementById('msg').textContent=d.error||`✅ ${email} added as ${tier}`;
+  if(!d.error){document.getElementById('add-name').value='';document.getElementById('add-email').value='';document.getElementById('add-pass').value=''}
   loadData();
 }
 
-async function setTier(id, tier) {
-  await fetch('/api/admin/update-user', {method:'POST', headers:H, body:JSON.stringify({user_id:id, tier})});
-  document.getElementById('msg').textContent = `✅ Tier updated to ${tier}`;
+async function setTier(id,tier) {
+  await fetch('/api/admin/update-user',{method:'POST',headers:H,body:JSON.stringify({user_id:id,tier})});
+  document.getElementById('msg').textContent=`✅ Tier → ${tier}`;
   loadData();
 }
 
-async function setStatus(id, status) {
-  await fetch('/api/admin/update-user', {method:'POST', headers:H, body:JSON.stringify({user_id:id, status})});
-  document.getElementById('msg').textContent = `✅ Status changed to ${status}`;
+async function setStatus(id,status) {
+  await fetch('/api/admin/update-user',{method:'POST',headers:H,body:JSON.stringify({user_id:id,status})});
+  document.getElementById('msg').textContent=`✅ Status → ${status}`;
   loadData();
 }
 
-async function deleteUser(id, email) {
-  if (!confirm(`Delete user ${email}?`)) return;
-  await fetch('/api/admin/delete-user', {method:'POST', headers:H, body:JSON.stringify({user_id:id})});
-  document.getElementById('msg').textContent = `✅ User ${email} deleted`;
+async function deleteUser(id,email) {
+  if(!confirm(`Delete ${email}?`)) return;
+  await fetch('/api/admin/delete-user',{method:'POST',headers:H,body:JSON.stringify({user_id:id})});
+  document.getElementById('msg').textContent=`✅ ${email} deleted`;
+  loadData();
+}
+
+function exportCSV() {
+  const rows = [['ID','Name','Email','Tier','Status','Created','Last Login']];
+  _allUsers.forEach(u=>rows.push([u.id,u.name,u.email,u.tier,u.status,u.created_at||'',u.last_login||'']));
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'qb360_users.csv';
+  a.click();
+}
+
+async function purgeHeld() {
+  const held = _allUsers.filter(u=>u.status==='held'&&u.tier!=='admin');
+  for(const u of held) {
+    await fetch('/api/admin/delete-user',{method:'POST',headers:H,body:JSON.stringify({user_id:u.id})});
+  }
+  document.getElementById('msg').textContent=`✅ Purged ${held.length} held users`;
   loadData();
 }
 
