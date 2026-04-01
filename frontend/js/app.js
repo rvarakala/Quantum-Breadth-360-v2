@@ -1,66 +1,62 @@
 
-// ─── AUTH ENFORCEMENT ─────────────────────────────────────────────────────
-// Check JWT on page load, lock tabs by tier, redirect if not logged in
+// ─── AUTH — determined by entry route, not enforced here ──────────────────
 let _currentUser = null;
 const _FREE_TABS = ['overview', 'breadth', 'sectors'];
 
-(async function enforceAuth() {
-  const token = localStorage.getItem('qb360_token');
-  if (!token) {
-    window.location.href = '/';
+// Check access mode from URL or localStorage
+(function initAuth() {
+  const mode = new URLSearchParams(window.location.search).get('mode') || localStorage.getItem('qb360_mode') || 'user';
+  if (mode === 'admin' || mode === 'dev') {
+    // Full access — no restrictions
+    _currentUser = { tier: 'admin', email: mode + '@quantumtrade.pro', name: mode.toUpperCase() };
+    localStorage.setItem('qb360_mode', mode);
+    const userEl = document.getElementById('sidebar-user-info');
+    if (userEl) userEl.innerHTML = `<span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">${mode.toUpperCase()} MODE · <b style="color:var(--amber)">FULL ACCESS</b></span>`;
+    const adminLink = document.getElementById('sidebar-admin-link');
+    if (adminLink) adminLink.style.display = '';
     return;
   }
-  try {
-    const res = await fetch(`${API}/api/auth/me`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
-    if (data.error || !data.tier) {
-      localStorage.removeItem('qb360_token');
-      window.location.href = '/';
-      return;
-    }
-    _currentUser = data;
-    // Auto-refresh token if tier changed in DB
-    if (data.refreshed_token) {
-      localStorage.setItem('qb360_token', data.refreshed_token);
-    }
-    _applyTierRestrictions(data.tier);
-    // Show user info in sidebar
-    const userEl = document.getElementById('sidebar-user-info');
-    if (userEl) userEl.innerHTML = `<span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">${data.email} · <b style="color:var(--cyan)">${data.tier.toUpperCase()}</b></span>`;
-    // Show admin link if admin
-    if (data.tier === 'admin') {
-      const adminLink = document.getElementById('sidebar-admin-link');
-      if (adminLink) adminLink.style.display = '';
-    }
-  } catch (e) {
-    // API unreachable — allow access (local dev)
-    console.warn('Auth check failed:', e);
-  }
+  // User mode — check token and apply tier restrictions
+  const token = localStorage.getItem('qb360_token');
+  if (!token) { window.location.href = '/'; return; }
+  fetch(`${API}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error || !data.tier) { localStorage.removeItem('qb360_token'); window.location.href = '/'; return; }
+      _currentUser = data;
+      if (data.refreshed_token) localStorage.setItem('qb360_token', data.refreshed_token);
+      if (data.tier === 'admin' || data.tier === 'pro') return; // Full access
+      _applyTierRestrictions(data.tier);
+      const userEl = document.getElementById('sidebar-user-info');
+      if (userEl) userEl.innerHTML = `<span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">${data.email} · <b style="color:var(--cyan)">${data.tier.toUpperCase()}</b></span>`;
+    })
+    .catch(e => console.warn('Auth check failed:', e));
 })();
 
 function _applyTierRestrictions(tier) {
-  if (tier === 'admin') return; // Admin sees everything
+  if (tier === 'admin' || tier === 'pro') return;
   document.querySelectorAll('.sidebar .nav-item[data-tab]').forEach(btn => {
     const tab = btn.dataset.tab;
     if (!tab) return;
-    const allowed = tier === 'pro' || _FREE_TABS.includes(tab);
-    if (!allowed) {
+    if (!_FREE_TABS.includes(tab)) {
       btn.classList.add('locked-tab');
       btn.setAttribute('title', 'Pro plan required');
-      // Add lock icon
       const label = btn.querySelector('.nav-label');
-      if (label && !label.textContent.includes('🔒')) {
-        label.textContent = label.textContent + ' 🔒';
-      }
+      if (label && !label.textContent.includes('🔒')) label.textContent += ' 🔒';
     }
   });
 }
 
 function logout() {
   localStorage.removeItem('qb360_token');
+  localStorage.removeItem('qb360_mode');
   window.location.href = '/';
+}
+
+// ─── UPGRADE MODAL ───────────────────────────────────────────────────────
+function _showUpgradeModal() {
+  const m = document.getElementById('upgrade-modal');
+  if (m) m.style.display = 'flex';
 }
 
 // ─── CLEAR CACHE ───────────────────────────────────────────────────────────
@@ -148,8 +144,9 @@ function toggleSidebarCollapse() {
 })();
 
 function switchTab(tab) {
-  // Tier gate: block free users from Pro-only tabs
-  if (_currentUser && _currentUser.tier === 'explorer' && !_FREE_TABS.includes(tab)) {
+  // Tier gate: block free users from Pro-only tabs (skip for admin/dev/pro)
+  const mode = localStorage.getItem('qb360_mode');
+  if (!mode && _currentUser && _currentUser.tier === 'explorer' && !_FREE_TABS.includes(tab)) {
     _showUpgradeModal();
     return;
   }
@@ -486,10 +483,4 @@ async function startFundamentalsSync() {
       }
     } catch(e) {}
   }, 3000);
-}
-
-// ─── UPGRADE MODAL ───────────────────────────────────────────────────────
-function _showUpgradeModal() {
-  const m = document.getElementById('upgrade-modal');
-  if (m) m.style.display = 'flex';
 }

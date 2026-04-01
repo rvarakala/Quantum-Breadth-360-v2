@@ -221,7 +221,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:h
 
 <!-- FOOTER -->
 <footer class="footer">
-  © 2026 QuantumTrade Pro — Powered by Q-BRAM Engine
+  <div>© 2026 QuantumTrade Pro — Powered by Q-BRAM Engine</div>
+  <div style="margin-top:12px;display:flex;gap:16px;justify-content:center">
+    <a href="/app?mode=admin" style="color:var(--amber);text-decoration:none;font-size:11px" onclick="localStorage.setItem('qb360_mode','admin')">🔑 Admin Access</a>
+    <a href="/app?mode=dev" style="color:var(--purple);text-decoration:none;font-size:11px" onclick="localStorage.setItem('qb360_mode','dev')">🛠 Developer Access</a>
+  </div>
 </footer>
 
 <!-- AUTH MODAL -->

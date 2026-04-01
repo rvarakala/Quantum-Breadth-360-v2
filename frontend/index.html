@@ -1774,16 +1774,17 @@
   </div>
 
 <script>
-// ── Auth guard — redirect to landing if not logged in ──
-// Tab locking is handled by app.js enforceAuth() — do NOT duplicate here
+// ── Auth guard — admin/dev mode bypass, users need token ──
 (function() {
+  const mode = new URLSearchParams(window.location.search).get('mode') || localStorage.getItem('qb360_mode');
+  if (mode === 'admin' || mode === 'dev') return; // Full access
   const token = localStorage.getItem('qb360_token');
   if (!token) { window.location.href = '/'; return; }
 })();
 
 function qb360Logout() {
   localStorage.removeItem('qb360_token');
-  localStorage.removeItem('qb360_user');
+  localStorage.removeItem('qb360_mode');
   window.location.href = '/';
 }
 </script>
