@@ -17,7 +17,7 @@ import jwt
 logger = logging.getLogger(__name__)
 DB_PATH = Path(__file__).parent / "breadth_data.db"
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "qbram-360-secret-" + secrets.token_hex(8))
+JWT_SECRET = os.environ.get("JWT_SECRET", "qbram-360-quantum-breadth-stable-secret-2026")
 JWT_ALGO = "HS256"
 JWT_EXPIRY_HOURS = 72  # 3 days
 
