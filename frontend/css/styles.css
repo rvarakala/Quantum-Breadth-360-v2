@@ -3958,3 +3958,8 @@ select option:checked {
 .locked-tab { opacity: 0.4; position: relative; }
 .locked-tab:hover { opacity: 0.6; }
 .locked-tab .nav-label { color: var(--text3) !important; }
+
+/* Scanner progress bar for long-running scans */
+.scn-progress-bar{width:200px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0;overflow:hidden}
+.scn-progress-fill{height:100%;width:30%;background:var(--cyan);border-radius:2px;animation:scn-prog 2s ease-in-out infinite}
+@keyframes scn-prog{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}

@@ -503,8 +503,11 @@ async function loadTopMovers(){
   }
 }
 
+let _scanRunning = false;
 async function runQuickScan(scanId){
-  const def=QUICK_SCANS[scanId]; if(!def) return;
+  if(_scanRunning) return; // Prevent duplicate clicks
+  _scanRunning = true;
+  const def=QUICK_SCANS[scanId]; if(!def) { _scanRunning=false; return; }
   document.querySelectorAll('.scn-sidebar-item').forEach(el=>el.classList.remove('active'));
   const sEl=document.getElementById('qs-'+scanId); if(sEl) sEl.classList.add('active');
   const panel=document.getElementById('scn-qr-panel');
@@ -524,7 +527,11 @@ async function runQuickScan(scanId){
     if(def.backend){
       const p=new URLSearchParams({market:currentMarket,screeners:def.backend});
       console.log('Scanner: fetching', `${API}/api/screener/multi?${p}`);
-      const res=await fetch(`${API}/api/screener/multi?${p}`);
+      body.innerHTML='<div class="scn-mover-empty">⏳ Running <b>'+def.label+'</b>...<br><span style="color:var(--text3);font-size:10px">Backend scans analyze 2500+ stocks with OHLCV data.<br>First run takes 30-60s. Please wait...</span><div class="scn-progress-bar"><div class="scn-progress-fill"></div></div></div>';
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120000); // 2 min timeout
+      const res=await fetch(`${API}/api/screener/multi?${p}`, {signal: controller.signal});
+      clearTimeout(timeout);
       if(!res.ok) throw new Error('HTTP '+res.status);
       const d=await res.json();
       console.log('Scanner response:', d.total, 'stocks,', d.elapsed, 's');
@@ -544,9 +551,10 @@ async function runQuickScan(scanId){
     }
   } catch(e) {
     console.error('Scanner error:', e);
-    body.innerHTML=`<div class="scn-mover-empty" style="color:var(--red)">⚠ ${e.message}
-      <br><button onclick="runQuickScan('${scanId}')" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--cyan);font-size:11px;cursor:pointer;font-family:var(--font-mono)">🔄 Retry</button>
+    body.innerHTML=`<div class="scn-mover-empty" style="color:var(--red)">⚠ ${e.name === 'AbortError' ? 'Scan timed out (>2 min). Server may be busy.' : e.message}
+      <br><button onclick="_scanRunning=false;runQuickScan('${scanId}')" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--cyan);font-size:11px;cursor:pointer;font-family:var(--font-mono)">🔄 Retry</button>
     </div>`;
+    _scanRunning=false;
     return;
   }
 
@@ -557,6 +565,7 @@ async function runQuickScan(scanId){
     body.innerHTML=`<div class="scn-mover-empty">🔍 No stocks matched this scan.
       <br><span style="color:var(--text3);font-size:10px">Try a less strict scan or wait for fresh data.</span>
     </div>`;
+    _scanRunning=false;
     return;
   }
   const gc=v=>v>=0?'var(--green)':'var(--red)';
@@ -584,6 +593,7 @@ async function runQuickScan(scanId){
       <td class="scn-results-td">${s.sector?`<span class="sec-tag" style="background:${sb};color:${sf}">${s.sector}</span>`:'—'}</td>
     </tr>`;
   }).join('')}</tbody></table>${results.length>50?`<div style="padding:8px 14px;font-size:10px;color:var(--text3)">Showing top 50 of ${results.length}</div>`:''}`;
+  _scanRunning=false;
 }
 
 function closeQuickResults(){
