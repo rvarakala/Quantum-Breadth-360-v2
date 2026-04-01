@@ -1775,36 +1775,11 @@
 
 <script>
 // ── Auth guard — redirect to landing if not logged in ──
+// Tab locking is handled by app.js enforceAuth() — do NOT duplicate here
 (function() {
   const token = localStorage.getItem('qb360_token');
   if (!token) { window.location.href = '/'; return; }
-  fetch('/api/auth/me', { headers: {'Authorization': 'Bearer ' + token} })
-    .then(r => r.json())
-    .then(d => {
-      if (d.error || !d.id) { localStorage.removeItem('qb360_token'); window.location.href = '/'; return; }
-      window._qb360User = d;
-      _enforceTierAccess(d.tier);
-    })
-    .catch(() => { localStorage.removeItem('qb360_token'); window.location.href = '/'; });
 })();
-
-function _enforceTierAccess(tier) {
-  // Fetch allowed tabs for this tier
-  fetch('/api/auth/tiers').then(r=>r.json()).then(tiers => {
-    const t = tiers[tier] || tiers['explorer'];
-    if (!t || t.tabs === '__all__') return; // admin = all access
-    const allowed = t.tabs;
-    // Hide nav buttons for locked tabs
-    document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
-      const tab = btn.getAttribute('data-tab');
-      if (tab && !allowed.includes(tab)) {
-        btn.style.opacity = '0.3';
-        btn.style.pointerEvents = 'none';
-        btn.title = 'Upgrade to Pro to access this feature';
-      }
-    });
-  });
-}
 
 function qb360Logout() {
   localStorage.removeItem('qb360_token');
