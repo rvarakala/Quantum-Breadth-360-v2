@@ -308,12 +308,21 @@ async function doRegister() {
   } catch (e) { errEl.textContent = 'Network error'; errEl.style.display = ''; }
 }
 
-// Auto-redirect if already logged in
-const token = localStorage.getItem('qb360_token');
-if (token) {
-  fetch(`${API}/api/auth/me`, { headers: {'Authorization': 'Bearer ' + token} })
-    .then(r => r.json())
-    .then(d => { if (d.id) window.location.href = '/app'; });
+// Auto-redirect if already logged in or in admin/dev mode
+const mode = localStorage.getItem('qb360_mode');
+if (mode === 'admin' || mode === 'dev') {
+  window.location.href = '/app?mode=' + mode;
+} else {
+  const token = localStorage.getItem('qb360_token');
+  if (token) {
+    fetch(`${API}/api/auth/me`, { headers: {'Authorization': 'Bearer ' + token} })
+      .then(r => r.json())
+      .then(d => {
+        if (d.id || d.tier) window.location.href = '/app';
+        else { localStorage.removeItem('qb360_token'); } // Clear stale token
+      })
+      .catch(() => { localStorage.removeItem('qb360_token'); }); // Clear on network error
+  }
 }
 
 // Enter key support
