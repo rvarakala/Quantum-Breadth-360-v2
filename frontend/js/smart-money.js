@@ -2,7 +2,7 @@
 // SMART MONEY TRACKER — IV / PPV / Bull Snort Signal Intelligence
 // ════════════════════════════════════════════════════════════════════════════
 
-let _smData = null;
+let _smMoneyData = null;
 let _smNotes = {};
 let _smClusterMode = false;
 
@@ -20,11 +20,11 @@ async function loadSmartMoney() {
       fetch(`${API}/api/smart-money/notes`)
     ]);
     clearTimeout(timeout);
-    _smData = await smRes.json();
+    _smMoneyData = await smRes.json();
     _smNotes = await notesRes.json();
-    console.log('Smart Money: got', _smData.tickers?.length || 0, 'tickers,', _smData.total_signals || 0, 'signals', _smData.error || '');
+    console.log('Smart Money: got', _smMoneyData.tickers?.length || 0, 'tickers,', _smMoneyData.total_signals || 0, 'signals', _smMoneyData.error || '');
 
-    if (_smData.error) throw new Error(_smData.error);
+    if (_smMoneyData.error) throw new Error(_smMoneyData.error);
 
     _renderSmartMoneyStats();
     _renderSmartMoneyTable();
@@ -34,7 +34,7 @@ async function loadSmartMoney() {
 }
 
 function _renderSmartMoneyStats() {
-  const d = _smData;
+  const d = _smMoneyData;
   if (!d) return;
   const el = document.getElementById('sm-stats');
   const ivTotal = d.tickers.reduce((a, t) => a + t.iv_count, 0);
@@ -120,13 +120,13 @@ function _renderSmartMoneyTable() {
     </table>
     </div>
     <div style="padding:8px 12px;font-size:10px;color:var(--text3);font-family:var(--font-mono)">
-      ${tickers.length} tickers · ${_smData.total_signals} total signals · ${_smData.dates_covered?.length || 0} trading days
+      ${tickers.length} tickers · ${_smMoneyData.total_signals} total signals · ${_smMoneyData.dates_covered?.length || 0} trading days
     </div>`;
 }
 
 function _getFilteredTickers() {
-  if (!_smData?.tickers) return [];
-  let tickers = [..._smData.tickers];
+  if (!_smMoneyData?.tickers) return [];
+  let tickers = [..._smMoneyData.tickers];
 
   const sigFilter = document.getElementById('sm-filter-signal')?.value || 'all';
   const stageFilter = document.getElementById('sm-filter-stage')?.value || 'all';
