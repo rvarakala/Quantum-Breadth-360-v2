@@ -29,6 +29,11 @@ def _ensure_fiidii_table():
             fetched_at TEXT
         )
     """)
+    # Clean up any future dates (NSE API sometimes returns bad dates like 2026-12-31)
+    today = date.today().isoformat()
+    deleted = conn.execute("DELETE FROM fiidii WHERE date > ?", (today,)).rowcount
+    if deleted:
+        logger.info(f"🗑 Cleaned {deleted} future-dated FII/DII entries")
     conn.commit()
     conn.close()
 
@@ -74,6 +79,10 @@ def fetch_fiidii_from_nse(days_back: int = 60) -> dict:
             try:
                 dt = datetime.strptime(date_str, "%d-%b-%Y")
                 iso = dt.strftime("%Y-%m-%d")
+                # Reject future dates (NSE API sometimes returns wrong dates)
+                if dt.date() > date.today():
+                    logger.warning(f"FII/DII: rejecting future date {iso} from NSE")
+                    continue
             except:
                 continue
 
@@ -176,10 +185,20 @@ def import_fiidii_csv(file_content: str) -> dict:
 
             fb = _v(fii_buy_col)
             fs = _v(fii_sell_col)
-            fn = _v(fii_net_col) or (fb - fs)
+            fn_csv = _v(fii_net_col)
             db = _v(dii_buy_col)
             ds = _v(dii_sell_col)
-            dn = _v(dii_net_col) or (db - ds)
+            dn_csv = _v(dii_net_col)
+
+            # Always compute Net from Buy - Sell (CSV Net column may have wrong signs)
+            if fb > 0 and fs > 0:
+                fn = fb - fs
+            else:
+                fn = fn_csv
+            if db > 0 and ds > 0:
+                dn = db - ds
+            else:
+                dn = dn_csv
 
             if fn == 0 and dn == 0 and fb == 0 and db == 0:
                 skipped += 1
@@ -208,8 +227,9 @@ def _parse_date(s: str) -> str:
     """Parse various date formats to YYYY-MM-DD."""
     if not s:
         return None
-    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d-%b-%Y", "%d %b %Y",
-                "%d-%B-%Y", "%m/%d/%Y", "%Y/%m/%d"):
+    # Try M/D/YYYY first (US format: 1/2/2026 = Jan 2, not Feb 1)
+    for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d-%b-%Y", "%d %b %Y",
+                "%d-%B-%Y", "%Y/%m/%d"):
         try:
             return datetime.strptime(s.strip(), fmt).strftime("%Y-%m-%d")
         except:
