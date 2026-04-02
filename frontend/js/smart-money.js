@@ -45,6 +45,8 @@ async function loadSmartMoney() {
 
     if (_smMoneyData.error) throw new Error(_smMoneyData.error);
 
+    _renderFreshnessBar();
+    _populateSectorFilter();
     _renderSmartMoneyStats();
     _renderSmartMoneyTable();
   } catch (e) {
@@ -61,14 +63,6 @@ function _renderSmartMoneyStats() {
   const bsTotal = d.tickers.reduce((a, t) => a + t.bs_count, 0);
   const insiderTotal = d.tickers.reduce((a, t) => a + (t.insider_buys || 0), 0);
 
-  // Data freshness bar
-  const fr = d.data_freshness || {};
-  const freshItems = [];
-  if (fr.ohlcv) freshItems.push(_freshBadge('OHLCV', fr.ohlcv.last_date, fr.ohlcv.source));
-  if (fr.tv_fundamentals) freshItems.push(_freshBadge('F-Value', fr.tv_fundamentals.last_sync, fr.tv_fundamentals.source));
-  if (fr.insider) freshItems.push(_freshBadge('Insider', fr.insider.last_sync, fr.insider.source + ' (' + (fr.insider.total_records||0) + ' trades)'));
-  if (fr.rs_rankings) freshItems.push(_freshBadge('RS Ranks', fr.rs_rankings.last_computed, fr.rs_rankings.source));
-
   el.innerHTML = `
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--cyan)">${d.unique_tickers}</div><div class="sm-stat-label">TICKERS</div></div>
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--green)">${ivTotal}</div><div class="sm-stat-label">IV SIGNALS</div></div>
@@ -76,7 +70,6 @@ function _renderSmartMoneyStats() {
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--purple)">${bsTotal}</div><div class="sm-stat-label">BULL SNORTS</div></div>
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--pink,#f472b6)">${insiderTotal}</div><div class="sm-stat-label">INSIDER BUYS</div></div>
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--text)">${d.dates_covered?.length || 0}</div><div class="sm-stat-label">DAYS</div></div>
-    ${freshItems.length ? `<div class="sm-freshness-bar">${freshItems.join('')}</div>` : ''}
   `;
 }
 
@@ -211,11 +204,41 @@ function _renderSmartMoneyTable() {
     </div>`;
 }
 
+function _renderFreshnessBar() {
+  const fr = _smMoneyData?.data_freshness || {};
+  const el = document.getElementById('sm-freshness');
+  if (!el || !Object.keys(fr).length) return;
+  const items = [];
+  if (fr.ohlcv) items.push(_freshBadge('OHLCV', fr.ohlcv.last_date, fr.ohlcv.source));
+  if (fr.tv_fundamentals) items.push(_freshBadge('F-Value', fr.tv_fundamentals.last_sync, fr.tv_fundamentals.source));
+  if (fr.insider) items.push(_freshBadge('Insider', fr.insider.last_sync, fr.insider.source + ' (' + (fr.insider.total_records||0) + ' trades)'));
+  if (fr.rs_rankings) items.push(_freshBadge('RS Ranks', fr.rs_rankings.last_computed, fr.rs_rankings.source));
+  if (fr.fiidii) items.push(_freshBadge('FII/DII', fr.fiidii.last_date, fr.fiidii.source));
+  el.innerHTML = items.join('');
+  el.style.display = items.length ? 'flex' : 'none';
+}
+
+function _populateSectorFilter() {
+  const sel = document.getElementById('sm-filter-sector');
+  if (!sel || !_smMoneyData?.tickers) return;
+  const sectors = [...new Set(_smMoneyData.tickers.map(t => t.sector).filter(Boolean))].sort();
+  const current = sel.value;
+  sel.innerHTML = '<option value="all">All Sectors</option>' +
+    sectors.map(s => `<option value="${s}" ${s === current ? 'selected' : ''}>${s}</option>`).join('');
+}
+
 function _getFilteredTickers() {
   if (!_smMoneyData?.tickers) return [];
   let tickers = [..._smMoneyData.tickers];
+
   const sigFilter = document.getElementById('sm-filter-signal')?.value || 'all';
   const stageFilter = document.getElementById('sm-filter-stage')?.value || 'all';
+  const fvFilter = document.getElementById('sm-filter-fvalue')?.value || 'all';
+  const rsMin = parseInt(document.getElementById('sm-filter-rs')?.value || '0');
+  const smMin = parseInt(document.getElementById('sm-filter-score')?.value || '0');
+  const sectorFilter = document.getElementById('sm-filter-sector')?.value || 'all';
+
+  // Signal filter
   if (sigFilter !== 'all') {
     tickers = tickers.filter(t => {
       if (sigFilter === 'IV') return t.iv_count > 0;
@@ -224,8 +247,31 @@ function _getFilteredTickers() {
       return true;
     });
   }
+
+  // Stage filter
   if (stageFilter === 'stage2') tickers = tickers.filter(t => t.stage === 'Stage 2');
+
+  // F-Value filter
+  if (fvFilter !== 'all') {
+    if (fvFilter === 'A') tickers = tickers.filter(t => t.fvalue_grade === 'A');
+    else if (fvFilter === 'B') tickers = tickers.filter(t => ['A','B'].includes(t.fvalue_grade));
+    else if (fvFilter === 'C') tickers = tickers.filter(t => ['A','B','C'].includes(t.fvalue_grade));
+    else if (fvFilter === 'deep') tickers = tickers.filter(t => t.fv_status === 'DEEP VALUE');
+    else if (fvFilter === 'under') tickers = tickers.filter(t => ['DEEP VALUE','UNDERVALUED'].includes(t.fv_status));
+  }
+
+  // RS filter
+  if (rsMin > 0) tickers = tickers.filter(t => (t.rs_rating || 0) >= rsMin);
+
+  // SM Score filter
+  if (smMin > 0) tickers = tickers.filter(t => (t.sm_score || 0) >= smMin);
+
+  // Sector filter
+  if (sectorFilter !== 'all') tickers = tickers.filter(t => t.sector === sectorFilter);
+
+  // Cluster mode sort
   if (_smClusterMode) tickers.sort((a, b) => b.total_signals - a.total_signals);
+
   return tickers;
 }
 

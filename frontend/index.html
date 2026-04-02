@@ -551,10 +551,36 @@
           <option value="all">All Stages</option>
           <option value="stage2">Stage 2 Only</option>
         </select>
+        <select id="sm-filter-fvalue" onchange="filterSmartMoney()" class="sm-select">
+          <option value="all">All F-Values</option>
+          <option value="A">Grade A</option>
+          <option value="B">Grade A & B</option>
+          <option value="C">Grade A-C</option>
+          <option value="deep">Deep Value</option>
+          <option value="under">Undervalued</option>
+        </select>
+        <select id="sm-filter-rs" onchange="filterSmartMoney()" class="sm-select">
+          <option value="0">All RS</option>
+          <option value="90">RS ≥ 90</option>
+          <option value="80">RS ≥ 80</option>
+          <option value="70">RS ≥ 70</option>
+          <option value="60">RS ≥ 60</option>
+        </select>
+        <select id="sm-filter-score" onchange="filterSmartMoney()" class="sm-select">
+          <option value="0">All Scores</option>
+          <option value="70">SM ≥ 70</option>
+          <option value="50">SM ≥ 50</option>
+          <option value="30">SM ≥ 30</option>
+        </select>
+        <select id="sm-filter-sector" onchange="filterSmartMoney()" class="sm-select">
+          <option value="all">All Sectors</option>
+        </select>
         <button class="sm-cluster-btn" id="sm-cluster-btn" onclick="toggleClusterMode()">📊 Cluster Mode</button>
         <button class="sm-refresh-btn" onclick="loadSmartMoney()">⟳ Refresh</button>
       </div>
     </div>
+    <!-- Freshness bar -->
+    <div id="sm-freshness" class="sm-freshness-bar" style="display:none"></div>
     <div class="sm-stats" id="sm-stats"></div>
     <div class="sm-table-wrap" id="sm-table-wrap">
       <div style="text-align:center;padding:40px;color:var(--text3)">
