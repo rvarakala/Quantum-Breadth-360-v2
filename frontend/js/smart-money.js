@@ -61,6 +61,14 @@ function _renderSmartMoneyStats() {
   const bsTotal = d.tickers.reduce((a, t) => a + t.bs_count, 0);
   const insiderTotal = d.tickers.reduce((a, t) => a + (t.insider_buys || 0), 0);
 
+  // Data freshness bar
+  const fr = d.data_freshness || {};
+  const freshItems = [];
+  if (fr.ohlcv) freshItems.push(_freshBadge('OHLCV', fr.ohlcv.last_date, fr.ohlcv.source));
+  if (fr.tv_fundamentals) freshItems.push(_freshBadge('F-Value', fr.tv_fundamentals.last_sync, fr.tv_fundamentals.source));
+  if (fr.insider) freshItems.push(_freshBadge('Insider', fr.insider.last_sync, fr.insider.source + ' (' + (fr.insider.total_records||0) + ' trades)'));
+  if (fr.rs_rankings) freshItems.push(_freshBadge('RS Ranks', fr.rs_rankings.last_computed, fr.rs_rankings.source));
+
   el.innerHTML = `
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--cyan)">${d.unique_tickers}</div><div class="sm-stat-label">TICKERS</div></div>
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--green)">${ivTotal}</div><div class="sm-stat-label">IV SIGNALS</div></div>
@@ -68,7 +76,27 @@ function _renderSmartMoneyStats() {
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--purple)">${bsTotal}</div><div class="sm-stat-label">BULL SNORTS</div></div>
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--pink,#f472b6)">${insiderTotal}</div><div class="sm-stat-label">INSIDER BUYS</div></div>
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:var(--text)">${d.dates_covered?.length || 0}</div><div class="sm-stat-label">DAYS</div></div>
+    ${freshItems.length ? `<div class="sm-freshness-bar">${freshItems.join('')}</div>` : ''}
   `;
+}
+
+function _freshBadge(label, timestamp, source) {
+  if (!timestamp || timestamp === 'Never' || timestamp === 'Not computed' || timestamp === 'Unknown') {
+    return `<span class="sm-fresh-item stale" title="${source || ''}"><span class="sm-fresh-dot stale"></span>${label}: <b>Not synced</b></span>`;
+  }
+  // Check if within last 24 hours
+  let isFresh = false;
+  try {
+    const ts = new Date(timestamp);
+    const ageHrs = (Date.now() - ts.getTime()) / (1000 * 60 * 60);
+    isFresh = ageHrs < 24;
+  } catch(e) {
+    // For date-only strings like "2026-04-02"
+    const today = new Date().toISOString().slice(0, 10);
+    isFresh = timestamp >= today || timestamp >= new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  }
+  const shortTs = timestamp.length > 10 ? timestamp.slice(5, 16).replace('T', ' ') : timestamp.slice(5);
+  return `<span class="sm-fresh-item ${isFresh ? 'fresh' : 'stale'}" title="${source || ''}: ${timestamp}"><span class="sm-fresh-dot ${isFresh ? 'fresh' : 'stale'}"></span>${label}: <b>${shortTs}</b></span>`;
 }
 
 // ── SORTING ──────────────────────────────────────────────────────────────────

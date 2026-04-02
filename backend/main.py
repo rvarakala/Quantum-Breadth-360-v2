@@ -499,7 +499,7 @@ async def iv_footprint(market: str = "India", days: int = 30):
 async def get_smart_money(days: int = 10):
     """
     Smart Money Intelligence: per-ticker IV/PPV/BS signals enriched with
-    RS, Stage, Sector, IV Range, FVG, Insider Buys.
+    RS, Stage, Sector, IV Range, FVG, Insider Buys, F-Value.
     """
     from smart_money import compute_smart_money_signals, enrich_smart_money
     loop = asyncio.get_event_loop()
@@ -508,15 +508,58 @@ async def get_smart_money(days: int = 10):
         if sm_data.get("error"):
             return sm_data
 
-        # Enrich with RS rankings + insider data
+        # Enrich with RS rankings + insider data + F-Value
         rs_cache_data = _rs_cache.get(_rs_cache_key("India"), {})
         sm_data = await loop.run_in_executor(executor, enrich_smart_money, sm_data, rs_cache_data)
+
+        # Add data freshness info
+        sm_data["data_freshness"] = _get_data_freshness()
 
         return sm_data
     except Exception as e:
         logger.error(f"Smart Money error: {e}")
         import traceback; traceback.print_exc()
         return {"error": str(e), "tickers": []}
+
+
+def _get_data_freshness() -> dict:
+    """Get last-updated timestamps for all Smart Money data sources."""
+    freshness = {}
+    try:
+        conn = sqlite3.connect(str(pathlib.Path(__file__).parent / "breadth_data.db"), timeout=10)
+
+        # OHLCV
+        row = conn.execute("SELECT MAX(date) FROM ohlcv WHERE market='India'").fetchone()
+        freshness["ohlcv"] = {"label": "OHLCV Prices", "source": "Yahoo Finance v8",
+                              "last_date": row[0] if row and row[0] else "Unknown"}
+
+        # TV Fundamentals
+        row = conn.execute("SELECT MAX(fetched_at) FROM tv_fundamentals").fetchone()
+        freshness["tv_fundamentals"] = {"label": "Fundamentals (F-Value)", "source": "TradingView Screener",
+                                         "last_sync": row[0][:19] if row and row[0] else "Never"}
+
+        # Insider trades
+        row = conn.execute("SELECT MAX(created_at), COUNT(*) FROM insider_trades").fetchone()
+        freshness["insider"] = {"label": "Insider Trades", "source": "NSE SEBI PIT API",
+                                "last_sync": row[0][:19] if row and row[0] else "Never",
+                                "total_records": row[1] if row else 0}
+
+        # FII/DII
+        row = conn.execute("SELECT MAX(date), MAX(fetched_at) FROM fiidii").fetchone()
+        freshness["fiidii"] = {"label": "FII/DII Flows", "source": "NSE fiidiiTradeReact",
+                               "last_date": row[0] if row and row[0] else "Unknown",
+                               "last_sync": row[1][:19] if row and row[1] else "Never"}
+
+        # RS Rankings
+        rs_ts = _rs_cache.get(_rs_cache_key("India"), {}).get("ts")
+        freshness["rs_rankings"] = {"label": "RS Rankings", "source": "Computed from OHLCV",
+                                     "last_computed": rs_ts.isoformat()[:19] if rs_ts else "Not computed"}
+
+        conn.close()
+    except Exception as e:
+        freshness["error"] = str(e)
+
+    return freshness
 
 
 @app.get("/api/smart-money/notes")
