@@ -4200,3 +4200,9 @@ select option:checked {
   .jnl-form-row { flex-direction:column; }
   .jnl-field { min-width:100%; }
 }
+
+/* Smart Money Score pill */
+.sm-score-pill {
+  display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:800;
+  font-family:var(--font-mono); min-width:32px; text-align:center;
+}

@@ -11,17 +11,17 @@ let _smSortDir = 'desc';
 
 const SM_COLUMNS = [
   {key:'_rank',         label:'#',         sortable:false},
+  {key:'sm_score',      label:'SM SCORE',  sortable:true, type:'number'},
   {key:'ticker',        label:'TICKER',    sortable:true, type:'string'},
   {key:'total_signals', label:'SIGNALS',   sortable:true, type:'number'},
   {key:'price',         label:'PRICE',     sortable:true, type:'number'},
   {key:'change_pct',    label:'CHG%',      sortable:true, type:'number'},
+  {key:'fvalue_grade',  label:'F-VALUE',   sortable:true, type:'grade'},
+  {key:'insider_value_cr', label:'INSIDER ₹', sortable:true, type:'number'},
   {key:'stage',         label:'STAGE',     sortable:true, type:'stage'},
   {key:'rs_rating',     label:'RS',        sortable:true, type:'number'},
   {key:'vol_ratio',     label:'VOL',       sortable:true, type:'number'},
   {key:'sector',        label:'SECTOR',    sortable:true, type:'string'},
-  {key:'sector_rs',     label:'SEC RS',    sortable:true, type:'number'},
-  {key:'_iv_range',     label:'IV RANGE',  sortable:false},
-  {key:'_fvg',          label:'FVG',       sortable:false},
   {key:'_notes',        label:'NOTES',     sortable:false},
 ];
 
@@ -92,6 +92,9 @@ function _sortTickers(tickers) {
     if (col.type === 'stage') {
       const so = {'Stage 2': 4, 'Stage 1\u21922': 3, 'Stage 3': 2, 'Stage 4': 1};
       va = so[va] || 0; vb = so[vb] || 0;
+    } else if (col.type === 'grade') {
+      const go = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1, '': 0};
+      va = go[va] || 0; vb = go[vb] || 0;
     } else if (col.type === 'string') {
       va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase();
       return va < vb ? -dir : va > vb ? dir : 0;
@@ -118,26 +121,40 @@ function _renderSmartMoneyTable() {
     if (t.iv_count) sigBadges.push(`<span class="sm-sig iv">IV \xd7${t.iv_count}</span>`);
     if (t.ppv_count) sigBadges.push(`<span class="sm-sig ppv">PPV \xd7${t.ppv_count}</span>`);
     if (t.bs_count) sigBadges.push(`<span class="sm-sig bs">BS \xd7${t.bs_count}</span>`);
-    const insiderBadge = t.insider_buys > 0 ? `<span class="sm-sig insider" title="${t.insider_details?.map(d=>d.name+' '+d.date).join(', ')||''}">\ud83c\udfe6 ${t.insider_buys}</span>` : '';
+    const insiderBadge = t.insider_buys > 0 ? `<span class="sm-sig insider" title="${t.insider_details?.map(d=>d.name+' ('+d.category+') '+d.date).join(', ')||''}">\ud83c\udfe6 ${t.insider_buys}</span>` : '';
     const stageColor = t.stage === 'Stage 2' ? 'var(--green)' : t.stage === 'Stage 1\u21922' ? 'var(--amber)' : 'var(--text3)';
     const rsColor = (t.rs_rating||0) >= 80 ? 'var(--green)' : (t.rs_rating||0) >= 60 ? 'var(--amber)' : 'var(--red)';
-    const fvgStr = t.fvg ? `${t.fvg.lower}\u2013${t.fvg.upper} (${t.fvg.type})` : '\u2014';
-    const ivRangeStr = t.iv_low && t.iv_high ? `${t.iv_low}\u2013${t.iv_high}` : '\u2014';
+
+    // SM Score color
+    const smScore = t.sm_score || 0;
+    const smColor = smScore >= 70 ? 'var(--green)' : smScore >= 40 ? 'var(--amber)' : 'var(--text3)';
+
+    // F-Value badge
+    const fvGrade = t.fvalue_grade || '';
+    const fvColor = {'A':'var(--green)','B':'#4ade80','C':'var(--amber)','D':'#fb923c','E':'var(--red)'}[fvGrade] || 'var(--text3)';
+    const fvStatus = t.fv_status || '';
+    const fvBadge = fvGrade ? `<span style="color:${fvColor};font-weight:700">${fvGrade}</span> <span style="font-size:9px;color:${t.fv_status_color||'var(--text3)'}">${fvStatus}</span>` : '\u2014';
+
+    // Insider value
+    const insVal = t.insider_value_cr > 0 ? `\u20b9${t.insider_value_cr.toFixed(1)}Cr` : '\u2014';
+    const insCat = t.insider_top_category || '';
+    const insColor = insCat.includes('Promoter') ? 'var(--green)' : insCat.includes('Director') ? 'var(--cyan)' : 'var(--text2)';
+
     const note = _smNotes[t.ticker]?.note || '';
 
     return `<tr class="sm-row">
       <td class="sm-td sm-rank">${i+1}</td>
+      <td class="sm-td"><span class="sm-score-pill" style="background:${smColor};color:#0a0e17">${smScore}</span></td>
       <td class="sm-td sm-ticker"><span class="ticker-link" onclick="openTickerChart('${t.ticker}')">${t.ticker}</span></td>
       <td class="sm-td">${sigBadges.join(' ')} ${insiderBadge}</td>
       <td class="sm-td" style="font-family:var(--font-mono)">\u20b9${t.price?.toLocaleString('en-IN')||'\u2014'}</td>
       <td class="sm-td" style="color:${gc(t.change_pct)};font-family:var(--font-mono)">${t.change_pct>=0?'+':''}${f(t.change_pct)}%</td>
+      <td class="sm-td">${fvBadge}</td>
+      <td class="sm-td" style="font-family:var(--font-mono);color:${insColor}">${insVal}${insCat ? `<br><span style="font-size:8px">${insCat}</span>` : ''}</td>
       <td class="sm-td" style="color:${stageColor}">${t.stage||'\u2014'}</td>
       <td class="sm-td"><span style="color:${rsColor};font-weight:700">${t.rs_rating??'\u2014'}</span></td>
       <td class="sm-td" style="color:${(t.vol_ratio||0)>=2?'var(--cyan)':'var(--text2)'};font-family:var(--font-mono)">${f(t.vol_ratio,2)}x</td>
       <td class="sm-td"><span class="sm-sector">${t.sector||'\u2014'}</span></td>
-      <td class="sm-td" style="font-family:var(--font-mono)">${t.sector_rs!=null?f(t.sector_rs,0):'\u2014'}</td>
-      <td class="sm-td" style="font-family:var(--font-mono);font-size:10px">${ivRangeStr}</td>
-      <td class="sm-td" style="font-family:var(--font-mono);font-size:10px">${fvgStr}</td>
       <td class="sm-td"><input class="sm-note-input" id="sm-note-${t.ticker}" value="${_escHtml(note)}" placeholder="Add note..." onblur="saveSmNote('${t.ticker}',this.value)"></td>
     </tr>`;
   }).join('');
@@ -197,20 +214,22 @@ function toggleClusterMode() {
 
 function _getExportData() {
   return _getFilteredTickers().map(t => ({
+    'SM Score': t.sm_score || 0,
     'Ticker': t.ticker,
     'Signals': [t.iv_count?`IV\xd7${t.iv_count}`:'', t.ppv_count?`PPV\xd7${t.ppv_count}`:'', t.bs_count?`BS\xd7${t.bs_count}`:''
     ].filter(Boolean).join(' '),
-    'Insider Buys': t.insider_buys || 0,
     'Price': t.price || 0,
     'Chg%': t.change_pct != null ? t.change_pct.toFixed(2) : '',
+    'F-Value Grade': t.fvalue_grade || '',
+    'FV Status': t.fv_status || '',
+    'Upside%': t.upside_pct != null ? t.upside_pct.toFixed(1) : '',
+    'Insider Buys': t.insider_buys || 0,
+    'Insider Value Cr': t.insider_value_cr || 0,
+    'Insider Category': t.insider_top_category || '',
     'Stage': t.stage || '',
     'RS': t.rs_rating ?? '',
     'Vol Surge': t.vol_ratio != null ? t.vol_ratio.toFixed(2) + 'x' : '',
     'Sector': t.sector || '',
-    'Sec RS': t.sector_rs != null ? Math.round(t.sector_rs) : '',
-    'IV High': t.iv_high || '',
-    'IV Low': t.iv_low || '',
-    'FVG': t.fvg ? `${t.fvg.lower}\u2013${t.fvg.upper}` : '',
     'Notes': _smNotes[t.ticker]?.note || '',
   }));
 }

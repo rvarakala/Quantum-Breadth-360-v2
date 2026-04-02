@@ -202,7 +202,9 @@ def enrich_smart_money(sm_data: dict, rs_cache: dict = None, insider_days: int =
     """
     Enrich Smart Money tickers with:
     - RS Rating, A/D, Stage, Sector, Sector RS (from RS rankings cache)
-    - Insider buys (from insider_trades table)
+    - Insider buys with value + category (from insider_trades table)
+    - F-Value grade + fair value status (from fvalue cache)
+    - Smart Money Composite Score (0-100)
     """
     tickers = sm_data.get("tickers", [])
     if not tickers:
@@ -215,22 +217,23 @@ def enrich_smart_money(sm_data: dict, rs_cache: dict = None, insider_days: int =
         for s in stocks:
             rs_lookup[s.get("ticker", "")] = s
 
-    # 2. Insider data
+    # 2. Insider data — with value and category
     insider_lookup = defaultdict(list)
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
         cutoff = (datetime.now() - timedelta(days=insider_days)).strftime("%Y-%m-%d")
         rows = conn.execute("""
-            SELECT symbol, insider_name, transaction_type, securities_count, securities_value, transaction_date
+            SELECT symbol, insider_name, transaction_type, securities_count, securities_value,
+                   transaction_date, category
             FROM insider_trades
             WHERE transaction_type IN ('Buy', 'Purchase', 'Market Purchase')
               AND transaction_date >= ?
             ORDER BY transaction_date DESC
         """, (cutoff,)).fetchall()
         conn.close()
-        for symbol, name, txn, shares, val, dt in rows:
+        for symbol, name, txn, shares, val, dt, cat in rows:
             insider_lookup[symbol].append({
-                "name": name, "type": txn,
+                "name": name, "type": txn, "category": cat or "",
                 "shares": shares, "value_cr": round(val / 10000000, 2) if val else 0, "date": dt
             })
     except Exception as e:
@@ -247,6 +250,24 @@ def enrich_smart_money(sm_data: dict, rs_cache: dict = None, insider_days: int =
                 sector_scores[sec].append(s.get("rs_rating", 0))
         for sec, scores in sector_scores.items():
             sector_rs_lookup[sec] = round(np.mean(scores), 1) if scores else 0
+
+    # 4. F-Value lookup (from cache)
+    fvalue_lookup = {}
+    try:
+        from cache import get_cache
+        fv_cached = get_cache("fvalue_India")
+        if fv_cached:
+            for s in fv_cached.get("stocks", []):
+                fvalue_lookup[s.get("ticker", "")] = {
+                    "grade": s.get("grade", ""),
+                    "score": s.get("score", 0),
+                    "fv_status": s.get("fv_status", ""),
+                    "fv_status_color": s.get("fv_status_color", ""),
+                    "fair_value": s.get("fair_value"),
+                    "upside_pct": s.get("upside_pct"),
+                }
+    except Exception as e:
+        logger.debug(f"F-Value lookup failed: {e}")
 
     # Enrich each ticker
     for t in tickers:
@@ -276,9 +297,70 @@ def enrich_smart_money(sm_data: dict, rs_cache: dict = None, insider_days: int =
         # Sector RS
         t["sector_rs"] = sector_rs_lookup.get(t["sector"], None)
 
-        # Insider buys
+        # Insider buys — enhanced
         ins = insider_lookup.get(ticker, [])
         t["insider_buys"] = len(ins)
-        t["insider_details"] = ins[:3]  # top 3 recent insider buys
+        t["insider_value_cr"] = round(sum(i.get("value_cr", 0) for i in ins), 2)
+        t["insider_details"] = ins[:5]
+        # Best insider category
+        cats = [i.get("category", "") for i in ins]
+        t["insider_top_category"] = "Promoter" if any("Promoter" in c for c in cats) else \
+                                    "Director" if any("Director" in c for c in cats) else \
+                                    "KMP" if any("KMP" in c or "Key" in c for c in cats) else \
+                                    cats[0] if cats else ""
+
+        # F-Value
+        fv = fvalue_lookup.get(ticker, {})
+        t["fvalue_grade"] = fv.get("grade", "")
+        t["fvalue_score"] = fv.get("score", 0)
+        t["fv_status"] = fv.get("fv_status", "")
+        t["fv_status_color"] = fv.get("fv_status_color", "")
+        t["fair_value"] = fv.get("fair_value")
+        t["upside_pct"] = fv.get("upside_pct")
+
+        # ── SMART MONEY COMPOSITE SCORE (0-100) ──
+        sm_score = 0
+
+        # IV signals: 8 pts each, max 40
+        sm_score += min(40, t.get("iv_count", 0) * 8)
+
+        # PPV signals: 5 pts each, max 15
+        sm_score += min(15, t.get("ppv_count", 0) * 5)
+
+        # Bull Snort: 5 pts each, max 15
+        sm_score += min(15, t.get("bs_count", 0) * 5)
+
+        # Insider buy bonus: max 15 pts
+        insider_pts = 0
+        if t["insider_buys"] > 0:
+            # Base: 5 pts for any insider buy
+            insider_pts = 5
+            # Category bonus: Promoter=10, Director=7, KMP=5
+            if "Promoter" in t["insider_top_category"]:
+                insider_pts = 10
+            elif "Director" in t["insider_top_category"]:
+                insider_pts = 7
+            elif t["insider_top_category"]:
+                insider_pts = 5
+            # Value bonus: +5 if > ₹5 Cr
+            if t["insider_value_cr"] >= 5:
+                insider_pts = min(15, insider_pts + 5)
+            elif t["insider_value_cr"] >= 1:
+                insider_pts = min(15, insider_pts + 3)
+        sm_score += insider_pts
+
+        # F-Value bonus: max 10 pts
+        fv_grade = t.get("fvalue_grade", "")
+        fv_bonus = {"A": 10, "B": 8, "C": 5, "D": 2, "E": 0}.get(fv_grade, 0)
+        sm_score += fv_bonus
+
+        # Stage 2 bonus: 5 pts
+        if t["stage"] == "Stage 2":
+            sm_score += 5
+
+        t["sm_score"] = min(100, sm_score)
+
+    # Re-sort by Smart Money Score
+    sm_data["tickers"].sort(key=lambda x: x.get("sm_score", 0), reverse=True)
 
     return sm_data
