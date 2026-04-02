@@ -183,6 +183,7 @@ function switchTab(tab) {
   if (tab === 'smart-screener') { /* ready on demand — user clicks Run */ }
   if (tab === 'stockbee') { if(!_stockbeeData) loadStockbee(); }
   if (tab === 'smart-money') { if(!_smMoneyData) loadSmartMoney(); }
+  if (tab === 'journal') { jnlLoadTrades(); }
   if (tab === 'smart-metrics') { /* ready on demand */ }
   if (tab === 'peep-into-past') { _initPeepChips(); }
   if (tab === 'charts') { setTimeout(() => initChartsTab(), 50); }

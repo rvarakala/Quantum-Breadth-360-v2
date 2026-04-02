@@ -551,6 +551,43 @@ async def save_smart_money_note(request: Request):
     except Exception as e:
         return {"error": str(e)}
 
+
+# ── Trading Journal API ──────────────────────────────────────────────────────
+
+from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings
+
+@app.get("/api/journal/trades")
+async def api_journal_trades(status: str = "all", limit: int = 200):
+    return get_trades(status, limit)
+
+@app.post("/api/journal/trades")
+async def api_journal_add(request: Request):
+    body = await request.json()
+    return add_trade(body)
+
+@app.put("/api/journal/trades/{trade_id}")
+async def api_journal_update(trade_id: int, request: Request):
+    body = await request.json()
+    return update_trade(trade_id, body)
+
+@app.delete("/api/journal/trades/{trade_id}")
+async def api_journal_delete(trade_id: int):
+    return delete_trade(trade_id)
+
+@app.get("/api/journal/analytics")
+async def api_journal_analytics():
+    return get_analytics()
+
+@app.get("/api/journal/settings")
+async def api_journal_settings_get():
+    return get_settings()
+
+@app.post("/api/journal/settings")
+async def api_journal_settings_save(request: Request):
+    body = await request.json()
+    return save_settings(body)
+
+
 @app.get("/api/breadth/{market}")
 async def get_breadth(market: str, refresh: bool = False):
     market=market.upper()

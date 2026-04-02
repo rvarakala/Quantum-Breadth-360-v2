@@ -36,7 +36,7 @@ TIERS = {
         "tabs": ["overview", "breadth", "sectors", "scanner", "leaders", "fiidii",
                  "fvalue", "insider", "stockbee", "smart-metrics", "charts-tab",
                  "smart-screener", "watchlist", "importer", "compare", "peep",
-                 "smart-chart", "smart-money"],
+                 "smart-chart", "smart-money", "journal"],
     },
     "admin": {
         "name": "Admin",
