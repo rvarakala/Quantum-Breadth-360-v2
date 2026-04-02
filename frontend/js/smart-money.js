@@ -9,13 +9,16 @@ let _smClusterMode = false;
 async function loadSmartMoney() {
   const days = document.getElementById('sm-days')?.value || 10;
   const wrap = document.getElementById('sm-table-wrap');
-  wrap.innerHTML = '<div style="text-align:center;padding:40px"><div class="ai-spinner"></div><br><span style="color:var(--text3);font-size:11px;font-family:var(--font-mono)">Scanning ' + days + ' days for Smart Money signals...</span></div>';
+  wrap.innerHTML = '<div style="text-align:center;padding:40px"><div class="ai-spinner"></div><br><span style="color:var(--text3);font-size:11px;font-family:var(--font-mono)">Scanning ' + days + ' days for Smart Money signals...<br><span style="font-size:10px">First load analyzes 2500+ stocks — may take 30-60 seconds</span></span></div>';
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
     const [smRes, notesRes] = await Promise.all([
-      fetch(`${API}/api/smart-money?days=${days}`),
+      fetch(`${API}/api/smart-money?days=${days}`, {signal: controller.signal}),
       fetch(`${API}/api/smart-money/notes`)
     ]);
+    clearTimeout(timeout);
     _smData = await smRes.json();
     _smNotes = await notesRes.json();
 

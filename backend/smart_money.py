@@ -26,20 +26,25 @@ def compute_smart_money_signals(market: str = "India", days: int = 10) -> dict:
     if not os.path.exists(DB_PATH):
         return {"error": "No database", "tickers": []}
 
+    t0 = datetime.now()
     conn = sqlite3.connect(DB_PATH, timeout=30)
     try:
         lookback = days + 60  # need 50-day avg warmup
         cutoff = (datetime.now() - timedelta(days=int(lookback * 1.6))).strftime("%Y-%m-%d")
 
+        # Filter by market to avoid loading US tickers
+        db_market = "India" if market.upper() == "INDIA" else market
         rows = conn.execute("""
             SELECT ticker, date, open, high, low, close, volume
-            FROM ohlcv WHERE date >= ? ORDER BY ticker, date
-        """, (cutoff,)).fetchall()
+            FROM ohlcv WHERE date >= ? AND market = ? ORDER BY ticker, date
+        """, (cutoff, db_market)).fetchall()
     finally:
         conn.close()
 
     if not rows:
         return {"error": "No OHLCV data", "tickers": []}
+
+    logger.info(f"Smart Money: loaded {len(rows):,} OHLCV rows for signal detection")
 
     # Organize by ticker
     ticker_data = defaultdict(list)
@@ -164,6 +169,9 @@ def compute_smart_money_signals(market: str = "India", days: int = 10) -> dict:
     # Sort by total signal count (cluster = most signals first)
     result_tickers.sort(key=lambda x: x["total_signals"], reverse=True)
 
+    elapsed = (datetime.now() - t0).total_seconds()
+    logger.info(f"Smart Money: {len(result_tickers)} tickers with signals in {elapsed:.1f}s")
+
     return {
         "tickers": result_tickers,
         "dates_covered": target_dates,
@@ -213,9 +221,9 @@ def enrich_smart_money(sm_data: dict, rs_cache: dict = None, insider_days: int =
         conn = sqlite3.connect(DB_PATH, timeout=10)
         cutoff = (datetime.now() - timedelta(days=insider_days)).strftime("%Y-%m-%d")
         rows = conn.execute("""
-            SELECT symbol, insider_name, transaction_type, shares, value_cr, transaction_date
+            SELECT symbol, insider_name, transaction_type, securities_count, securities_value, transaction_date
             FROM insider_trades
-            WHERE transaction_type IN ('Buy', 'Purchase')
+            WHERE transaction_type IN ('Buy', 'Purchase', 'Market Purchase')
               AND transaction_date >= ?
             ORDER BY transaction_date DESC
         """, (cutoff,)).fetchall()
@@ -223,7 +231,7 @@ def enrich_smart_money(sm_data: dict, rs_cache: dict = None, insider_days: int =
         for symbol, name, txn, shares, val, dt in rows:
             insider_lookup[symbol].append({
                 "name": name, "type": txn,
-                "shares": shares, "value_cr": val, "date": dt
+                "shares": shares, "value_cr": round(val / 10000000, 2) if val else 0, "date": dt
             })
     except Exception as e:
         logger.debug(f"Insider lookup failed: {e}")
