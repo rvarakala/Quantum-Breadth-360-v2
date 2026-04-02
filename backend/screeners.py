@@ -596,7 +596,9 @@ def _compute_ad_rating(df) -> tuple:
         # Close Location Value: where did close land in the day's range?
         hl = h65 - l65
         # Avoid div/0 on doji bars (High == Low)
-        clv = np.where(hl > 0, (2 * c65 - h65 - l65) / hl, 0.0)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            clv = np.where(hl > 0, (2 * c65 - h65 - l65) / hl, 0.0)
+            clv = np.nan_to_num(clv, nan=0.0, posinf=0.0, neginf=0.0)
 
         # Volume-weighted average over 65 days
         vol_sum = v65.sum()

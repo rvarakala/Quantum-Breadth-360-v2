@@ -2003,10 +2003,13 @@ async def _auto_sync_ohlcv():
 
         logger.info(f"✅ OHLCV auto-sync complete: {updated} updated, {failed} failed out of {total}")
 
-        # Invalidate breadth cache so next request recomputes with fresh data
-        from cache import delete_cache
-        delete_cache("breadth_INDIA")
-        logger.info("🔄 Breadth cache invalidated — will recompute with fresh OHLCV")
+        # Only invalidate breadth cache if we actually updated tickers
+        if updated > 0:
+            from cache import delete_cache
+            delete_cache("breadth_INDIA")
+            logger.info("🔄 Breadth cache invalidated — will recompute with fresh OHLCV")
+        else:
+            logger.info("✅ No tickers updated — breadth cache preserved")
 
     except Exception as e:
         logger.warning(f"OHLCV auto-sync failed: {e}")
