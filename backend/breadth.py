@@ -431,20 +431,33 @@ def _compute_market(market: str, custom_tickers: dict = None) -> dict:
     """Compute breadth for a market. Uses per-market lock to prevent concurrent runs."""
     lock = _get_market_lock(market)
     if not lock.acquire(blocking=False):
-        # Already computing this market — wait for it to finish then return cache
-        logger.info(f"=== {market} breadth already computing — waiting for lock ===")
-        lock.acquire(blocking=True)
-        lock.release()
-        # Return from cache
+        # Already computing this market — return cache immediately, don't wait
+        logger.info(f"=== {market} breadth already computing — returning cache ===")
         from cache import get_cache
         cached = get_cache(f"breadth_{market}")
         if cached:
-            logger.info(f"=== {market} returning cached result after lock wait ===")
-            return cached
+            return {**cached, "computing": True}
+        # No cache at all — must wait
+        logger.info(f"=== {market} no cache, waiting for computation ===")
+        lock.acquire(blocking=True, timeout=120)
+        try:
+            cached = get_cache(f"breadth_{market}")
+            if cached:
+                return cached
+        finally:
+            try:
+                lock.release()
+            except RuntimeError:
+                pass  # Lock wasn't held
+        return {"error": "Breadth computation in progress, no cache available"}
     try:
-        return _compute_market_impl(market, custom_tickers)
+        result = _compute_market_impl(market, custom_tickers)
+        return result
     finally:
-        lock.release()
+        try:
+            lock.release()
+        except RuntimeError:
+            pass  # Already released
 
 
 def _compute_market_impl(market: str, custom_tickers: dict = None) -> dict:
