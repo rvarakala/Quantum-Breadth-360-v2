@@ -1,10 +1,29 @@
 // ════════════════════════════════════════════════════════════════════════════
 // SMART MONEY TRACKER — IV / PPV / Bull Snort Signal Intelligence
+// Sorting + Export (PDF, Excel, CSV, PNG)
 // ════════════════════════════════════════════════════════════════════════════
 
 let _smMoneyData = null;
 let _smNotes = {};
 let _smClusterMode = false;
+let _smSortCol = 'total_signals';
+let _smSortDir = 'desc';
+
+const SM_COLUMNS = [
+  {key:'_rank',         label:'#',         sortable:false},
+  {key:'ticker',        label:'TICKER',    sortable:true, type:'string'},
+  {key:'total_signals', label:'SIGNALS',   sortable:true, type:'number'},
+  {key:'price',         label:'PRICE',     sortable:true, type:'number'},
+  {key:'change_pct',    label:'CHG%',      sortable:true, type:'number'},
+  {key:'stage',         label:'STAGE',     sortable:true, type:'stage'},
+  {key:'rs_rating',     label:'RS',        sortable:true, type:'number'},
+  {key:'vol_ratio',     label:'VOL',       sortable:true, type:'number'},
+  {key:'sector',        label:'SECTOR',    sortable:true, type:'string'},
+  {key:'sector_rs',     label:'SEC RS',    sortable:true, type:'number'},
+  {key:'_iv_range',     label:'IV RANGE',  sortable:false},
+  {key:'_fvg',          label:'FVG',       sortable:false},
+  {key:'_notes',        label:'NOTES',     sortable:false},
+];
 
 async function loadSmartMoney() {
   const days = document.getElementById('sm-days')?.value || 10;
@@ -14,7 +33,7 @@ async function loadSmartMoney() {
   try {
     console.log('Smart Money: fetching signals for', days, 'days...');
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
+    const timeout = setTimeout(() => controller.abort(), 90000);
     const [smRes, notesRes] = await Promise.all([
       fetch(`${API}/api/smart-money?days=${days}`, {signal: controller.signal}),
       fetch(`${API}/api/smart-money/notes`)
@@ -29,7 +48,7 @@ async function loadSmartMoney() {
     _renderSmartMoneyStats();
     _renderSmartMoneyTable();
   } catch (e) {
-    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);font-family:var(--font-mono)">⚠ ${e.message}<br><button onclick="loadSmartMoney()" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--cyan);cursor:pointer;font-family:var(--font-mono);font-size:11px">🔄 Retry</button></div>`;
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);font-family:var(--font-mono)">\u26a0 ${e.message}<br><button onclick="loadSmartMoney()" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--cyan);cursor:pointer;font-family:var(--font-mono);font-size:11px">\ud83d\udd04 Retry</button></div>`;
   }
 }
 
@@ -52,85 +71,106 @@ function _renderSmartMoneyStats() {
   `;
 }
 
+// ── SORTING ──────────────────────────────────────────────────────────────────
+
+function smSortBy(colKey) {
+  if (_smSortCol === colKey) {
+    _smSortDir = _smSortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    _smSortCol = colKey;
+    _smSortDir = 'desc';
+  }
+  _renderSmartMoneyTable();
+}
+
+function _sortTickers(tickers) {
+  const col = SM_COLUMNS.find(c => c.key === _smSortCol);
+  if (!col || !col.sortable) return tickers;
+  const dir = _smSortDir === 'desc' ? -1 : 1;
+  return tickers.sort((a, b) => {
+    let va = a[_smSortCol], vb = b[_smSortCol];
+    if (col.type === 'stage') {
+      const so = {'Stage 2': 4, 'Stage 1\u21922': 3, 'Stage 3': 2, 'Stage 4': 1};
+      va = so[va] || 0; vb = so[vb] || 0;
+    } else if (col.type === 'string') {
+      va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase();
+      return va < vb ? -dir : va > vb ? dir : 0;
+    } else { va = va ?? -Infinity; vb = vb ?? -Infinity; }
+    return (va - vb) * dir;
+  });
+}
+
+// ── TABLE RENDER ─────────────────────────────────────────────────────────────
+
 function _renderSmartMoneyTable() {
   let tickers = _getFilteredTickers();
   if (!tickers.length) {
-    document.getElementById('sm-table-wrap').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-family:var(--font-mono)">🔍 No signals match the current filters</div>';
+    document.getElementById('sm-table-wrap').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-family:var(--font-mono)">\ud83d\udd0d No signals match the current filters</div>';
     return;
   }
+  tickers = _sortTickers(tickers);
 
   const gc = v => (v || 0) >= 0 ? 'var(--green)' : 'var(--red)';
-  const f = (v, d = 1) => v != null ? Number(v).toFixed(d) : '—';
+  const f = (v, d = 1) => v != null ? Number(v).toFixed(d) : '\u2014';
 
   const rows = tickers.map((t, i) => {
     const sigBadges = [];
-    if (t.iv_count) sigBadges.push(`<span class="sm-sig iv">IV ×${t.iv_count}</span>`);
-    if (t.ppv_count) sigBadges.push(`<span class="sm-sig ppv">PPV ×${t.ppv_count}</span>`);
-    if (t.bs_count) sigBadges.push(`<span class="sm-sig bs">BS ×${t.bs_count}</span>`);
-
-    const stageColor = t.stage === 'Stage 2' ? 'var(--green)' : t.stage === 'Stage 1→2' ? 'var(--amber)' : 'var(--text3)';
-    const rsColor = (t.rs_rating || 0) >= 80 ? 'var(--green)' : (t.rs_rating || 0) >= 60 ? 'var(--amber)' : 'var(--red)';
-
-    const insiderBadge = t.insider_buys > 0
-      ? `<span class="sm-sig insider" title="${t.insider_details?.map(d => d.name + ' ' + d.date).join(', ') || ''}">🏦 ${t.insider_buys}</span>`
-      : '';
-
-    const fvgStr = t.fvg ? `${t.fvg.lower}–${t.fvg.upper} (${t.fvg.type})` : '—';
-    const ivRangeStr = t.iv_low && t.iv_high ? `${t.iv_low}–${t.iv_high}` : '—';
-
+    if (t.iv_count) sigBadges.push(`<span class="sm-sig iv">IV \xd7${t.iv_count}</span>`);
+    if (t.ppv_count) sigBadges.push(`<span class="sm-sig ppv">PPV \xd7${t.ppv_count}</span>`);
+    if (t.bs_count) sigBadges.push(`<span class="sm-sig bs">BS \xd7${t.bs_count}</span>`);
+    const insiderBadge = t.insider_buys > 0 ? `<span class="sm-sig insider" title="${t.insider_details?.map(d=>d.name+' '+d.date).join(', ')||''}">\ud83c\udfe6 ${t.insider_buys}</span>` : '';
+    const stageColor = t.stage === 'Stage 2' ? 'var(--green)' : t.stage === 'Stage 1\u21922' ? 'var(--amber)' : 'var(--text3)';
+    const rsColor = (t.rs_rating||0) >= 80 ? 'var(--green)' : (t.rs_rating||0) >= 60 ? 'var(--amber)' : 'var(--red)';
+    const fvgStr = t.fvg ? `${t.fvg.lower}\u2013${t.fvg.upper} (${t.fvg.type})` : '\u2014';
+    const ivRangeStr = t.iv_low && t.iv_high ? `${t.iv_low}\u2013${t.iv_high}` : '\u2014';
     const note = _smNotes[t.ticker]?.note || '';
-    const noteId = `sm-note-${t.ticker}`;
 
     return `<tr class="sm-row">
-      <td class="sm-td sm-rank">${i + 1}</td>
+      <td class="sm-td sm-rank">${i+1}</td>
       <td class="sm-td sm-ticker"><span class="ticker-link" onclick="openTickerChart('${t.ticker}')">${t.ticker}</span></td>
       <td class="sm-td">${sigBadges.join(' ')} ${insiderBadge}</td>
-      <td class="sm-td" style="font-family:var(--font-mono)">₹${t.price?.toLocaleString('en-IN') || '—'}</td>
-      <td class="sm-td" style="color:${gc(t.change_pct)};font-family:var(--font-mono)">${t.change_pct >= 0 ? '+' : ''}${f(t.change_pct)}%</td>
-      <td class="sm-td" style="color:${stageColor}">${t.stage || '—'}</td>
-      <td class="sm-td"><span style="color:${rsColor};font-weight:700">${t.rs_rating ?? '—'}</span></td>
-      <td class="sm-td" style="color:${(t.vol_ratio || 0) >= 2 ? 'var(--cyan)' : 'var(--text2)'};font-family:var(--font-mono)">${f(t.vol_ratio, 2)}x</td>
-      <td class="sm-td"><span class="sm-sector">${t.sector || '—'}</span></td>
-      <td class="sm-td" style="font-family:var(--font-mono)">${t.sector_rs != null ? f(t.sector_rs, 0) : '—'}</td>
+      <td class="sm-td" style="font-family:var(--font-mono)">\u20b9${t.price?.toLocaleString('en-IN')||'\u2014'}</td>
+      <td class="sm-td" style="color:${gc(t.change_pct)};font-family:var(--font-mono)">${t.change_pct>=0?'+':''}${f(t.change_pct)}%</td>
+      <td class="sm-td" style="color:${stageColor}">${t.stage||'\u2014'}</td>
+      <td class="sm-td"><span style="color:${rsColor};font-weight:700">${t.rs_rating??'\u2014'}</span></td>
+      <td class="sm-td" style="color:${(t.vol_ratio||0)>=2?'var(--cyan)':'var(--text2)'};font-family:var(--font-mono)">${f(t.vol_ratio,2)}x</td>
+      <td class="sm-td"><span class="sm-sector">${t.sector||'\u2014'}</span></td>
+      <td class="sm-td" style="font-family:var(--font-mono)">${t.sector_rs!=null?f(t.sector_rs,0):'\u2014'}</td>
       <td class="sm-td" style="font-family:var(--font-mono);font-size:10px">${ivRangeStr}</td>
       <td class="sm-td" style="font-family:var(--font-mono);font-size:10px">${fvgStr}</td>
-      <td class="sm-td"><input class="sm-note-input" id="${noteId}" value="${_escHtml(note)}" placeholder="Add note..." onblur="saveSmNote('${t.ticker}',this.value)"></td>
+      <td class="sm-td"><input class="sm-note-input" id="sm-note-${t.ticker}" value="${_escHtml(note)}" placeholder="Add note..." onblur="saveSmNote('${t.ticker}',this.value)"></td>
     </tr>`;
   }).join('');
 
+  const sortIcon = k => _smSortCol===k ? (_smSortDir==='desc'?' \u25bc':' \u25b2') : '';
+  const thClick = col => col.sortable ? `onclick="smSortBy('${col.key}')" style="cursor:pointer;user-select:none" title="Click to sort"` : '';
+  const headerCells = SM_COLUMNS.map(col =>
+    `<th class="sm-th${col.sortable?' sm-th-sort':''}" ${thClick(col)} ${col.key==='_notes'?'style="min-width:140px"':''}>${col.label}${sortIcon(col.key)}</th>`
+  ).join('');
+
   document.getElementById('sm-table-wrap').innerHTML = `
-    <div style="overflow-x:auto">
-    <table class="sm-table">
-      <thead><tr>
-        <th class="sm-th">#</th>
-        <th class="sm-th">TICKER</th>
-        <th class="sm-th">SIGNALS</th>
-        <th class="sm-th">PRICE</th>
-        <th class="sm-th">CHG%</th>
-        <th class="sm-th">STAGE</th>
-        <th class="sm-th">RS</th>
-        <th class="sm-th">VOL</th>
-        <th class="sm-th">SECTOR</th>
-        <th class="sm-th">SEC RS</th>
-        <th class="sm-th">IV RANGE</th>
-        <th class="sm-th">FVG</th>
-        <th class="sm-th" style="min-width:140px">NOTES</th>
-      </tr></thead>
+    <div style="overflow-x:auto" id="sm-table-container">
+    <table class="sm-table" id="sm-export-table">
+      <thead><tr>${headerCells}</tr></thead>
       <tbody>${rows}</tbody>
     </table>
     </div>
-    <div style="padding:8px 12px;font-size:10px;color:var(--text3);font-family:var(--font-mono)">
-      ${tickers.length} tickers · ${_smMoneyData.total_signals} total signals · ${_smMoneyData.dates_covered?.length || 0} trading days
+    <div style="padding:8px 12px;font-size:10px;color:var(--text3);font-family:var(--font-mono);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>${tickers.length} tickers \xb7 ${_smMoneyData.total_signals} total signals \xb7 ${_smMoneyData.dates_covered?.length||0} trading days</span>
+      <span style="display:flex;gap:4px">
+        <button class="sm-export-btn" onclick="smExportCSV()" title="Export CSV">\ud83d\udcc4 CSV</button>
+        <button class="sm-export-btn" onclick="smExportExcel()" title="Export Excel">\ud83d\udcca Excel</button>
+        <button class="sm-export-btn" onclick="smExportPDF()" title="Export PDF">\ud83d\udcd5 PDF</button>
+        <button class="sm-export-btn" onclick="smExportPNG()" title="Export PNG">\ud83d\udcf7 PNG</button>
+      </span>
     </div>`;
 }
 
 function _getFilteredTickers() {
   if (!_smMoneyData?.tickers) return [];
   let tickers = [..._smMoneyData.tickers];
-
   const sigFilter = document.getElementById('sm-filter-signal')?.value || 'all';
   const stageFilter = document.getElementById('sm-filter-stage')?.value || 'all';
-
   if (sigFilter !== 'all') {
     tickers = tickers.filter(t => {
       if (sigFilter === 'IV') return t.iv_count > 0;
@@ -139,50 +179,120 @@ function _getFilteredTickers() {
       return true;
     });
   }
-
-  if (stageFilter === 'stage2') {
-    tickers = tickers.filter(t => t.stage === 'Stage 2');
-  }
-
-  if (_smClusterMode) {
-    tickers.sort((a, b) => b.total_signals - a.total_signals);
-  }
-
+  if (stageFilter === 'stage2') tickers = tickers.filter(t => t.stage === 'Stage 2');
+  if (_smClusterMode) tickers.sort((a, b) => b.total_signals - a.total_signals);
   return tickers;
 }
 
-function filterSmartMoney() {
-  _renderSmartMoneyTable();
-}
+function filterSmartMoney() { _renderSmartMoneyTable(); }
 
 function toggleClusterMode() {
   _smClusterMode = !_smClusterMode;
   const btn = document.getElementById('sm-cluster-btn');
-  if (btn) {
-    btn.classList.toggle('active', _smClusterMode);
-    btn.textContent = _smClusterMode ? '📊 Cluster ON' : '📊 Cluster Mode';
-  }
+  if (btn) { btn.classList.toggle('active', _smClusterMode); btn.textContent = _smClusterMode ? '\ud83d\udcca Cluster ON' : '\ud83d\udcca Cluster Mode'; }
   _renderSmartMoneyTable();
 }
+
+// ── EXPORT ───────────────────────────────────────────────────────────────────
+
+function _getExportData() {
+  return _getFilteredTickers().map(t => ({
+    'Ticker': t.ticker,
+    'Signals': [t.iv_count?`IV\xd7${t.iv_count}`:'', t.ppv_count?`PPV\xd7${t.ppv_count}`:'', t.bs_count?`BS\xd7${t.bs_count}`:''
+    ].filter(Boolean).join(' '),
+    'Insider Buys': t.insider_buys || 0,
+    'Price': t.price || 0,
+    'Chg%': t.change_pct != null ? t.change_pct.toFixed(2) : '',
+    'Stage': t.stage || '',
+    'RS': t.rs_rating ?? '',
+    'Vol Surge': t.vol_ratio != null ? t.vol_ratio.toFixed(2) + 'x' : '',
+    'Sector': t.sector || '',
+    'Sec RS': t.sector_rs != null ? Math.round(t.sector_rs) : '',
+    'IV High': t.iv_high || '',
+    'IV Low': t.iv_low || '',
+    'FVG': t.fvg ? `${t.fvg.lower}\u2013${t.fvg.upper}` : '',
+    'Notes': _smNotes[t.ticker]?.note || '',
+  }));
+}
+
+function smExportCSV() {
+  const data = _getExportData();
+  if (!data.length) return;
+  const headers = Object.keys(data[0]);
+  const csvRows = [headers.join(',')];
+  data.forEach(row => {
+    csvRows.push(headers.map(h => {
+      let v = String(row[h] ?? '');
+      if (v.includes(',') || v.includes('"') || v.includes('\n')) v = '"' + v.replace(/"/g, '""') + '"';
+      return v;
+    }).join(','));
+  });
+  const blob = new Blob([csvRows.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `smart_money_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+function smExportExcel() {
+  const data = _getExportData();
+  if (!data.length) return;
+  const headers = Object.keys(data[0]);
+  let html = '<table border="1" style="border-collapse:collapse;font-family:Calibri;font-size:11px"><thead><tr>';
+  headers.forEach(h => html += `<th style="background:#1e3a5f;color:white;padding:6px 10px;font-weight:bold">${h}</th>`);
+  html += '</tr></thead><tbody>';
+  data.forEach(row => { html += '<tr>'; headers.forEach(h => html += `<td style="padding:4px 8px">${row[h]??''}</td>`); html += '</tr>'; });
+  html += '</tbody></table>';
+  const blob = new Blob([`<html><head><meta charset="utf-8"></head><body>${html}</body></html>`], {type:'application/vnd.ms-excel'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `smart_money_${new Date().toISOString().slice(0,10)}.xls`; a.click();
+}
+
+function smExportPDF() {
+  const tableEl = document.getElementById('sm-table-container');
+  if (!tableEl) return;
+  const win = window.open('', '_blank');
+  win.document.write(`<html><head><title>Smart Money Tracker</title>
+    <style>
+      body{font-family:'Segoe UI',sans-serif;padding:20px;color:#1a1a1a}
+      h1{font-size:18px;margin-bottom:4px} h2{font-size:12px;color:#666;margin-bottom:16px}
+      table{width:100%;border-collapse:collapse;font-size:10px}
+      th{background:#1e3a5f;color:white;padding:6px 8px;text-align:left;font-size:9px}
+      td{padding:5px 8px;border-bottom:1px solid #e0e0e0}
+      tr:nth-child(even) td{background:#f8f9fa}
+      input{border:none;background:transparent;font-size:10px}
+    </style></head><body>
+    <h1>\u26a1 Smart Money Tracker</h1>
+    <h2>${_smMoneyData?.unique_tickers||0} tickers \xb7 ${_smMoneyData?.total_signals||0} signals \xb7 ${new Date().toLocaleString()}</h2>
+    ${tableEl.innerHTML}
+    <script>setTimeout(()=>window.print(),500)<\/script></body></html>`);
+  win.document.close();
+}
+
+function smExportPNG() {
+  const el = document.getElementById('sm-table-container');
+  if (!el) return;
+  if (typeof html2canvas === 'function') {
+    html2canvas(el, {backgroundColor:'#0a0e17', scale:2}).then(canvas => {
+      const a = document.createElement('a'); a.href = canvas.toDataURL('image/png');
+      a.download = `smart_money_${new Date().toISOString().slice(0,10)}.png`; a.click();
+    });
+  } else {
+    // Fallback: open print dialog
+    smExportPDF();
+  }
+}
+
+// ── NOTES ────────────────────────────────────────────────────────────────────
 
 async function saveSmNote(ticker, note) {
   try {
     await fetch(`${API}/api/smart-money/notes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticker, note })
     });
     _smNotes[ticker] = { note, updated_at: new Date().toISOString() };
-  } catch (e) {
-    console.warn('Failed to save note:', e);
-  }
+  } catch (e) { console.warn('Failed to save note:', e); }
 }
 
 function _escHtml(s) {
-  return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-
-// Auto-load when tab is opened
-document.addEventListener('DOMContentLoaded', () => {
-  // Will be triggered by switchTab in app.js
-});
