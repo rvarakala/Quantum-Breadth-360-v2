@@ -149,6 +149,10 @@
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/><circle cx="17" cy="7" r="3" fill="none"/></svg>
           <span class="nav-label">Smart Metrics</span>
         </button>
+        <button class="nav-item" data-tab="smart-money" onclick="switchTab('smart-money')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span class="nav-label">Smart Money</span>
+        </button>
       </div>
       <div class="nav-group">
         <div class="nav-group-label">TOOLS</div>
@@ -521,6 +525,40 @@
     </div>
 
   </div><!-- /tab-smart-metrics -->
+
+  <!-- SMART MONEY TAB -->
+  <div class="tab-content" id="tab-smart-money">
+    <div class="sm-header">
+      <div class="sm-title">⚡ SMART MONEY TRACKER</div>
+      <div class="sm-controls">
+        <select id="sm-days" onchange="loadSmartMoney()" class="sm-select">
+          <option value="1">Today</option>
+          <option value="5" selected>Last 5 Days</option>
+          <option value="10">Last 10 Days</option>
+          <option value="30">Last 30 Days</option>
+        </select>
+        <select id="sm-filter-signal" onchange="filterSmartMoney()" class="sm-select">
+          <option value="all">All Signals</option>
+          <option value="IV">IV Only</option>
+          <option value="PPV">PPV Only</option>
+          <option value="BS">Bull Snort Only</option>
+        </select>
+        <select id="sm-filter-stage" onchange="filterSmartMoney()" class="sm-select">
+          <option value="all">All Stages</option>
+          <option value="stage2">Stage 2 Only</option>
+        </select>
+        <button class="sm-cluster-btn" id="sm-cluster-btn" onclick="toggleClusterMode()">📊 Cluster Mode</button>
+        <button class="sm-refresh-btn" onclick="loadSmartMoney()">⟳ Refresh</button>
+      </div>
+    </div>
+    <div class="sm-stats" id="sm-stats"></div>
+    <div class="sm-table-wrap" id="sm-table-wrap">
+      <div style="text-align:center;padding:40px;color:var(--text3)">
+        <div style="font-size:36px;margin-bottom:8px">⚡</div>
+        <div style="font-family:var(--font-mono);font-size:12px">Loading Smart Money signals...</div>
+      </div>
+    </div>
+  </div><!-- /tab-smart-money -->
 
   <!-- SMART CHART TAB -->
   <div class="tab-content" id="tab-smart-chart">
@@ -1816,6 +1854,7 @@
 <script src="/static/js/smart-screener.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/ai-insights.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/smart-chart.js?v=__ASSET_VERSION__"></script>
+<script src="/static/js/smart-money.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/app.js?v=__ASSET_VERSION__"></script>
 
 

@@ -492,6 +492,65 @@ async def iv_footprint(market: str = "India", days: int = 30):
     data = await loop.run_in_executor(executor, compute_iv_footprint, market, days)
     return {"market": market, "days": days, "data": data}
 
+
+# ── Smart Money Tracker ──────────────────────────────────────────────────────
+
+@app.get("/api/smart-money")
+async def get_smart_money(days: int = 10):
+    """
+    Smart Money Intelligence: per-ticker IV/PPV/BS signals enriched with
+    RS, Stage, Sector, IV Range, FVG, Insider Buys.
+    """
+    from smart_money import compute_smart_money_signals, enrich_smart_money
+    loop = asyncio.get_event_loop()
+    try:
+        sm_data = await loop.run_in_executor(executor, compute_smart_money_signals, "India", days)
+        if sm_data.get("error"):
+            return sm_data
+
+        # Enrich with RS rankings + insider data
+        rs_cache_data = _rs_cache.get(_rs_cache_key("India"), {})
+        sm_data = await loop.run_in_executor(executor, enrich_smart_money, sm_data, rs_cache_data)
+
+        return sm_data
+    except Exception as e:
+        logger.error(f"Smart Money error: {e}")
+        import traceback; traceback.print_exc()
+        return {"error": str(e), "tickers": []}
+
+
+@app.get("/api/smart-money/notes")
+async def get_smart_money_notes():
+    """Get all Smart Money notes."""
+    try:
+        conn = sqlite3.connect(str(pathlib.Path(__file__).parent / "breadth_data.db"), timeout=10)
+        conn.execute("CREATE TABLE IF NOT EXISTS smart_money_notes (ticker TEXT PRIMARY KEY, note TEXT, updated_at TEXT)")
+        rows = conn.execute("SELECT ticker, note, updated_at FROM smart_money_notes").fetchall()
+        conn.close()
+        return {r[0]: {"note": r[1], "updated_at": r[2]} for r in rows}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/smart-money/notes")
+async def save_smart_money_note(request: Request):
+    """Save a note for a ticker."""
+    body = await request.json()
+    ticker = body.get("ticker", "").upper().strip()
+    note = body.get("note", "").strip()
+    if not ticker:
+        return {"error": "No ticker"}
+    try:
+        conn = sqlite3.connect(str(pathlib.Path(__file__).parent / "breadth_data.db"), timeout=10)
+        conn.execute("CREATE TABLE IF NOT EXISTS smart_money_notes (ticker TEXT PRIMARY KEY, note TEXT, updated_at TEXT)")
+        conn.execute("INSERT OR REPLACE INTO smart_money_notes (ticker, note, updated_at) VALUES (?,?,?)",
+                     (ticker, note, datetime.now(timezone.utc).isoformat()))
+        conn.commit()
+        conn.close()
+        return {"status": "ok", "ticker": ticker}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/api/breadth/{market}")
 async def get_breadth(market: str, refresh: bool = False):
     market=market.upper()
