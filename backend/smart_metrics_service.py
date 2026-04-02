@@ -1012,12 +1012,11 @@ def run_smart_screener(
             done_count[0] += 1
             if progress_state:
                 ticker = futures[future]["ticker"]
-                progress_state["progress"] = total + done_count[0]
-                progress_state["total"]    = total + total_cands
+                progress_state["progress"] = done_count[0]
+                progress_state["total"]    = total_cands
                 progress_state["message"]  = (
                     f"Pass 2: Scoring {ticker} ({done_count[0]}/{total_cands})"
                     f" — {len(results)} passed SMART≥{min_smart} so far"
-                    f" [yfinance quarterly + local DB]"
                 )
             res = future.result()
             if res:

@@ -237,6 +237,14 @@ async function runSmartScreener() {
         if (btn) { btn.disabled = false; btn.innerHTML = '<span>▶</span> Run Screener'; }
         if (progress) setTimeout(() => { if(progress) progress.style.display='none'; }, 2000);
 
+        // Check for error
+        if (s.result.error) {
+          const errWrap = document.getElementById('smart-scr-tbl-wrap');
+          if (errWrap) errWrap.innerHTML = `<div class="smart-empty-state" style="color:var(--red)">⚠ ${s.result.error}<br><span style="font-size:10px;color:var(--text3)">Check server console for details. Try clicking Run Screener again.</span></div>`;
+          if (msg) msg.textContent = 'Error: ' + s.result.error;
+          return;
+        }
+
         _smartScrData = s.result;
         _smartScrPage = 1;
 
