@@ -12,6 +12,7 @@ async function loadSmartMoney() {
   wrap.innerHTML = '<div style="text-align:center;padding:40px"><div class="ai-spinner"></div><br><span style="color:var(--text3);font-size:11px;font-family:var(--font-mono)">Scanning ' + days + ' days for Smart Money signals...<br><span style="font-size:10px">First load analyzes 2500+ stocks — may take 30-60 seconds</span></span></div>';
 
   try {
+    console.log('Smart Money: fetching signals for', days, 'days...');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
     const [smRes, notesRes] = await Promise.all([
@@ -21,6 +22,7 @@ async function loadSmartMoney() {
     clearTimeout(timeout);
     _smData = await smRes.json();
     _smNotes = await notesRes.json();
+    console.log('Smart Money: got', _smData.tickers?.length || 0, 'tickers,', _smData.total_signals || 0, 'signals', _smData.error || '');
 
     if (_smData.error) throw new Error(_smData.error);
 

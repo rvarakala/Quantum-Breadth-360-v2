@@ -109,7 +109,7 @@ app.add_middleware(CORSMiddleware,
                    allow_credentials=False,
                    allow_methods=["*"],
                    allow_headers=["*"])
-executor = ThreadPoolExecutor(max_workers=4)
+executor = ThreadPoolExecutor(max_workers=8)
 
 # ── Serve frontend from backend (no separate server needed) ──────────────────
 FRONTEND_DIR = pathlib.Path(__file__).parent.parent / "frontend"
