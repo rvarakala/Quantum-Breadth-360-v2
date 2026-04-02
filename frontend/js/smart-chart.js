@@ -209,10 +209,10 @@ function _addOverlay(name) {
     case 'funds': _showFundsOverlay(); break;
     case 'fundamentals': _showFundamentalsPanel(); break;
   }
+  _updateLeftPanelVisibility();
 }
 
 function _removeOverlay(name) {
-  // Remove series from chart
   if (_sc.overlays[name]) {
     if (Array.isArray(_sc.overlays[name])) {
       _sc.overlays[name].forEach(s => { try { _sc.priceChart.removeSeries(s); } catch(e){} });
@@ -221,15 +221,25 @@ function _removeOverlay(name) {
     }
     delete _sc.overlays[name];
   }
-  // Remove markers
   if (name === 'quarterly') {
     _sc.candleSeries?.setMarkers([]);
     document.getElementById('sc-quarterly-panel').style.display = 'none';
   }
-  // Hide panels
   if (name === 'ownership') document.getElementById('sc-ownership-panel').style.display = 'none';
   if (name === 'fundamentals') document.getElementById('sc-fund-panel').style.display = 'none';
   if (name === 'funds') document.getElementById('sc-ownership-panel').style.display = 'none';
+  _updateLeftPanelVisibility();
+}
+
+function _updateLeftPanelVisibility() {
+  const leftPanels = document.getElementById('sc-left-panels');
+  const layout = document.getElementById('sc-layout');
+  // Check if any panel is visible
+  const anyVisible = ['sc-fund-panel','sc-quarterly-panel','sc-ownership-panel'].some(id =>
+    document.getElementById(id)?.style.display !== 'none'
+  );
+  leftPanels.style.display = anyVisible ? '' : 'none';
+  layout.classList.toggle('has-panels', anyVisible);
 }
 
 // ── MA Overlay ───────────────────────────────────────────────────────────────
@@ -441,23 +451,28 @@ function _showFundamentalsPanel() {
   const ratios = _sc.data.screener_in?.ratios || {};
   const panel = document.getElementById('sc-fund-panel');
 
+  const _v = (val, suffix='') => val != null && val !== undefined && val !== '' ? val + suffix : '—';
+  const _f = (val, dec=1, suffix='') => val != null && val !== undefined ? Number(val).toFixed(dec) + suffix : '—';
+  const _c = (val, threshold=0) => (val || 0) >= threshold ? 'var(--green)' : 'var(--red)';
+
   const items = [
-    ['RS Rating', rs.rs_rating, rs.rs_rating >= 80 ? 'var(--green)' : rs.rs_rating >= 60 ? 'var(--amber)' : 'var(--red)'],
-    ['A/D Rating', rs.ad_rating, 'var(--text)'],
-    ['PE Ratio', tv.pe_ratio?.toFixed(1) || ratios['Stock P/E'] || '—', 'var(--text)'],
-    ['ROE %', tv.roe?.toFixed(1) || ratios['ROE'] || '—', 'var(--text)'],
-    ['Debt/Equity', tv.debt_equity?.toFixed(2) || ratios['Debt to equity'] || '—', 'var(--text)'],
+    ['RS Rating', _v(rs.rs_rating), _c(rs.rs_rating, 80)],
+    ['A/D Rating', _v(rs.ad_rating), 'var(--text)'],
+    ['PE Ratio', _f(tv.pe_ratio || ratios['Stock P/E'], 1), 'var(--text)'],
+    ['ROE %', _f(tv.roe || ratios['ROE'], 1, '%'), 'var(--text)'],
+    ['Debt/Equity', _f(tv.debt_equity || ratios['Debt to equity'], 2), 'var(--text)'],
     ['Mcap Cr', rs.mcap_cr ? '₹' + Math.round(rs.mcap_cr).toLocaleString('en-IN') : '—', 'var(--text)'],
-    ['From High', rs.pct_from_high ? rs.pct_from_high.toFixed(1) + '%' : '—', (rs.pct_from_high||-99) > -10 ? 'var(--green)' : 'var(--red)'],
-    ['Vol Ratio', rs.vol_ratio?.toFixed(2) + 'x' || '—', (rs.vol_ratio||0) > 1.5 ? 'var(--cyan)' : 'var(--text)'],
-    ['1W Chg', rs.chg_1w ? (rs.chg_1w >= 0 ? '+' : '') + rs.chg_1w.toFixed(1) + '%' : '—', (rs.chg_1w||0) >= 0 ? 'var(--green)' : 'var(--red)'],
-    ['3M Chg', rs.chg_3m ? (rs.chg_3m >= 0 ? '+' : '') + rs.chg_3m.toFixed(1) + '%' : '—', (rs.chg_3m||0) >= 0 ? 'var(--green)' : 'var(--red)'],
-    ['Trend Template', rs.trend_template ? '✅ Pass' : '❌ Fail', rs.trend_template ? 'var(--green)' : 'var(--red)'],
+    ['From High', _f(rs.pct_from_high, 1, '%'), _c(rs.pct_from_high, -10)],
+    ['Vol Ratio', rs.vol_ratio != null ? rs.vol_ratio.toFixed(2) + 'x' : '—', (rs.vol_ratio||0) > 1.5 ? 'var(--cyan)' : 'var(--text)'],
+    ['1W Chg', rs.chg_1w != null ? (rs.chg_1w >= 0 ? '+' : '') + rs.chg_1w.toFixed(1) + '%' : '—', _c(rs.chg_1w)],
+    ['3M Chg', rs.chg_3m != null ? (rs.chg_3m >= 0 ? '+' : '') + rs.chg_3m.toFixed(1) + '%' : '—', _c(rs.chg_3m)],
+    ['Trend Template', rs.trend_template === true ? '✅ Pass' : rs.trend_template === false ? '❌ Fail' : '—',
+      rs.trend_template === true ? 'var(--green)' : rs.trend_template === false ? 'var(--red)' : 'var(--text3)'],
   ];
 
   panel.innerHTML = `<div class="sc-panel-title">📋 Fundamentals</div>
     <div class="sc-fund-grid">${items.map(([k, v, c]) =>
-      `<div class="sc-fund-row"><span class="sc-fund-label">${k}</span><span class="sc-fund-value" style="color:${c}">${v ?? '—'}</span></div>`
+      `<div class="sc-fund-row"><span class="sc-fund-label">${k}</span><span class="sc-fund-value" style="color:${c}">${v}</span></div>`
     ).join('')}</div>`;
   panel.style.display = 'block';
 }

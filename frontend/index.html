@@ -552,26 +552,30 @@
       <button class="sc-toggle" data-overlay="fundamentals" onclick="toggleOverlay('fundamentals',this)">📋 Fundamentals</button>
     </div>
 
-    <!-- Chart area -->
-    <div class="sc-chart-wrap" id="sc-chart-wrap">
-      <div class="sc-placeholder" id="sc-placeholder">
-        <div style="font-size:48px;margin-bottom:12px">📊</div>
-        <div style="font-family:var(--font-mono);font-size:14px;font-weight:700;margin-bottom:8px">Smart Chart</div>
-        <div style="font-size:12px;color:var(--text3);max-width:400px;line-height:1.6">
-          Enter a ticker above to load an advanced chart with overlay toggles:
-          RS Line, Sector RS, Quarterly Results, Ownership Pattern, Fund Holdings, and Fundamentals.
+    <!-- Main layout: left panels + right chart -->
+    <div class="sc-layout" id="sc-layout">
+      <!-- LEFT: Data panels (shown when toggled) -->
+      <div class="sc-left-panels" id="sc-left-panels" style="display:none">
+        <div id="sc-fund-panel" style="display:none"></div>
+        <div id="sc-quarterly-panel" style="display:none"></div>
+        <div id="sc-ownership-panel" style="display:none"></div>
+      </div>
+
+      <!-- RIGHT: Chart area -->
+      <div class="sc-chart-wrap" id="sc-chart-wrap">
+        <div class="sc-placeholder" id="sc-placeholder">
+          <div style="font-size:48px;margin-bottom:12px">📊</div>
+          <div style="font-family:var(--font-mono);font-size:14px;font-weight:700;margin-bottom:8px">Smart Chart</div>
+          <div style="font-size:12px;color:var(--text3);max-width:400px;line-height:1.6">
+            Enter a ticker above to load an advanced chart with overlay toggles:
+            RS Line, Sector RS, Quarterly Results, Ownership Pattern, Fund Holdings, and Fundamentals.
+          </div>
+        </div>
+        <div id="sc-chart-container" style="display:none">
+          <div id="sc-price-chart" style="width:100%;height:420px"></div>
+          <div id="sc-vol-chart" style="width:100%;height:80px;margin-top:-1px"></div>
         </div>
       </div>
-      <div id="sc-chart-container" style="display:none">
-        <div id="sc-price-chart" style="width:100%;height:400px"></div>
-        <div id="sc-vol-chart" style="width:100%;height:80px;margin-top:-1px"></div>
-      </div>
-      <!-- Fundamental overlay panel (floats top-right of chart) -->
-      <div class="sc-fund-panel" id="sc-fund-panel" style="display:none"></div>
-      <!-- Quarterly results overlay (floats bottom-left) -->
-      <div class="sc-quarterly-panel" id="sc-quarterly-panel" style="display:none"></div>
-      <!-- Ownership overlay (floats bottom-right) -->
-      <div class="sc-ownership-panel" id="sc-ownership-panel" style="display:none"></div>
     </div>
 
     <!-- Peers row -->

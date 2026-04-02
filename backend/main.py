@@ -2185,7 +2185,7 @@ async def smart_chart_data(ticker: str, days: int = 500):
 
         # 2. RS + A/D from screener cache (if available)
         rs_data = {}
-        cache_key = _rs_cache_key("INDIA")
+        cache_key = _rs_cache_key("India")
         if cache_key in _rs_cache:
             stocks = _rs_cache[cache_key]["data"].get("stocks", [])
             for s in stocks:
