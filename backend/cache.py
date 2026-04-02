@@ -80,3 +80,12 @@ def get_cache(key):
 def set_cache(key, data):
     _cache[key] = {"data": data, "ts": datetime.now(timezone.utc)}
     _save_disk_cache()   # persist immediately so restart loads from disk
+
+
+def delete_cache(key):
+    """Delete a specific cache key. Used to force recomputation with fresh data."""
+    if key in _cache:
+        del _cache[key]
+        _save_disk_cache()
+        return True
+    return False

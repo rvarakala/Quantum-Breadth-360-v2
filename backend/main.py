@@ -1893,13 +1893,85 @@ async def startup_event():
     # 4b. Auto-sync FII/DII data from NSE
     asyncio.create_task(_auto_sync_fiidii())
 
+    # 4c. Auto-sync OHLCV data — ensures all prices are fresh
+    asyncio.create_task(_auto_sync_ohlcv())
+
     # 5. Pre-warm RS rankings + Leaders + F-Value in background
     #    These are the slowest computations — do them once on startup so tabs load instantly
+    #    NOTE: Waits for OHLCV sync to finish first (via delay in _prewarm_heavy_caches)
     asyncio.create_task(_prewarm_heavy_caches())
 
+
+async def _auto_sync_ohlcv():
+    """Auto-sync stale OHLCV data on startup. Quick 5-day update for all stale tickers."""
+    await asyncio.sleep(5)  # let server finish starting
+    loop = asyncio.get_event_loop()
+    try:
+        from nse_sync import _get_stale_tickers, sync_ticker
+        stale = await loop.run_in_executor(executor, lambda: _get_stale_tickers(days_threshold=1))
+        if not stale:
+            logger.info("✅ OHLCV data is fresh — no sync needed")
+            return
+
+        total = len(stale)
+        logger.info(f"⏳ Auto-syncing OHLCV: {total} stale tickers (5-day update)...")
+
+        updated = 0
+        failed = 0
+        batch_size = 8
+
+        tickers_to_sync = [t for t, _ in stale]
+        for i in range(0, total, batch_size):
+            batch = tickers_to_sync[i:i + batch_size]
+            # Run batch in thread pool
+            results = await asyncio.gather(*[
+                loop.run_in_executor(executor, sync_ticker, t, "5d")
+                for t in batch
+            ])
+            for ticker, n_rows, error in results:
+                if error:
+                    failed += 1
+                else:
+                    updated += 1
+
+            # Progress log every 100 tickers
+            done = min(i + batch_size, total)
+            if done % 100 == 0 or done == total:
+                logger.info(f"  OHLCV sync progress: {done}/{total} ({updated} updated, {failed} failed)")
+
+            # Brief pause to avoid rate limiting
+            await asyncio.sleep(0.3)
+
+        logger.info(f"✅ OHLCV auto-sync complete: {updated} updated, {failed} failed out of {total}")
+
+        # Invalidate breadth cache so next request recomputes with fresh data
+        from cache import delete_cache
+        delete_cache("breadth_INDIA")
+        logger.info("🔄 Breadth cache invalidated — will recompute with fresh OHLCV")
+
+    except Exception as e:
+        logger.warning(f"OHLCV auto-sync failed: {e}")
+        import traceback; traceback.print_exc()
+
 async def _prewarm_heavy_caches():
-    """Pre-compute RS rankings, Leaders, and F-Value in background after breadth is ready."""
-    await asyncio.sleep(20)  # wait for breadth to finish first
+    """Pre-compute RS rankings, Leaders, and F-Value in background after OHLCV sync."""
+    # Wait for OHLCV auto-sync to finish (typically 2-5 minutes for 2500 tickers)
+    # Check every 10s if data is fresh
+    from nse_sync import _get_stale_tickers
+    for attempt in range(30):  # max 5 minutes wait
+        await asyncio.sleep(10)
+        try:
+            stale = _get_stale_tickers(days_threshold=1)
+            stale_count = len(stale)
+            if stale_count < 50:  # less than 50 stale = good enough
+                logger.info(f"✅ OHLCV data fresh enough ({stale_count} stale) — starting pre-warm")
+                break
+            if attempt % 3 == 0:
+                logger.info(f"⏳ Waiting for OHLCV sync... {stale_count} still stale")
+        except Exception:
+            break
+    else:
+        logger.warning("⏭ OHLCV sync taking too long — pre-warming with current data")
     loop = asyncio.get_event_loop()
 
     # 1. RS Rankings (used by Scanner + Screeners)
