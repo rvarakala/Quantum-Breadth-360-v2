@@ -4224,3 +4224,7 @@ select option:checked {
 }
 .sm-fresh-dot.fresh { background:var(--green); box-shadow:0 0 4px var(--green); }
 .sm-fresh-dot.stale { background:var(--red); box-shadow:0 0 4px var(--red); }
+
+/* SMART Screener: below-threshold rows (dimmed) */
+.smart-scr-tr.below-threshold .smart-scr-td { opacity:0.5; }
+.smart-scr-tr.below-threshold:hover .smart-scr-td { opacity:0.8; }

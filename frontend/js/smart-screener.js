@@ -129,7 +129,8 @@ function _renderSmartScrTable(stocks) {
       `<td class="smart-scr-td">${tags}</td>`,
     ].join('');
 
-    return `<tr class="smart-scr-tr">${cells}</tr>`;
+    const rowClass = s.passed === false ? 'smart-scr-tr below-threshold' : 'smart-scr-tr';
+    return `<tr class="${rowClass}">${cells}</tr>`;
   }).join('');
 
   // Pagination
@@ -252,7 +253,7 @@ async function runSmartScreener() {
         if (stats) {
           stats.style.display = 'flex';
           document.getElementById('sss-found').textContent    = s.result.total || 0;
-          document.getElementById('sss-screened').textContent = s.result.screened || 0;
+          document.getElementById('sss-screened').textContent = s.result.total_scored || s.result.screened || 0;
           document.getElementById('sss-universe').textContent = s.result.pre_filter_total || 0;
           document.getElementById('sss-elapsed').textContent  = (s.result.elapsed||0) + 's';
           const cachedEl = document.getElementById('sss-cached');

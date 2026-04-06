@@ -964,12 +964,9 @@ def run_smart_screener(
             smart = compute_smart_score(om, tech)
             score = smart["score"]
 
-            if score < min_smart:
-                return None
-
             mcap_data = get_mcap_for_ticker(ticker) or {}
             mcap_cr   = mcap_data.get("mcap_cr", 0) or 0
-            if min_mcap_cr > 0 and mcap_cr < min_mcap_cr:
+            if min_mcap_cr > 0 and mcap_cr < min_mcap_cr and mcap_cr > 0:
                 return None
 
             return {
@@ -977,6 +974,7 @@ def run_smart_screener(
                 "company":       screener_data.get("company_name", ticker),
                 "price":         cand["price"],
                 "smart_score":   score,
+                "passed":        score >= min_smart,  # Flag: meets threshold
                 "verdict":       smart["verdict"],
                 "verdict_color": smart["verdict_color"],
                 "fund_score":    smart["components"]["fund"]["score"],
@@ -1029,9 +1027,12 @@ def run_smart_screener(
     elapsed = round(_time.time() - t0, 2)
     total_screened = len(candidates)
 
+    passed = [r for r in results if r.get("passed")]
+
     result = {
         "stocks":          results,
-        "total":           len(results),
+        "total":           len(passed),
+        "total_scored":    len(results),
         "screened":        total_screened,
         "pre_filter_total": len(tickers_with_data),
         "min_smart":       min_smart,
@@ -1040,8 +1041,8 @@ def run_smart_screener(
         "elapsed":         elapsed,
         "cached":          False,
         "message": (
-            f"✅ {len(results)} stocks with SMART ≥{min_smart} "
-            f"from {total_screened} candidates ({len(tickers_with_data)} universe)"
+            f"✅ {len(passed)} stocks SMART ≥{min_smart} | "
+            f"{len(results)} scored | {total_screened} candidates | {len(tickers_with_data)} universe"
         ),
     }
 
