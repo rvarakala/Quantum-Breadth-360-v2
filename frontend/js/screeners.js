@@ -28,6 +28,9 @@ const MY_SCR_DEFS = [
   { id:'mean_reversion_q',lbl:'Mean Reversion Quality',  desc:'Composite 0-100: Stage2 + Flush + EMA Reclaim + Pocket Pivot', tag:'MR SCORE', col:'#34d399' },
   { id:'manas_arora',    lbl:'Manas Arora Momentum Burst',desc:'Trend + Momentum + Vol Contraction + EMA Confluence',     tag:'MANAS',     col:'#06b6d4' },
   { id:'vcp_minervini',  lbl:'VCP (Minervini)',           desc:'Trend Template (8/8) + Volatility Contraction + Near Pivot', tag:'VCP',       col:'#a78bfa' },
+  { id:'minervini_phase',lbl:'Minervini Phase + Stage Setup',desc:'Stage 2 (Advancing) + Breakout + Vol Expansion + RS Rising — full Minervini/Weinstein setup', tag:'PHASE',  col:'#22d3ee' },
+  { id:'weinstein_s2',   lbl:'Weinstein Stage 2 (Advancing)',desc:'Price > 200 DMA AND 200 DMA slope rising — pure Weinstein advancing stage', tag:'WEINSTEIN', col:'#3b82f6' },
+  { id:'phase_setup',    lbl:'Phase Setup Trigger',        desc:'Breakout above 30-bar high + Volume > 1.5x avg + RS Rising — works in any market phase', tag:'SETUP',  col:'#f472b6' },
 ];
 
 function _scrItemHtml(s, isCustom) {

@@ -461,13 +461,161 @@ def screen_vcp(df):
 # ============================================================================
 # DISPATCHER — maps screener ID → function
 # ============================================================================
+# ============================================================================
+# 7. MINERVINI PHASE + WEINSTEIN STAGE + SETUP TRIGGER
+#    (from Phase_Stages.afl)
+#    Market Phase: Index vs 200 DMA → Bullish/Bearish
+#    Weinstein Stage: Price vs 200 DMA + slope
+#    Setup: Breakout + Volume Expansion + RS Rising
+# ============================================================================
+def screen_minervini_phase(df, rs_rating=None):
+    """
+    Minervini Market Phase + Weinstein Stage + Setup Trigger.
+    
+    Market Phase (from index):
+      1 = Predictive (market making lows, no FTD)
+      2 = Coincident (FTD fired, right side forming)
+      3 = Confirming (uptrend established)
+    
+    Weinstein Stage (per stock):
+      Stage 1 = Basing (price > 200 DMA, slope ≤ 0)
+      Stage 2 = Advancing (price > 200 DMA, slope > 0)
+      Stage 3 = Topping (price < 200 DMA, slope ≥ 0)
+      Stage 4 = Declining (price < 200 DMA, slope < 0)
+    
+    Setup Trigger:
+      Breakout above BaseLookback high + Volume > 1.5x avg + RS Rising
+    """
+    if df is None or len(df) < 220:
+        return False, {}
+    
+    c = df['Close'].values.astype(float)
+    h = df['High'].values.astype(float) if 'High' in df.columns else c
+    l = df['Low'].values.astype(float) if 'Low' in df.columns else c
+    o = df['Open'].values.astype(float) if 'Open' in df.columns else c
+    v = df['Volume'].values.astype(float) if 'Volume' in df.columns else np.zeros(len(c))
+    n = len(c)
+    
+    price = float(c[-1])
+    if price <= 0:
+        return False, {}
+    
+    # ── Weinstein Stage ──
+    ma200 = float(np.mean(c[-200:]))
+    ma200_20ago = float(np.mean(c[-220:-20])) if n >= 220 else ma200
+    slope = ma200 - ma200_20ago
+    
+    if price > ma200 and slope > 0:
+        w_stage = 2  # Advancing
+        w_label = "Stage 2 (Advancing)"
+    elif price > ma200 and slope <= 0:
+        w_stage = 1  # Basing
+        w_label = "Stage 1 (Basing)"
+    elif price < ma200 and slope >= 0:
+        w_stage = 3  # Topping
+        w_label = "Stage 3 (Topping)"
+    else:
+        w_stage = 4  # Declining
+        w_label = "Stage 4 (Declining)"
+    
+    # ── Breakout ──
+    lookback = 30
+    if n < lookback + 2:
+        return False, {}
+    resistance = float(np.max(h[-(lookback+1):-1]))  # HHV excluding today
+    breakout = price > resistance and price > float(o[-1]) * 1.01  # Close > Resistance AND Close > Open*1.01
+    
+    # ── Volume Expansion ──
+    avg_vol_20 = float(np.mean(v[-20:])) if n >= 20 else 0
+    vol_expansion = float(v[-1]) > avg_vol_20 * 1.5 if avg_vol_20 > 0 else False
+    vol_ratio = round(float(v[-1]) / avg_vol_20, 2) if avg_vol_20 > 0 else 0
+    
+    # ── RS Rising (using price ROC as proxy) ──
+    rs_rising = False
+    if n >= 10:
+        roc5 = (c[-1] / c[-6] - 1) * 100
+        rs_rising = roc5 > 0
+    
+    # ── Setup Trigger ──
+    setup_trigger = breakout and vol_expansion and rs_rising
+    
+    # For the screener: only pass if Stage 2 + Setup Trigger
+    # (most useful filter — Stage 2 stocks with fresh breakout signals)
+    passes = (w_stage == 2) and setup_trigger
+    
+    details = {
+        'weinstein_stage': w_stage,
+        'weinstein_label': w_label,
+        'breakout': breakout,
+        'vol_expansion': vol_expansion,
+        'vol_ratio': vol_ratio,
+        'rs_rising': rs_rising,
+        'setup_trigger': setup_trigger,
+        'resistance': round(resistance, 2),
+    }
+    return passes, details
+
+
+def screen_weinstein_stage2(df, rs_rating=None):
+    """
+    Simple Weinstein Stage 2 filter:
+    Price > 200 DMA AND 200 DMA slope is rising.
+    No breakout required — just confirms advancing stage.
+    """
+    if df is None or len(df) < 220:
+        return False, {}
+    c = df['Close'].values.astype(float)
+    n = len(c)
+    price = float(c[-1])
+    ma200 = float(np.mean(c[-200:]))
+    ma200_20ago = float(np.mean(c[-220:-20])) if n >= 220 else ma200
+    slope = ma200 - ma200_20ago
+    passes = price > ma200 and slope > 0
+    return passes, {'weinstein_stage': 2 if passes else 0, 'ma200_slope': round(slope, 2)}
+
+
+def screen_phase_setup(df, rs_rating=None):
+    """
+    Phase-Specific Setup: Breakout + Volume Expansion + RS Rising.
+    Works in any market phase — just finds stocks breaking out with conviction.
+    """
+    if df is None or len(df) < 50:
+        return False, {}
+    c = df['Close'].values.astype(float)
+    h = df['High'].values.astype(float) if 'High' in df.columns else c
+    o = df['Open'].values.astype(float) if 'Open' in df.columns else c
+    v = df['Volume'].values.astype(float) if 'Volume' in df.columns else np.zeros(len(c))
+    n = len(c)
+    price = float(c[-1])
+    
+    # Breakout above 30-bar high
+    lookback = 30
+    if n < lookback + 2:
+        return False, {}
+    resistance = float(np.max(h[-(lookback+1):-1]))
+    breakout = price > resistance and price > float(o[-1]) * 1.01
+    
+    # Volume > 1.5x 20-day avg
+    avg_vol = float(np.mean(v[-20:])) if n >= 20 else 0
+    vol_ok = float(v[-1]) > avg_vol * 1.5 if avg_vol > 0 else False
+    
+    # RS Rising (5-day ROC > 0)
+    rs_rising = (c[-1] / c[-6] - 1) > 0 if n >= 6 else False
+    
+    passes = breakout and vol_ok and rs_rising
+    return passes, {'breakout': breakout, 'vol_expansion': vol_ok, 'rs_rising': rs_rising}
+
+
 CUSTOM_SCREENER_MAP = {
-    'svro':            screen_svro,
-    'qulla_breakout':  screen_qulla_breakout,
-    'qulla_ep':        screen_qulla_ep,
-    'mean_reversion_q': screen_mean_reversion,
-    'manas_arora':     screen_manas_arora,
-    'vcp_minervini':   screen_vcp,
+    'svro':              screen_svro,
+    'qulla_breakout':    screen_qulla_breakout,
+    'qulla_ep':          screen_qulla_ep,
+    'mean_reversion_q':  screen_mean_reversion,
+    'manas_arora':       screen_manas_arora,
+    'vcp_minervini':     screen_vcp,
+    'minervini_phase':   screen_minervini_phase,
+    'weinstein_s2':      screen_weinstein_stage2,
+    'phase_setup':       screen_phase_setup,
 }
 
 def apply_custom_screener(scr_id, df, rs_rating=None):
