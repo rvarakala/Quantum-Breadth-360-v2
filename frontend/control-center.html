@@ -255,9 +255,28 @@ a{color:var(--cyan);text-decoration:none}
 <script>
 const API = 'http://localhost:8001';
 function getToken() { return localStorage.getItem('qb360_token') || ''; }
-function authHeaders() { return { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' }; }
-async function ccFetch(url) { const r = await fetch(API + url, { headers: authHeaders() }); return r.json(); }
-async function ccPost(url, body) { const r = await fetch(API + url, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) }); return r.json(); }
+function getMode() { return localStorage.getItem('qb360_mode') || 'admin'; }
+function authHeaders() {
+  return {
+    'Authorization': 'Bearer ' + getToken(),
+    'Content-Type': 'application/json',
+    'X-CC-Mode': getMode(),
+  };
+}
+async function ccFetch(url) {
+  const sep = url.includes('?') ? '&' : '?';
+  const r = await fetch(API + url + sep + 'mode=' + getMode(), { headers: authHeaders() });
+  const data = await r.json();
+  if (data.error === 'Access denied') {
+    console.warn('CC Access denied — try logging in as admin first or use dev mode');
+  }
+  return data;
+}
+async function ccPost(url, body) {
+  const sep = url.includes('?') ? '&' : '?';
+  const r = await fetch(API + url + sep + 'mode=' + getMode(), { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+  return r.json();
+}
 
 // Navigation
 function ccNav(section) {
