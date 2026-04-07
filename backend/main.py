@@ -2342,6 +2342,24 @@ async def get_stockbee(market: str, refresh: bool = False):
     return {**result, "cached": False}
 
 
+@app.get("/api/stockbee-monitor")
+async def get_stockbee_monitor(universe: str = "nifty500", days: int = 400):
+    """
+    Full Stockbee Market Monitor: 12 daily breadth metrics + rolling ratios + 10-DCR.
+    universe: 'nifty500' or 'full'
+    """
+    from stockbee_monitor import compute_stockbee_monitor
+    key = f"sb_monitor_{universe}_{days}"
+    cached = get_cache(key)
+    if cached:
+        return {**cached, "cached": True}
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(executor, compute_stockbee_monitor, universe, days)
+    if "error" not in result:
+        set_cache(key, result)
+    return {**result, "cached": False}
+
+
 @app.get("/api/chart/{ticker}")
 async def chart_data(ticker: str, tf: str = "daily", days: int = None):
     from fastapi.responses import JSONResponse
