@@ -4228,3 +4228,8 @@ select option:checked {
 /* SMART Screener: below-threshold rows (dimmed) */
 .smart-scr-tr.below-threshold .smart-scr-td { opacity:0.5; }
 .smart-scr-tr.below-threshold:hover .smart-scr-td { opacity:0.8; }
+
+/* Insider sortable headers */
+.ins-th-sort { cursor:pointer; user-select:none; white-space:nowrap; }
+.ins-th-sort:hover { color:var(--cyan) !important; }
+.ins-th-sort span { font-size:9px; opacity:0.7; }

@@ -923,7 +923,20 @@
             <option value="KMP">KMP</option>
             <option value="Immediate Relative">Immediate Relative</option>
           </select>
+          <select class="ins-select" id="ins-mode" onchange="filterInsiderTable()">
+            <option value="">All Modes</option>
+            <option value="Buy">Market Purchase</option>
+            <option value="Sell">Market Sale</option>
+            <option value="Pledge">Pledge</option>
+            <option value="Revoke">Pledge Revoke</option>
+            <option value="Off">Off-Market</option>
+            <option value="ESOP">ESOP/ESOSP</option>
+            <option value="Preferential">Preferential</option>
+          </select>
           <select class="ins-select" id="ins-period" onchange="loadInsiderData()">
+            <option value="1">Today</option>
+            <option value="5">5 Days</option>
+            <option value="15">15 Days</option>
             <option value="30">30 Days</option>
             <option value="90" selected>90 Days</option>
             <option value="180">6 Months</option>
@@ -947,17 +960,17 @@
         <table class="ins-table" id="ins-table">
           <thead>
             <tr>
-              <th class="ins-th-score">SCORE ↓</th>
-              <th>TICKER</th>
-              <th>COMPANY</th>
-              <th>INSIDER</th>
-              <th>CATEGORY</th>
-              <th>DATE</th>
-              <th>TYPE</th>
-              <th class="ins-th-right">SHARES</th>
-              <th class="ins-th-right">VALUE</th>
-              <th class="ins-th-right">~PRICE</th>
-              <th>MODE</th>
+              <th class="ins-th-sort" onclick="insiderSort('score')">SCORE <span id="ins-sort-score">↓</span></th>
+              <th class="ins-th-sort" onclick="insiderSort('symbol')">TICKER <span id="ins-sort-symbol"></span></th>
+              <th class="ins-th-sort" onclick="insiderSort('company')">COMPANY <span id="ins-sort-company"></span></th>
+              <th class="ins-th-sort" onclick="insiderSort('insider_name')">INSIDER <span id="ins-sort-insider_name"></span></th>
+              <th class="ins-th-sort" onclick="insiderSort('category')">CATEGORY <span id="ins-sort-category"></span></th>
+              <th class="ins-th-sort" onclick="insiderSort('transaction_date')">DATE <span id="ins-sort-transaction_date"></span></th>
+              <th class="ins-th-sort" onclick="insiderSort('transaction_type')">TYPE <span id="ins-sort-transaction_type"></span></th>
+              <th class="ins-th-sort ins-th-right" onclick="insiderSort('securities_count')">SHARES <span id="ins-sort-securities_count"></span></th>
+              <th class="ins-th-sort ins-th-right" onclick="insiderSort('securities_value')">VALUE <span id="ins-sort-securities_value"></span></th>
+              <th class="ins-th-sort ins-th-right" onclick="insiderSort('price_approx')">~PRICE <span id="ins-sort-price_approx"></span></th>
+              <th class="ins-th-sort" onclick="insiderSort('mode')">MODE <span id="ins-sort-mode"></span></th>
             </tr>
           </thead>
           <tbody id="ins-tbody">

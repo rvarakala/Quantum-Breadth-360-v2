@@ -6,6 +6,8 @@
 let _insiderData = [];
 let _insiderFilter = 'all';
 let _insiderClusters = [];
+let _insSortCol = 'score';
+let _insSortDir = -1; // -1 = desc, 1 = asc
 
 async function loadInsiderData() {
   const days = document.getElementById('ins-period')?.value || 90;
@@ -74,6 +76,7 @@ function insiderFilter(type) {
 function filterInsiderTable() {
   const search = (document.getElementById('ins-search')?.value || '').toLowerCase();
   const category = document.getElementById('ins-category')?.value || '';
+  const modeFilter = document.getElementById('ins-mode')?.value || '';
 
   let filtered = _insiderData.filter(t => {
     // Type filter
@@ -87,6 +90,18 @@ function filterInsiderTable() {
     // Category filter
     if (category && !(t.category || '').includes(category)) return false;
 
+    // Mode filter
+    if (modeFilter) {
+      const mode = (t.mode || '').toLowerCase();
+      if (modeFilter === 'Buy' && !mode.includes('purchase')) return false;
+      if (modeFilter === 'Sell' && !mode.includes('sale')) return false;
+      if (modeFilter === 'Pledge' && !(mode.includes('pledge') && !mode.includes('revoke'))) return false;
+      if (modeFilter === 'Revoke' && !mode.includes('revoke')) return false;
+      if (modeFilter === 'Off' && !mode.includes('off')) return false;
+      if (modeFilter === 'ESOP' && !(mode.includes('esop') || mode.includes('esosp'))) return false;
+      if (modeFilter === 'Preferential' && !mode.includes('preferential')) return false;
+    }
+
     // Search filter
     if (search) {
       const haystack = `${t.symbol} ${t.company} ${t.insider_name}`.toLowerCase();
@@ -95,7 +110,32 @@ function filterInsiderTable() {
     return true;
   });
 
+  // Sort
+  filtered.sort((a, b) => {
+    let va = a[_insSortCol], vb = b[_insSortCol];
+    if (typeof va === 'string') {
+      va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase();
+      return va < vb ? _insSortDir : va > vb ? -_insSortDir : 0;
+    }
+    return ((va ?? 0) - (vb ?? 0)) * -_insSortDir;
+  });
+
+  // Update sort indicators
+  document.querySelectorAll('[id^="ins-sort-"]').forEach(el => el.textContent = '');
+  const sortEl = document.getElementById(`ins-sort-${_insSortCol}`);
+  if (sortEl) sortEl.textContent = _insSortDir === -1 ? '↓' : '↑';
+
   _renderInsiderTable(filtered);
+}
+
+function insiderSort(col) {
+  if (_insSortCol === col) {
+    _insSortDir *= -1;
+  } else {
+    _insSortCol = col;
+    _insSortDir = -1;
+  }
+  filterInsiderTable();
 }
 
 function _renderInsiderTable(trades) {
