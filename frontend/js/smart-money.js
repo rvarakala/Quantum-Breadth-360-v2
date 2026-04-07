@@ -11,7 +11,7 @@ let _smSortDir = 'desc';
 
 const SM_COLUMNS = [
   {key:'_rank',         label:'#',         sortable:false},
-  {key:'sm_score',      label:'SM SCORE',  sortable:true, type:'number'},
+  {key:'sm_score',      label:'ALPHA',   sortable:true, type:'number'},
   {key:'ticker',        label:'TICKER',    sortable:true, type:'string'},
   {key:'total_signals', label:'SIGNALS',   sortable:true, type:'number'},
   {key:'price',         label:'PRICE',     sortable:true, type:'number'},
@@ -146,9 +146,11 @@ function _renderSmartMoneyTable() {
     const stageColor = t.stage === 'Stage 2' ? 'var(--green)' : t.stage === 'Stage 1\u21922' ? 'var(--amber)' : 'var(--text3)';
     const rsColor = (t.rs_rating||0) >= 80 ? 'var(--green)' : (t.rs_rating||0) >= 60 ? 'var(--amber)' : 'var(--red)';
 
-    // SM Score color
+    // SM Score color + cluster tooltip
     const smScore = t.sm_score || 0;
     const smColor = smScore >= 70 ? 'var(--green)' : smScore >= 40 ? 'var(--amber)' : 'var(--text3)';
+    const cl = t.alpha_clusters || {};
+    const clTip = `Alpha Score: ${smScore}/100\nMomentum: ${cl.momentum||0}/20\nFlow (IV/PPV/BS): ${cl.flow||0}/20\nInstitutional: ${cl.institutional||0}/20\nFundamental: ${cl.fundamental||0}/20\nRegime: ${cl.regime||0}/20`;
 
     // F-Value badge
     const fvGrade = t.fvalue_grade || '';
@@ -165,7 +167,7 @@ function _renderSmartMoneyTable() {
 
     return `<tr class="sm-row">
       <td class="sm-td sm-rank">${i+1}</td>
-      <td class="sm-td"><span class="sm-score-pill" style="background:${smColor};color:#0a0e17">${smScore}</span></td>
+      <td class="sm-td"><span class="sm-score-pill" style="background:${smColor};color:#0a0e17" title="${clTip}">${smScore}</span></td>
       <td class="sm-td sm-ticker"><span class="ticker-link" onclick="openTickerChart('${t.ticker}')">${t.ticker}</span></td>
       <td class="sm-td">${sigBadges.join(' ')} ${insiderBadge}</td>
       <td class="sm-td" style="font-family:var(--font-mono)">\u20b9${t.price?.toLocaleString('en-IN')||'\u2014'}</td>
@@ -287,25 +289,34 @@ function toggleClusterMode() {
 // ── EXPORT ───────────────────────────────────────────────────────────────────
 
 function _getExportData() {
-  return _getFilteredTickers().map(t => ({
-    'SM Score': t.sm_score || 0,
-    'Ticker': t.ticker,
-    'Signals': [t.iv_count?`IV\xd7${t.iv_count}`:'', t.ppv_count?`PPV\xd7${t.ppv_count}`:'', t.bs_count?`BS\xd7${t.bs_count}`:''
-    ].filter(Boolean).join(' '),
-    'Price': t.price || 0,
-    'Chg%': t.change_pct != null ? t.change_pct.toFixed(2) : '',
-    'F-Value Grade': t.fvalue_grade || '',
-    'FV Status': t.fv_status || '',
-    'Upside%': t.upside_pct != null ? t.upside_pct.toFixed(1) : '',
-    'Insider Buys': t.insider_buys || 0,
-    'Insider Value Cr': t.insider_value_cr || 0,
-    'Insider Category': t.insider_top_category || '',
-    'Stage': t.stage || '',
-    'RS': t.rs_rating ?? '',
-    'Vol Surge': t.vol_ratio != null ? t.vol_ratio.toFixed(2) + 'x' : '',
-    'Sector': t.sector || '',
-    'Notes': _smNotes[t.ticker]?.note || '',
-  }));
+  return _getFilteredTickers().map(t => {
+    const cl = t.alpha_clusters || {};
+    return {
+      'Alpha Score': t.sm_score || 0,
+      'Momentum': cl.momentum || 0,
+      'Flow': cl.flow || 0,
+      'Institutional': cl.institutional || 0,
+      'Fundamental': cl.fundamental || 0,
+      'Regime': cl.regime || 0,
+      'Ticker': t.ticker,
+      'Signals': [t.iv_count?`IV\xd7${t.iv_count}`:'', t.ppv_count?`PPV\xd7${t.ppv_count}`:'', t.bs_count?`BS\xd7${t.bs_count}`:''
+      ].filter(Boolean).join(' '),
+      'Price': t.price || 0,
+      'Chg%': t.change_pct != null ? t.change_pct.toFixed(2) : '',
+      'F-Value Grade': t.fvalue_grade || '',
+      'FV Status': t.fv_status || '',
+      'Upside%': t.upside_pct != null ? t.upside_pct.toFixed(1) : '',
+      'Insider Buys': t.insider_buys || 0,
+      'Insider Value Cr': t.insider_value_cr || 0,
+      'Insider Category': t.insider_top_category || '',
+      'Stage': t.stage || '',
+      'RS': t.rs_rating ?? '',
+      'A/D': t.ad_rating || '',
+      'Vol Surge': t.vol_ratio != null ? t.vol_ratio.toFixed(2) + 'x' : '',
+      'Sector': t.sector || '',
+      'Notes': _smNotes[t.ticker]?.note || '',
+    };
+  });
 }
 
 function smExportCSV() {

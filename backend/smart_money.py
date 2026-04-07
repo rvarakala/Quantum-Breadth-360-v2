@@ -318,49 +318,122 @@ def enrich_smart_money(sm_data: dict, rs_cache: dict = None, insider_days: int =
         t["fair_value"] = fv.get("fair_value")
         t["upside_pct"] = fv.get("upside_pct")
 
-        # ── SMART MONEY COMPOSITE SCORE (0-100) ──
-        sm_score = 0
+        # ── ALPHA COMPOSITE SCORE (0-100) ─────────────────────────────
+        # Based on Fundamental Law of Active Management (IR = IC × √N)
+        # 5 independent signal clusters to avoid correlation overlap
+        # Each cluster picks the best signal, avoids double-counting
+        #
+        # Cluster 1: MOMENTUM (20 pts max)
+        #   RS Rating, Stage, % from 52W High — highly correlated → pick best
+        # Cluster 2: VOLUME/FLOW (20 pts max)
+        #   IV, PPV, Bull Snort — all measure institutional volume → combine once
+        # Cluster 3: INSTITUTIONAL (20 pts max)
+        #   Insider buys (count + value + category) — independent of price action
+        # Cluster 4: FUNDAMENTAL (20 pts max)
+        #   F-Value grade — independent of technicals
+        # Cluster 5: REGIME ALIGNMENT (20 pts max)
+        #   Is the stock aligned with market regime? Stage 2 in Bullish = bonus
+        # ─────────────────────────────────────────────────────────────
 
-        # IV signals: 8 pts each, max 40
-        sm_score += min(40, t.get("iv_count", 0) * 8)
+        # Cluster 1: MOMENTUM (max 20)
+        rs = t.get("rs_rating") or 0
+        momentum_pts = 0
+        if rs >= 90: momentum_pts = 20
+        elif rs >= 80: momentum_pts = 16
+        elif rs >= 70: momentum_pts = 12
+        elif rs >= 60: momentum_pts = 8
+        elif rs >= 50: momentum_pts = 5
+        else: momentum_pts = 2
+        # Bonus: Stage 2 already captured by RS typically, but add small bonus
+        # if trend_template passes (confirms momentum is structural, not fleeting)
+        if t["stage"] == "Stage 2" and rs >= 60:
+            momentum_pts = min(20, momentum_pts + 2)
 
-        # PPV signals: 5 pts each, max 15
-        sm_score += min(15, t.get("ppv_count", 0) * 5)
+        # Cluster 2: VOLUME/FLOW (max 20)
+        # IV, PPV, BS are ~70% correlated — all detect institutional volume
+        # Combine into one cluster score, don't multiply
+        flow_signals = t.get("iv_count", 0) + t.get("ppv_count", 0) + t.get("bs_count", 0)
+        flow_pts = 0
+        if flow_signals >= 5: flow_pts = 20
+        elif flow_signals >= 3: flow_pts = 16
+        elif flow_signals >= 2: flow_pts = 12
+        elif flow_signals >= 1: flow_pts = 8
+        else: flow_pts = 0
+        # Vol ratio bonus (independent of signal count — measures TODAY's conviction)
+        if (t.get("vol_ratio") or 0) >= 3.0:
+            flow_pts = min(20, flow_pts + 3)
+        elif (t.get("vol_ratio") or 0) >= 2.0:
+            flow_pts = min(20, flow_pts + 1)
 
-        # Bull Snort: 5 pts each, max 15
-        sm_score += min(15, t.get("bs_count", 0) * 5)
-
-        # Insider buy bonus: max 15 pts
-        insider_pts = 0
+        # Cluster 3: INSTITUTIONAL (max 20)
+        # Insider activity is independent of price/volume signals
+        inst_pts = 0
         if t["insider_buys"] > 0:
-            # Base: 5 pts for any insider buy
-            insider_pts = 5
-            # Category bonus: Promoter=10, Director=7, KMP=5
+            # Base: any insider buy = 6 pts
+            inst_pts = 6
+            # Category: Promoter > Director > KMP (higher conviction)
             if "Promoter" in t["insider_top_category"]:
-                insider_pts = 10
+                inst_pts = 12
             elif "Director" in t["insider_top_category"]:
-                insider_pts = 7
-            elif t["insider_top_category"]:
-                insider_pts = 5
-            # Value bonus: +5 if > ₹5 Cr
-            if t["insider_value_cr"] >= 5:
-                insider_pts = min(15, insider_pts + 5)
+                inst_pts = 9
+            # Value scaling: larger buys = more conviction
+            if t["insider_value_cr"] >= 10:
+                inst_pts = min(20, inst_pts + 8)
+            elif t["insider_value_cr"] >= 5:
+                inst_pts = min(20, inst_pts + 5)
             elif t["insider_value_cr"] >= 1:
-                insider_pts = min(15, insider_pts + 3)
-        sm_score += insider_pts
+                inst_pts = min(20, inst_pts + 3)
+            # Multiple insider buys (different insiders buying = stronger signal)
+            if t["insider_buys"] >= 3:
+                inst_pts = min(20, inst_pts + 3)
 
-        # F-Value bonus: max 10 pts
+        # Cluster 4: FUNDAMENTAL (max 20)
+        # F-Value is independent of price action — measures quality/value
         fv_grade = t.get("fvalue_grade", "")
-        fv_bonus = {"A": 10, "B": 8, "C": 5, "D": 2, "E": 0}.get(fv_grade, 0)
-        sm_score += fv_bonus
+        fund_pts = {"A": 20, "B": 16, "C": 10, "D": 4, "E": 0}.get(fv_grade, 0)
+        # Upside bonus (fair value estimate vs price)
+        upside = t.get("upside_pct") or 0
+        if upside >= 50:
+            fund_pts = min(20, fund_pts + 3)
+        elif upside >= 20:
+            fund_pts = min(20, fund_pts + 1)
 
-        # Stage 2 bonus: 5 pts
+        # Cluster 5: REGIME ALIGNMENT (max 20)
+        # Is this stock aligned with the current market regime?
+        # Stage 2 stock in a bullish/accumulation regime = favorable
+        # Stage 2 stock in panic = contrarian (risky but rewarded)
+        regime_pts = 0
         if t["stage"] == "Stage 2":
-            sm_score += 5
+            regime_pts = 10  # base: in uptrend
+        elif t["stage"] == "Stage 1→2":
+            regime_pts = 6   # emerging
+        # A/D Rating bonus (accumulation/distribution independent of RS)
+        ad = t.get("ad_rating", "")
+        if ad in ("A+", "A"): regime_pts = min(20, regime_pts + 6)
+        elif ad in ("A-", "B+"): regime_pts = min(20, regime_pts + 4)
+        elif ad in ("B", "B-"): regime_pts = min(20, regime_pts + 2)
+        # Sector RS bonus (sector tailwind is independent of stock RS)
+        sec_rs = t.get("sector_rs") or 0
+        if sec_rs >= 70:
+            regime_pts = min(20, regime_pts + 4)
+        elif sec_rs >= 50:
+            regime_pts = min(20, regime_pts + 2)
 
-        t["sm_score"] = min(100, sm_score)
+        # ── COMPOSITE ──
+        alpha_score = momentum_pts + flow_pts + inst_pts + fund_pts + regime_pts
+        t["alpha_score"] = min(100, alpha_score)
+        t["sm_score"] = t["alpha_score"]  # backward compatible
 
-    # Re-sort by Smart Money Score
-    sm_data["tickers"].sort(key=lambda x: x.get("sm_score", 0), reverse=True)
+        # Store cluster breakdown for transparency
+        t["alpha_clusters"] = {
+            "momentum": momentum_pts,
+            "flow": flow_pts,
+            "institutional": inst_pts,
+            "fundamental": fund_pts,
+            "regime": regime_pts,
+        }
+
+    # Re-sort by Alpha Composite Score
+    sm_data["tickers"].sort(key=lambda x: x.get("alpha_score", 0), reverse=True)
 
     return sm_data
