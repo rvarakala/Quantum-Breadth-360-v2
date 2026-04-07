@@ -628,6 +628,38 @@ def _compute_market_impl(market: str, custom_tickers: dict = None) -> dict:
     except Exception:
         _data_freshness = "unknown"
 
+    # ── Store Q-BRAM score to history table ─────────────────────────────────
+    try:
+        if DB_AVAILABLE and last_ohlcv_date != "unknown" and metrics.get("valid"):
+            import sqlite3
+            _hconn = sqlite3.connect(str(DB_PATH), timeout=10)
+            _hconn.execute("""
+                CREATE TABLE IF NOT EXISTS qbram_score_history (
+                    date TEXT NOT NULL, market TEXT NOT NULL,
+                    score INTEGER, regime TEXT,
+                    pct_above_50 REAL, nh_nl INTEGER,
+                    breadth_thrust REAL, csd REAL,
+                    qbram_version TEXT DEFAULT 'v2',
+                    PRIMARY KEY (date, market)
+                )
+            """)
+            _hconn.execute("""
+                INSERT OR REPLACE INTO qbram_score_history
+                (date, market, score, regime, pct_above_50, nh_nl, breadth_thrust, csd, qbram_version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                last_ohlcv_date, market.upper(),
+                metrics.get("score", 0), metrics.get("regime", ""),
+                metrics.get("pct_above_50", 0), metrics.get("nh_nl", 0),
+                metrics.get("breadth_thrust", 0), metrics.get("csd", 0),
+                "v2",
+            ))
+            _hconn.commit()
+            _hconn.close()
+            logger.info(f"Q-BRAM score stored: {last_ohlcv_date} {market} score={metrics.get('score')} regime={metrics.get('regime')}")
+    except Exception as _e:
+        logger.debug(f"Score history store failed: {_e}")
+
     return {**metrics,"market":market,"index_name":cfg["index_name"],"nifty50_price":round(n50,2),"nifty50_change_pct":round(n50c,2),
             "index_price":round(ip,2),"index_change_pct":round(ic,2),"vix":round(vv,2),
             "ad_history":_ad_history(stock_data,chart_days),
