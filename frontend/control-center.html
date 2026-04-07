@@ -102,7 +102,22 @@ a{color:var(--cyan);text-decoration:none}
 </style>
 </head>
 <body>
-<div class="cc-layout">
+<!-- LOGIN OVERLAY -->
+<div id="cc-login-overlay" style="display:flex;position:fixed;inset:0;z-index:999;background:rgba(8,12,20,.95);backdrop-filter:blur(12px);align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:36px;width:380px;text-align:center">
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--cyan);margin-bottom:4px">CONTROL CENTER</div>
+    <div style="font-family:var(--mono);font-size:20px;font-weight:800;margin-bottom:24px">Admin Login</div>
+    <input id="cc-login-email" type="email" placeholder="admin@quantumtrade.pro" value="admin@quantumtrade.pro" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:10px">
+    <input id="cc-login-pass" type="password" placeholder="Password" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;outline:none;margin-bottom:10px">
+    <div id="cc-login-error" style="color:var(--red);font-size:11px;font-family:var(--mono);min-height:18px;margin-bottom:8px"></div>
+    <button onclick="ccDoLogin()" style="width:100%;padding:10px;border-radius:8px;background:var(--cyan);color:#0a0e17;font-family:var(--mono);font-size:13px;font-weight:700;border:none;cursor:pointer;letter-spacing:.04em">LOGIN</button>
+    <div style="margin-top:16px;font-size:10px;color:var(--text3);font-family:var(--mono)">
+      Default: admin@quantumtrade.pro / QTP@admin2026
+    </div>
+  </div>
+</div>
+
+<div class="cc-layout" id="cc-app">
   <!-- Sidebar -->
   <nav class="cc-sidebar">
     <div class="cc-logo"><b>CONTROL CENTER</b>Quantum Breadth 360</div>
@@ -125,8 +140,12 @@ a{color:var(--cyan);text-decoration:none}
     <div class="cc-nav-item" onclick="ccNav('revenuedeep')"><span class="cc-nav-icon">📊</span><span>Revenue Deep</span></div>
     <div class="cc-nav-item" onclick="ccNav('comms')"><span class="cc-nav-icon">📢</span><span>Announcements</span></div>
     <div style="flex:1"></div>
-    <div style="padding:16px 20px;border-top:1px solid var(--border);margin-top:20px">
-      <a href="/app?mode=admin" style="font-size:10px;font-family:var(--mono)">← Back to App</a>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);margin-top:20px">
+      <div style="font-size:9px;color:var(--text3);font-family:var(--mono);margin-bottom:6px" id="cc-user-display"></div>
+      <div style="display:flex;gap:8px">
+        <a href="/app?mode=admin" style="font-size:10px;font-family:var(--mono)">← App</a>
+        <a href="#" onclick="ccLogout();return false" style="font-size:10px;font-family:var(--mono);color:var(--red)">Logout</a>
+      </div>
     </div>
   </nav>
 
@@ -254,28 +273,85 @@ a{color:var(--cyan);text-decoration:none}
 
 <script>
 const API = 'http://localhost:8001';
-function getToken() { return localStorage.getItem('qb360_token') || ''; }
-function getMode() { return localStorage.getItem('qb360_mode') || 'admin'; }
+let _ccToken = localStorage.getItem('cc_token') || '';
+let _ccUser = null;
+
 function authHeaders() {
   return {
-    'Authorization': 'Bearer ' + getToken(),
+    'Authorization': 'Bearer ' + _ccToken,
     'Content-Type': 'application/json',
-    'X-CC-Mode': getMode(),
+    'X-CC-Mode': 'admin',
   };
 }
 async function ccFetch(url) {
   const sep = url.includes('?') ? '&' : '?';
-  const r = await fetch(API + url + sep + 'mode=' + getMode(), { headers: authHeaders() });
+  const r = await fetch(API + url + sep + 'mode=admin', { headers: authHeaders() });
   const data = await r.json();
-  if (data.error === 'Access denied') {
-    console.warn('CC Access denied — try logging in as admin first or use dev mode');
-  }
+  if (data.error === 'Access denied') { ccShowLogin('Session expired — please login again'); return {}; }
   return data;
 }
 async function ccPost(url, body) {
   const sep = url.includes('?') ? '&' : '?';
-  const r = await fetch(API + url + sep + 'mode=' + getMode(), { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+  const r = await fetch(API + url + sep + 'mode=admin', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
   return r.json();
+}
+
+// ── LOGIN GATE ──
+function ccShowLogin(msg) {
+  document.getElementById('cc-login-overlay').style.display = 'flex';
+  document.getElementById('cc-app').style.filter = 'blur(6px)';
+  if (msg) document.getElementById('cc-login-error').textContent = msg;
+}
+
+function ccHideLogin() {
+  document.getElementById('cc-login-overlay').style.display = 'none';
+  document.getElementById('cc-app').style.filter = '';
+}
+
+async function ccDoLogin() {
+  const email = document.getElementById('cc-login-email').value.trim();
+  const password = document.getElementById('cc-login-pass').value;
+  const errEl = document.getElementById('cc-login-error');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Enter email and password'; return; }
+  try {
+    const r = await fetch(API + '/api/auth/login', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    const data = await r.json();
+    if (data.error) { errEl.textContent = data.error; return; }
+    if (data.user?.tier !== 'admin') { errEl.textContent = 'Admin access required'; return; }
+    _ccToken = data.token;
+    _ccUser = data.user;
+    localStorage.setItem('cc_token', _ccToken);
+    ccHideLogin();
+    document.getElementById('cc-user-display').textContent = _ccUser.email;
+    ccLoadDashboard();
+  } catch(e) { errEl.textContent = 'Login failed: ' + e.message; }
+}
+
+async function ccCheckAuth() {
+  if (!_ccToken) { ccShowLogin(); return; }
+  try {
+    const r = await fetch(API + '/api/auth/me', { headers: {'Authorization': 'Bearer ' + _ccToken} });
+    const data = await r.json();
+    if (data.id && data.tier === 'admin') {
+      _ccUser = data;
+      ccHideLogin();
+      document.getElementById('cc-user-display').textContent = data.email;
+      ccLoadDashboard();
+    } else {
+      _ccToken = ''; localStorage.removeItem('cc_token');
+      ccShowLogin('Admin access required');
+    }
+  } catch(e) { ccShowLogin(); }
+}
+
+function ccLogout() {
+  _ccToken = ''; _ccUser = null;
+  localStorage.removeItem('cc_token');
+  ccShowLogin();
 }
 
 // Navigation
@@ -502,8 +578,9 @@ async function ccLoadRoles() {
   `).join('');
 }
 
-// Auto-load dashboard
-ccLoadDashboard();
+// Init — check auth
+ccCheckAuth();
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('cc-login-overlay').style.display === 'flex') ccDoLogin(); });
 
 // ── ALERTS ──
 async function ccLoadAlerts() {
