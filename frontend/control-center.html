@@ -146,9 +146,12 @@ a{color:var(--cyan);text-decoration:none}
     <!-- USERS -->
     <section class="cc-section" id="cc-users">
       <div class="cc-header"><div><div class="cc-page-title">User Management</div><div class="cc-breadcrumb">Control Center / Users</div></div>
-        <div style="display:flex;gap:6px"><input id="cc-user-search" placeholder="Search email/name..." style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px;outline:none;width:200px" oninput="ccLoadUsers()">
-        <select id="cc-user-tier" onchange="ccLoadUsers()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="">All Tiers</option><option value="explorer">Explorer</option><option value="pro">Pro</option><option value="admin">Admin</option></select>
-        <select id="cc-user-status" onchange="ccLoadUsers()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="">All Status</option><option value="active">Active</option><option value="held">Held</option></select></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <input id="cc-user-search" placeholder="Search email/name..." style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px;outline:none;width:200px" oninput="ccLoadUsers()">
+          <select id="cc-user-tier" onchange="ccLoadUsers()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="">All Tiers</option><option value="explorer">Explorer</option><option value="pro">Pro</option><option value="admin">Admin</option></select>
+          <select id="cc-user-status" onchange="ccLoadUsers()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="">All Status</option><option value="active">Active</option><option value="held">Held</option></select>
+          <button class="cc-btn cc-btn-primary" onclick="ccAddUser()">+ Add User</button>
+        </div>
       </div>
       <div class="cc-card"><div id="cc-users-table">Loading...</div></div>
     </section>
@@ -320,17 +323,58 @@ async function ccLoadUsers() {
   const data = await ccFetch('/api/cc/users?' + params);
   const users = data.users || [];
   document.getElementById('cc-users-table').innerHTML = `<table class="cc-table"><thead><tr>
-    <th>ID</th><th>EMAIL</th><th>NAME</th><th>TIER</th><th>STATUS</th><th>ROLE</th><th>CREATED</th><th>LAST LOGIN</th>
-  </tr></thead><tbody>${users.map(u => `<tr>
-    <td style="color:var(--text3)">${u.id}</td>
-    <td style="font-weight:600">${u.email}</td>
-    <td>${u.name||'—'}</td>
-    <td><span class="cc-badge ${u.tier==='pro'?'cc-badge-green':u.tier==='admin'?'cc-badge-purple':'cc-badge-cyan'}">${u.tier}</span></td>
-    <td><span class="cc-badge ${u.status==='active'?'cc-badge-green':u.status==='held'?'cc-badge-amber':'cc-badge-red'}">${u.status}</span></td>
-    <td>${u.admin_role ? `<span class="cc-badge cc-badge-purple">${u.admin_role}</span>` : '—'}</td>
-    <td style="font-size:10px;color:var(--text3)">${(u.created_at||'').slice(0,10)}</td>
-    <td style="font-size:10px;color:var(--text3)">${(u.last_login||'—').slice(0,10)}</td>
-  </tr>`).join('')}</tbody></table><div style="padding:8px;font-size:10px;color:var(--text3);font-family:var(--mono)">${data.total||0} users total</div>`;
+    <th>ID</th><th>EMAIL</th><th>NAME</th><th>TIER</th><th>STATUS</th><th>ROLE</th><th>CREATED</th><th>LAST LOGIN</th><th>ACTIONS</th>
+  </tr></thead><tbody>${users.map(u => {
+    const isAdmin = u.tier === 'admin';
+    const tierOpts = isAdmin ? '' : `
+      ${u.tier !== 'pro' ? `<button class="cc-btn" onclick="ccUserAction(${u.id},'tier','pro')" style="font-size:9px;padding:2px 6px;color:var(--green)" title="Upgrade to Pro">⬆ Pro</button>` : ''}
+      ${u.tier !== 'explorer' ? `<button class="cc-btn" onclick="ccUserAction(${u.id},'tier','explorer')" style="font-size:9px;padding:2px 6px;color:var(--amber)" title="Downgrade to Explorer">⬇ Free</button>` : ''}
+    `;
+    const statusOpts = isAdmin ? '' : `
+      ${u.status === 'active' ? `<button class="cc-btn" onclick="ccUserAction(${u.id},'status','held')" style="font-size:9px;padding:2px 6px;color:var(--amber)" title="Withhold account">⏸ Hold</button>` : ''}
+      ${u.status === 'held' ? `<button class="cc-btn" onclick="ccUserAction(${u.id},'status','active')" style="font-size:9px;padding:2px 6px;color:var(--green)" title="Reactivate">▶ Activate</button>` : ''}
+      <button class="cc-btn cc-btn-danger" onclick="ccDeleteUser(${u.id},'${u.email}')" style="font-size:9px;padding:2px 6px" title="Delete user">✗</button>
+    `;
+    return `<tr>
+      <td style="color:var(--text3)">${u.id}</td>
+      <td style="font-weight:600">${u.email}</td>
+      <td>${u.name||'—'}</td>
+      <td><span class="cc-badge ${u.tier==='pro'?'cc-badge-green':u.tier==='admin'?'cc-badge-purple':'cc-badge-cyan'}">${u.tier}</span></td>
+      <td><span class="cc-badge ${u.status==='active'?'cc-badge-green':u.status==='held'?'cc-badge-amber':'cc-badge-red'}">${u.status}</span></td>
+      <td>${u.admin_role ? `<span class="cc-badge cc-badge-purple">${u.admin_role}</span>` : '—'}</td>
+      <td style="font-size:10px;color:var(--text3)">${(u.created_at||'').slice(0,10)}</td>
+      <td style="font-size:10px;color:var(--text3)">${(u.last_login||'—').slice(0,10)}</td>
+      <td style="white-space:nowrap">${tierOpts}${statusOpts}</td>
+    </tr>`;
+  }).join('')}</tbody></table><div style="padding:8px;font-size:10px;color:var(--text3);font-family:var(--mono)">${data.total||0} users total</div>`;
+}
+
+async function ccUserAction(userId, field, value) {
+  const body = {user_id: userId};
+  body[field] = value;
+  await ccPost('/api/admin/update-user', body);
+  ccLoadUsers();
+}
+
+async function ccDeleteUser(userId, email) {
+  if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
+  await ccPost('/api/admin/delete-user', {user_id: userId});
+  ccLoadUsers();
+}
+
+async function ccAddUser() {
+  const name = prompt('Full name:');
+  if (!name) return;
+  const email = prompt('Email address:');
+  if (!email) return;
+  const tier = prompt('Tier (explorer / pro):', 'explorer');
+  if (!tier) return;
+  const password = prompt('Password:', 'Welcome@2026');
+  if (!password) return;
+  const r = await ccPost('/api/admin/add-user', {name, email, password, tier});
+  if (r.error) { alert('Error: ' + r.error); return; }
+  alert(`User created: ${email} (${tier})`);
+  ccLoadUsers();
 }
 
 // ── REVENUE ──

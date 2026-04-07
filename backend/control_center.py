@@ -177,6 +177,67 @@ def ensure_cc_tables():
     conn.close()
     logger.info("✅ Control Center tables ready")
 
+    # Seed demo users if only admin exists
+    _seed_demo_users()
+
+
+def _seed_demo_users():
+    """Seed demo users for testing the Control Center."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if user_count > 2:
+        conn.close()
+        return  # Already has users
+
+    import bcrypt
+    now = datetime.now(timezone.utc).isoformat()
+    demo_users = [
+        ("rahul.sharma@gmail.com", "Rahul Sharma", "pro", "active", -45),
+        ("priya.patel@outlook.com", "Priya Patel", "pro", "active", -30),
+        ("amit.verma@yahoo.com", "Amit Verma", "pro", "active", -60),
+        ("sneha.reddy@gmail.com", "Sneha Reddy", "explorer", "active", -20),
+        ("vikram.singh@hotmail.com", "Vikram Singh", "explorer", "active", -15),
+        ("anjali.gupta@gmail.com", "Anjali Gupta", "pro", "held", -90),
+        ("rohit.kumar@outlook.com", "Rohit Kumar", "explorer", "active", -10),
+        ("neha.joshi@gmail.com", "Neha Joshi", "pro", "active", -75),
+        ("arjun.nair@yahoo.com", "Arjun Nair", "explorer", "held", -50),
+        ("kavita.iyer@gmail.com", "Kavita Iyer", "pro", "active", -35),
+        ("suresh.menon@hotmail.com", "Suresh Menon", "explorer", "active", -5),
+        ("deepika.rao@gmail.com", "Deepika Rao", "pro", "active", -25),
+        ("manish.agarwal@outlook.com", "Manish Agarwal", "explorer", "active", -40),
+        ("pooja.desai@gmail.com", "Pooja Desai", "pro", "held", -55),
+        ("rajesh.pillai@yahoo.com", "Rajesh Pillai", "explorer", "active", -8),
+    ]
+
+    pw_hash = bcrypt.hashpw("demo2026".encode(), bcrypt.gensalt()).decode()
+    for email, name, tier, status, days_ago in demo_users:
+        created = (datetime.now(timezone.utc) + timedelta(days=days_ago)).isoformat()
+        last_login = (datetime.now(timezone.utc) + timedelta(days=days_ago + 3)).isoformat() if status == "active" else None
+        try:
+            conn.execute("""
+                INSERT OR IGNORE INTO users (email, name, password_hash, tier, status, created_at, last_login)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (email, name, pw_hash, tier, status, created, last_login))
+        except:
+            pass
+
+    conn.commit()
+
+    # Seed some revenue events for demo
+    pro_users = conn.execute("SELECT id, email, tier, created_at FROM users WHERE tier='pro'").fetchall()
+    for uid, email, tier, created in pro_users:
+        try:
+            conn.execute("""
+                INSERT OR IGNORE INTO revenue_events (user_id, event_type, tier_from, tier_to, amount, timestamp)
+                VALUES (?, 'upgrade', 'explorer', 'pro', 299, ?)
+            """, (uid, created))
+        except:
+            pass
+
+    conn.commit()
+    conn.close()
+    logger.info(f"✅ Seeded {len(demo_users)} demo users")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RBAC
