@@ -117,29 +117,31 @@ function _sbmRenderCards() {
   const last = daily[daily.length - 1];
   const dateStr = last.date.slice(5);
 
-  // Card 1: 4% Market Monitor (bar)
+  // Row 1: 4% | 34/13 | 10-DCR 4% | Q25
   _sbmBarChart('sbm-chart-4pct', `${last.bull_4pct} bull`, `${last.bear_4pct} bear`, last.bull_4pct, last.bear_4pct);
   _setDate('sbm-card1-date', dateStr);
 
-  // Card 2: 34/13 Market Monitor (bar)
   _sbmBarChart('sbm-chart-3413', `${last.ema34_13_bull} bull`, `${last.ema34_13_bear} bear`, last.ema34_13_bull, last.ema34_13_bear);
   _setDate('sbm-card2-date', dateStr);
 
-  // Card 3: 10-DCR of 4% BO (line)
-  _sbmLineChart('sbm-chart-dcr4', daily.slice(-60), 'dcr_4pct_10d', '10-dcr');
-  _setDate('sbm-card3-date', 'Last 60 days');
+  _sbmLineChart('sbm-chart-dcr4', daily, 'dcr_4pct_10d', '10-dcr');
+  _setDate('sbm-card3-date', `${daily.length} days`);
 
-  // Card 4: M25 Market Monitor (bar)
-  _sbmBarChart('sbm-chart-m25', `${last.m25_bull} bull`, `${last.m25_bear} bear`, last.m25_bull, last.m25_bear);
-  _setDate('sbm-card4-date', dateStr);
-
-  // Card 5: Q25 Market Monitor (bar)
   _sbmBarChart('sbm-chart-q25bar', `${last.q25_bull} bull`, `${last.q25_bear} bear`, last.q25_bull, last.q25_bear);
   _setDate('sbm-card5-date', dateStr);
 
-  // Card 6: 10-DCR of 20-day MA (line)
-  _sbmLineChart('sbm-chart-dcrm25', daily.slice(-60), 'dcr_m25_10d', '10-dcr');
-  _setDate('sbm-card6-date', 'Last 60 days');
+  // Row 2: M25 | M50 | 10-DCR 20DMA | 10-DCR 50DMA
+  _sbmBarChart('sbm-chart-m25', `${last.m25_bull} bull`, `${last.m25_bear} bear`, last.m25_bull, last.m25_bear);
+  _setDate('sbm-card4-date', dateStr);
+
+  _sbmBarChart('sbm-chart-m50', `${last.m50_bull} bull`, `${last.m50_bear} bear`, last.m50_bull, last.m50_bear);
+  _setDate('sbm-card7-date', dateStr);
+
+  _sbmLineChart('sbm-chart-dcrm25', daily, 'dcr_m25_10d', '10-dcr');
+  _setDate('sbm-card6-date', `${daily.length} days`);
+
+  _sbmLineChart('sbm-chart-dcrm50', daily, 'dcr_m50_10d', '10-dcr');
+  _setDate('sbm-card8-date', `${daily.length} days`);
 }
 
 function _setDate(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
@@ -152,15 +154,17 @@ function _sbmBarChart(canvasId, label1, label2, val1, val2) {
     type: 'bar',
     data: {
       labels: [label1, label2],
-      datasets: [{ data: [val1, val2], backgroundColor: ['rgba(34,197,94,0.7)', 'rgba(239,68,68,0.7)'], borderWidth: 0 }]
+      datasets: [{ data: [val1, val2], backgroundColor: ['rgba(100,200,220,0.7)', 'rgba(220,100,130,0.7)'], borderWidth: 0, barPercentage: 0.7 }]
     },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 400 },
       plugins: { legend: { display: false },
-        tooltip: { backgroundColor: '#111827', borderColor: '#253552', borderWidth: 1 } },
+        tooltip: { backgroundColor: '#111827', borderColor: '#253552', borderWidth: 1, bodyFont: { family: "'Space Mono'", size: 10 } } },
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { family: "'Space Mono'", size: 10 } } },
-        y: { grid: { color: '#1e2d4a33' }, ticks: { color: '#4b5e7a' }, beginAtZero: true }
+        x: { grid: { color: '#1e2d4a33' }, ticks: { color: '#4b5e7a', font: { size: 9 } }, beginAtZero: true },
+        y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { family: "'Space Mono'", size: 10 } } }
       }
     }
   });
@@ -169,19 +173,25 @@ function _sbmBarChart(canvasId, label1, label2, val1, val2) {
 function _sbmLineChart(canvasId, data, field, label) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
-  const labels = data.map(d => d.date.slice(5));
+  const labels = data.map(d => d.date.slice(2));
   const vals = data.map(d => d[field] || 0);
   if (_sbmCharts[canvasId]) _sbmCharts[canvasId].destroy();
   _sbmCharts[canvasId] = new Chart(canvas.getContext('2d'), {
     type: 'line',
-    data: { labels, datasets: [{ label, data: vals, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.06)', fill: true, borderWidth: 1.5, pointRadius: 0, tension: 0.3 }] },
+    data: { labels, datasets: [
+      { label, data: vals, borderColor: '#67d4e5', backgroundColor: 'rgba(100,210,230,0.06)', fill: true, borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+    ] },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
-      plugins: { legend: { display: false },
-        tooltip: { mode: 'index', intersect: false, backgroundColor: '#111827', borderColor: '#253552', borderWidth: 1, titleFont: { family: "'Space Mono'", size: 9 }, bodyFont: { family: "'Space Mono'", size: 10 } } },
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false, backgroundColor: '#111827', borderColor: '#253552', borderWidth: 1, titleFont: { family: "'Space Mono'", size: 9 }, bodyFont: { family: "'Space Mono'", size: 10 } },
+        annotation: undefined,
+      },
       scales: {
-        x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#4b5e7a', font: { size: 8 } } },
-        y: { grid: { color: '#1e2d4a33' }, ticks: { color: '#4b5e7a' }, beginAtZero: true }
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: '#4b5e7a', font: { size: 7 } } },
+        y: { grid: { color: '#1e2d4a33' }, ticks: { color: '#4b5e7a', font: { size: 9 } }, beginAtZero: true }
       }
     }
   });
