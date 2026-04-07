@@ -250,7 +250,7 @@ function renderCharts(d) {
   zones.appendChild(marker);
 
   // New breadth chart components
-  renderRegimeTimeline(d);
+  renderRegimeTimeline(d);  // async — fetches score history for accurate regimes
   renderScoreHistory(d);  // async — fetches real scores from DB
   _ivFootprintLoaded = false; // reset so it reloads on refresh
   renderIVFootprint();
@@ -477,7 +477,16 @@ function renderQBRAMAlerts(d) {
 // COMPONENT 3: REGIME TIMELINE (30 DAYS)
 // ════════════════════════════════════════════════════════════════════════════════
 
+function _scoreToRegime(score) {
+  if (score >= 80) return { name: 'EXP', color: '#22c55e', full: 'EXPANSION' };
+  if (score >= 60) return { name: 'ACC', color: '#86efac', full: 'ACCUMULATION' };
+  if (score >= 40) return { name: 'TRN', color: '#f59e0b', full: 'TRANSITION' };
+  if (score >= 20) return { name: 'DIS', color: '#ef4444', full: 'DISTRIBUTION' };
+  return { name: 'PAN', color: '#7f1d1d', full: 'PANIC' };
+}
+
 function _pctToRegime(pct) {
+  // Fallback only — used when no Q-BRAM score available
   if (pct >= 80) return { name: 'EXP', color: '#22c55e', full: 'EXPANSION' };
   if (pct >= 60) return { name: 'ACC', color: '#86efac', full: 'ACCUMULATION' };
   if (pct >= 40) return { name: 'TRN', color: '#f59e0b', full: 'TRANSITION' };
@@ -485,7 +494,7 @@ function _pctToRegime(pct) {
   return { name: 'PAN', color: '#7f1d1d', full: 'PANIC' };
 }
 
-function renderRegimeTimeline(d) {
+async function renderRegimeTimeline(d) {
   const el = document.getElementById('regime-timeline-card');
   if (!el) return;
 
@@ -495,9 +504,42 @@ function renderRegimeTimeline(d) {
     return;
   }
 
+  // Fetch real Q-BRAM score history to get accurate regimes
+  let scoreMap = {};
+  try {
+    const mkt = (typeof currentMarket !== 'undefined') ? currentMarket : 'INDIA';
+    const res = await fetch(`${API}/api/breadth/score-history?market=${mkt}&days=30`);
+    const data = await res.json();
+    if (data.history) {
+      for (const h of data.history) {
+        scoreMap[h.date] = { score: h.score, regime: h.regime };
+      }
+    }
+  } catch(e) { /* fallback to pct_above_50 */ }
+
+  // Also use today's live score from breadth data
+  const liveScore = d.score ?? null;
+  const liveRegime = d.regime ?? null;
+  const liveDate = d.last_ohlcv_date ?? null;
+  if (liveDate && liveScore != null) {
+    scoreMap[liveDate] = { score: liveScore, regime: liveRegime };
+  }
+
   const days = dmaH.map(h => {
-    const r = _pctToRegime(h.pct_above_50);
-    return { date: h.date, pct: h.pct_above_50, ...r };
+    const stored = scoreMap[h.date];
+    let r;
+    if (stored && stored.score != null) {
+      // Use actual Q-BRAM score → regime (matches Overview card)
+      r = _scoreToRegime(stored.score);
+      r.pct = h.pct_above_50;
+      r.score = stored.score;
+    } else {
+      // Fallback: derive from pct_above_50 alone (old data)
+      r = _pctToRegime(h.pct_above_50);
+      r.pct = h.pct_above_50;
+      r.score = null;
+    }
+    return { date: h.date, ...r };
   });
 
   // Get the last OHLCV date from breadth data for accurate labelling
@@ -535,9 +577,10 @@ function renderRegimeTimeline(d) {
         const isLast = i === days.length - 1;
         const label  = isLast && !isToday ? `${day.name}*` : day.name;
         const border = isLast ? 'border:2px solid rgba(255,255,255,.5)' : '';
+        const scoreInfo = day.score != null ? ` | Q-BRAM: ${day.score}` : '';
         const tip    = isLast && !isToday
-          ? `${day.date}: ${day.full} (${day.pct.toFixed(1)}%) — LAST EOD`
-          : `${day.date}: ${day.full} (${day.pct.toFixed(1)}%)`;
+          ? `${day.date}: ${day.full} (Above 50DMA: ${day.pct.toFixed(1)}%${scoreInfo}) — LAST EOD`
+          : `${day.date}: ${day.full} (Above 50DMA: ${day.pct.toFixed(1)}%${scoreInfo})`;
         return `<div class="rt-block" style="background:${day.color};${border}"
           title="${tip}">
           <span class="rt-block-label">${label}</span>
