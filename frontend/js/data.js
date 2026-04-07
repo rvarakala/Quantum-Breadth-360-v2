@@ -1,5 +1,8 @@
 // ─── DATA FETCHING ────────────────────────────────────────────────────────────
 
+const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes
+let _autoRefreshTimer = null;
+
 async function loadBreadth(force = false) {
   const btn = $('refresh-btn');
   btn.classList.add('loading');
@@ -33,6 +36,52 @@ async function loadBreadth(force = false) {
     btn.classList.remove('loading');
   }
 }
+
+async function autoRefreshAll() {
+  console.log('[Auto-Refresh] Refreshing all data...');
+
+  // 1. Breadth (Overview + Charts)
+  try { await loadBreadth(true); } catch(e) { console.warn('Auto-refresh breadth failed:', e); }
+
+  // 2. Active tab data — refresh whatever tab is currently open
+  const activeTab = document.querySelector('.nav-item.active')?.dataset?.tab;
+  try {
+    if (activeTab === 'smart-money' && typeof loadSmartMoney === 'function') {
+      _smMoneyData = null; loadSmartMoney();
+    }
+    if (activeTab === 'insider' && typeof loadInsiderData === 'function') {
+      _insiderData = []; loadInsiderData();
+    }
+    if (activeTab === 'leaders' && typeof initLeadersTab === 'function') {
+      _leadersData = null; initLeadersTab();
+    }
+    if (activeTab === 'fvalue' && typeof onFValueTabLoad === 'function') {
+      _fvLoaded = false; onFValueTabLoad();
+    }
+    if (activeTab === 'scanner') {
+      _scannerData = null;
+    }
+    if (activeTab === 'stockbee' && typeof loadStockbee === 'function') {
+      _stockbeeData = null; loadStockbee();
+    }
+    if (activeTab === 'fiidii' && typeof onFiiDiiTabLoad === 'function') {
+      onFiiDiiTabLoad();
+    }
+  } catch(e) { console.warn('Auto-refresh tab data failed:', e); }
+
+  console.log('[Auto-Refresh] Complete. Next in 15 mins.');
+}
+
+function startAutoRefresh() {
+  if (_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+  _autoRefreshTimer = setInterval(autoRefreshAll, AUTO_REFRESH_INTERVAL);
+  console.log('[Auto-Refresh] Started — every 15 minutes');
+}
+
+// Start auto-refresh when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(startAutoRefresh, 5000); // start 5s after page load
+});
 
 async function loadCompare() {
   try {
@@ -95,6 +144,11 @@ function updateFreshness() {
     if (m > 20) dot.classList.add('stale');
   }
 }
+
+// Update freshness text every 30 seconds to show live age
+setInterval(() => {
+  if (lastUpdated[currentMarket]) updateFreshness();
+}, 30000);
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
 
