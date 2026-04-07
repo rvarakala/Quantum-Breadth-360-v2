@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Control Center — Quantum Breadth 360</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080c14;--bg2:#0f1623;--bg3:#151d2e;--card:#111827;--border:#1e2d4a;--cyan:#06b6d4;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--purple:#a855f7;--pink:#f472b6;--text:#e2e8f0;--text2:#94a3b8;--text3:#4b5e7a;--mono:'Space Mono',monospace;--sans:'Inter',sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;overflow-x:hidden}
+a{color:var(--cyan);text-decoration:none}
+
+/* Layout */
+.cc-layout{display:flex;min-height:100vh}
+.cc-sidebar{width:220px;background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:10}
+.cc-main{margin-left:220px;flex:1;padding:20px 28px;min-height:100vh}
+
+/* Sidebar */
+.cc-logo{padding:12px 20px 20px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--cyan);border-bottom:1px solid var(--border);margin-bottom:12px}
+.cc-logo b{font-size:13px;color:var(--text);display:block;margin-bottom:2px;letter-spacing:.06em}
+.cc-nav-section{font-size:9px;color:var(--text3);letter-spacing:.12em;padding:12px 20px 4px;font-family:var(--mono)}
+.cc-nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;color:var(--text2);cursor:pointer;transition:all .15s;font-size:12px;border-left:3px solid transparent}
+.cc-nav-item:hover{background:rgba(6,182,212,.05);color:var(--text)}
+.cc-nav-item.active{background:rgba(6,182,212,.08);color:var(--cyan);border-left-color:var(--cyan);font-weight:600}
+.cc-nav-icon{width:16px;text-align:center;font-size:14px}
+
+/* Header */
+.cc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.cc-page-title{font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:.04em}
+.cc-breadcrumb{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px}
+
+/* Cards */
+.cc-grid{display:grid;gap:14px}
+.cc-grid-4{grid-template-columns:repeat(4,1fr)}
+.cc-grid-3{grid-template-columns:repeat(3,1fr)}
+.cc-grid-2{grid-template-columns:repeat(2,1fr)}
+.cc-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.cc-stat-num{font-family:var(--mono);font-size:24px;font-weight:800}
+.cc-stat-label{font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:.1em;margin-top:3px}
+
+/* Table */
+.cc-table{width:100%;border-collapse:collapse;font-size:12px}
+.cc-table th{text-align:left;padding:8px 10px;font-size:9px;letter-spacing:.08em;color:var(--text3);font-family:var(--mono);font-weight:700;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0}
+.cc-table td{padding:7px 10px;border-bottom:1px solid rgba(30,41,59,.4)}
+.cc-table tr:hover td{background:rgba(6,182,212,.02)}
+
+/* Badges */
+.cc-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;font-family:var(--mono)}
+.cc-badge-green{background:rgba(34,197,94,.12);color:var(--green)}
+.cc-badge-red{background:rgba(239,68,68,.12);color:var(--red)}
+.cc-badge-amber{background:rgba(245,158,11,.12);color:var(--amber)}
+.cc-badge-cyan{background:rgba(6,182,212,.12);color:var(--cyan)}
+.cc-badge-purple{background:rgba(168,85,247,.12);color:var(--purple)}
+
+/* Buttons */
+.cc-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;font-family:var(--mono);transition:all .2s}
+.cc-btn:hover{border-color:var(--cyan);color:var(--text)}
+.cc-btn-primary{background:var(--cyan);color:#0a0e17;border-color:var(--cyan);font-weight:700}
+.cc-btn-danger{border-color:var(--red);color:var(--red)}
+
+/* Sections */
+.cc-section{display:none}
+.cc-section.active{display:block}
+.cc-section-title{font-family:var(--mono);font-size:14px;font-weight:700;margin-bottom:14px;letter-spacing:.04em}
+
+/* Config */
+.cc-config-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(30,41,59,.3)}
+.cc-config-key{font-family:var(--mono);font-size:11px;color:var(--cyan);min-width:260px}
+.cc-config-val{flex:1}
+.cc-config-val input{width:100%;padding:5px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px;outline:none}
+.cc-config-val input:focus{border-color:var(--cyan)}
+.cc-config-desc{font-size:10px;color:var(--text3);min-width:200px}
+.cc-config-cat{font-size:9px;color:var(--purple);font-family:var(--mono)}
+
+/* Toggle */
+.cc-toggle{position:relative;width:36px;height:20px;cursor:pointer}
+.cc-toggle input{display:none}
+.cc-toggle-track{position:absolute;inset:0;background:var(--bg3);border-radius:10px;border:1px solid var(--border);transition:all .2s}
+.cc-toggle input:checked+.cc-toggle-track{background:var(--cyan);border-color:var(--cyan)}
+.cc-toggle-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;background:white;border-radius:50%;transition:all .2s}
+.cc-toggle input:checked~.cc-toggle-thumb{left:18px}
+
+/* Pipeline */
+.cc-pipe-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(30,41,59,.3)}
+.cc-pipe-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cc-pipe-dot.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
+.cc-pipe-dot.error{background:var(--red);box-shadow:0 0 6px var(--red)}
+.cc-pipe-dot.stale{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.cc-pipe-name{font-family:var(--mono);font-size:12px;font-weight:700;min-width:140px}
+.cc-pipe-info{font-size:10px;color:var(--text2);font-family:var(--mono)}
+
+/* Audit */
+.cc-audit-row{font-size:11px;font-family:var(--mono)}
+.cc-audit-ts{color:var(--text3);font-size:10px;min-width:160px}
+.cc-audit-actor{color:var(--cyan);min-width:120px}
+.cc-audit-action{font-weight:700}
+
+/* Responsive */
+@media(max-width:1100px){.cc-grid-4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.cc-sidebar{width:60px}.cc-main{margin-left:60px}.cc-nav-item span:not(.cc-nav-icon){display:none}.cc-grid-4,.cc-grid-3,.cc-grid-2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="cc-layout">
+  <!-- Sidebar -->
+  <nav class="cc-sidebar">
+    <div class="cc-logo"><b>CONTROL CENTER</b>Quantum Breadth 360</div>
+    <div class="cc-nav-section">OVERVIEW</div>
+    <div class="cc-nav-item active" onclick="ccNav('dashboard')"><span class="cc-nav-icon">📊</span><span>Dashboard</span></div>
+    <div class="cc-nav-section">MANAGEMENT</div>
+    <div class="cc-nav-item" onclick="ccNav('users')"><span class="cc-nav-icon">👥</span><span>Users</span></div>
+    <div class="cc-nav-item" onclick="ccNav('revenue')"><span class="cc-nav-icon">💰</span><span>Revenue</span></div>
+    <div class="cc-nav-section">SYSTEM</div>
+    <div class="cc-nav-item" onclick="ccNav('pipelines')"><span class="cc-nav-icon">🔄</span><span>Pipelines</span></div>
+    <div class="cc-nav-item" onclick="ccNav('config')"><span class="cc-nav-icon">⚙️</span><span>Configuration</span></div>
+    <div class="cc-nav-item" onclick="ccNav('flags')"><span class="cc-nav-icon">🚩</span><span>Feature Flags</span></div>
+    <div class="cc-nav-item" onclick="ccNav('audit')"><span class="cc-nav-icon">📋</span><span>Audit Logs</span></div>
+    <div class="cc-nav-section">ACCESS</div>
+    <div class="cc-nav-item" onclick="ccNav('rbac')"><span class="cc-nav-icon">🔐</span><span>Roles (RBAC)</span></div>
+    <div style="flex:1"></div>
+    <div style="padding:16px 20px;border-top:1px solid var(--border);margin-top:20px">
+      <a href="/app?mode=admin" style="font-size:10px;font-family:var(--mono)">← Back to App</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="cc-main">
+
+    <!-- DASHBOARD -->
+    <section class="cc-section active" id="cc-dashboard">
+      <div class="cc-header"><div><div class="cc-page-title">Dashboard</div><div class="cc-breadcrumb">Control Center / Overview</div></div><button class="cc-btn" onclick="ccLoadDashboard()">⟳ Refresh</button></div>
+      <div class="cc-grid cc-grid-4" id="cc-dash-stats"></div>
+      <div class="cc-grid cc-grid-2" style="margin-top:16px">
+        <div class="cc-card"><div class="cc-section-title">Data Pipelines</div><div id="cc-dash-pipes"></div></div>
+        <div class="cc-card"><div class="cc-section-title">Recent Activity</div><div id="cc-dash-audit" style="max-height:300px;overflow-y:auto"></div></div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section class="cc-section" id="cc-users">
+      <div class="cc-header"><div><div class="cc-page-title">User Management</div><div class="cc-breadcrumb">Control Center / Users</div></div>
+        <div style="display:flex;gap:6px"><input id="cc-user-search" placeholder="Search email/name..." style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px;outline:none;width:200px" oninput="ccLoadUsers()">
+        <select id="cc-user-tier" onchange="ccLoadUsers()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="">All Tiers</option><option value="explorer">Explorer</option><option value="pro">Pro</option><option value="admin">Admin</option></select>
+        <select id="cc-user-status" onchange="ccLoadUsers()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="">All Status</option><option value="active">Active</option><option value="held">Held</option></select></div>
+      </div>
+      <div class="cc-card"><div id="cc-users-table">Loading...</div></div>
+    </section>
+
+    <!-- REVENUE -->
+    <section class="cc-section" id="cc-revenue">
+      <div class="cc-header"><div><div class="cc-page-title">Revenue Analytics</div><div class="cc-breadcrumb">Control Center / Revenue</div></div></div>
+      <div class="cc-grid cc-grid-4" id="cc-rev-stats"></div>
+      <div class="cc-card" style="margin-top:16px"><div class="cc-section-title">Recent Revenue Events</div><div id="cc-rev-events"></div></div>
+    </section>
+
+    <!-- PIPELINES -->
+    <section class="cc-section" id="cc-pipelines">
+      <div class="cc-header"><div><div class="cc-page-title">System Monitoring</div><div class="cc-breadcrumb">Control Center / Pipelines</div></div><button class="cc-btn" onclick="ccLoadPipelines()">⟳ Refresh</button></div>
+      <div class="cc-grid cc-grid-3" id="cc-sys-stats"></div>
+      <div class="cc-card" style="margin-top:16px"><div class="cc-section-title">Data Pipelines</div><div id="cc-pipe-list"></div></div>
+    </section>
+
+    <!-- CONFIGURATION -->
+    <section class="cc-section" id="cc-config">
+      <div class="cc-header"><div><div class="cc-page-title">System Configuration</div><div class="cc-breadcrumb">Control Center / Config</div></div></div>
+      <div class="cc-card"><div id="cc-config-list">Loading...</div></div>
+    </section>
+
+    <!-- FEATURE FLAGS -->
+    <section class="cc-section" id="cc-flags">
+      <div class="cc-header"><div><div class="cc-page-title">Feature Flags</div><div class="cc-breadcrumb">Control Center / Flags</div></div></div>
+      <div class="cc-card"><div id="cc-flags-list">Loading...</div></div>
+    </section>
+
+    <!-- AUDIT LOGS -->
+    <section class="cc-section" id="cc-audit">
+      <div class="cc-header"><div><div class="cc-page-title">Audit Logs</div><div class="cc-breadcrumb">Control Center / Audit</div></div>
+        <div style="display:flex;gap:6px">
+          <select id="cc-audit-days" onchange="ccLoadAudit()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="7">7 Days</option><option value="30" selected>30 Days</option><option value="90">90 Days</option></select>
+          <select id="cc-audit-cat" onchange="ccLoadAudit()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="">All Categories</option><option value="system">System</option><option value="config">Config</option><option value="rbac">RBAC</option><option value="error">Error</option></select>
+        </div>
+      </div>
+      <div class="cc-card"><div id="cc-audit-list">Loading...</div></div>
+    </section>
+
+    <!-- RBAC -->
+    <section class="cc-section" id="cc-rbac">
+      <div class="cc-header"><div><div class="cc-page-title">Role-Based Access Control</div><div class="cc-breadcrumb">Control Center / RBAC</div></div></div>
+      <div class="cc-grid cc-grid-4" id="cc-roles-grid"></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+const API = 'http://localhost:8001';
+function getToken() { return localStorage.getItem('qb360_token') || ''; }
+function authHeaders() { return { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' }; }
+async function ccFetch(url) { const r = await fetch(API + url, { headers: authHeaders() }); return r.json(); }
+async function ccPost(url, body) { const r = await fetch(API + url, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) }); return r.json(); }
+
+// Navigation
+function ccNav(section) {
+  document.querySelectorAll('.cc-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.cc-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('cc-' + section)?.classList.add('active');
+  event.currentTarget.classList.add('active');
+  // Auto-load data
+  if (section === 'dashboard') ccLoadDashboard();
+  if (section === 'users') ccLoadUsers();
+  if (section === 'revenue') ccLoadRevenue();
+  if (section === 'pipelines') ccLoadPipelines();
+  if (section === 'config') ccLoadConfig();
+  if (section === 'flags') ccLoadFlags();
+  if (section === 'audit') ccLoadAudit();
+  if (section === 'rbac') ccLoadRoles();
+}
+
+// ── DASHBOARD ──
+async function ccLoadDashboard() {
+  try {
+    const [sys, rev, audit] = await Promise.all([
+      ccFetch('/api/cc/system-status'),
+      ccFetch('/api/cc/revenue'),
+      ccFetch('/api/cc/audit-logs?limit=10'),
+    ]);
+    const s = rev.summary || {};
+    document.getElementById('cc-dash-stats').innerHTML = `
+      <div class="cc-card"><div class="cc-stat-num" style="color:var(--cyan)">${s.total_users||0}</div><div class="cc-stat-label">TOTAL USERS</div></div>
+      <div class="cc-card"><div class="cc-stat-num" style="color:var(--green)">${s.pro_subscribers||0}</div><div class="cc-stat-label">PRO SUBSCRIBERS</div></div>
+      <div class="cc-card"><div class="cc-stat-num" style="color:var(--amber)">₹${(s.mrr||0).toLocaleString()}</div><div class="cc-stat-label">MRR</div></div>
+      <div class="cc-card"><div class="cc-stat-num" style="color:var(--purple)">${sys.db_size_mb||0} MB</div><div class="cc-stat-label">DB SIZE</div></div>
+    `;
+    // Pipelines
+    const pipes = sys.pipelines || {};
+    document.getElementById('cc-dash-pipes').innerHTML = Object.entries(pipes).map(([k, v]) => {
+      const dot = v.status === 'ok' ? 'ok' : v.status === 'error' ? 'error' : 'stale';
+      const info = v.last_date || v.last_sync || v.total || '—';
+      return `<div class="cc-pipe-row"><div class="cc-pipe-dot ${dot}"></div><div class="cc-pipe-name">${k}</div><div class="cc-pipe-info">${JSON.stringify(info).replace(/"/g,'')}</div></div>`;
+    }).join('');
+    // Audit
+    const logs = audit.logs || [];
+    document.getElementById('cc-dash-audit').innerHTML = logs.length ? logs.map(l =>
+      `<div style="padding:6px 0;border-bottom:1px solid rgba(30,41,59,.3);font-size:10px;font-family:var(--mono)"><span style="color:var(--text3)">${(l.timestamp||'').slice(0,19)}</span> <span style="color:var(--cyan)">${l.actor_email||'system'}</span> <b>${l.action}</b></div>`
+    ).join('') : '<div style="color:var(--text3);font-size:11px">No recent activity</div>';
+  } catch(e) { console.error('Dashboard load error:', e); }
+}
+
+// ── USERS ──
+async function ccLoadUsers() {
+  const search = document.getElementById('cc-user-search')?.value || '';
+  const tier = document.getElementById('cc-user-tier')?.value || '';
+  const status = document.getElementById('cc-user-status')?.value || '';
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (tier) params.set('tier', tier);
+  if (status) params.set('status', status);
+  const data = await ccFetch('/api/cc/users?' + params);
+  const users = data.users || [];
+  document.getElementById('cc-users-table').innerHTML = `<table class="cc-table"><thead><tr>
+    <th>ID</th><th>EMAIL</th><th>NAME</th><th>TIER</th><th>STATUS</th><th>ROLE</th><th>CREATED</th><th>LAST LOGIN</th>
+  </tr></thead><tbody>${users.map(u => `<tr>
+    <td style="color:var(--text3)">${u.id}</td>
+    <td style="font-weight:600">${u.email}</td>
+    <td>${u.name||'—'}</td>
+    <td><span class="cc-badge ${u.tier==='pro'?'cc-badge-green':u.tier==='admin'?'cc-badge-purple':'cc-badge-cyan'}">${u.tier}</span></td>
+    <td><span class="cc-badge ${u.status==='active'?'cc-badge-green':u.status==='held'?'cc-badge-amber':'cc-badge-red'}">${u.status}</span></td>
+    <td>${u.admin_role ? `<span class="cc-badge cc-badge-purple">${u.admin_role}</span>` : '—'}</td>
+    <td style="font-size:10px;color:var(--text3)">${(u.created_at||'').slice(0,10)}</td>
+    <td style="font-size:10px;color:var(--text3)">${(u.last_login||'—').slice(0,10)}</td>
+  </tr>`).join('')}</tbody></table><div style="padding:8px;font-size:10px;color:var(--text3);font-family:var(--mono)">${data.total||0} users total</div>`;
+}
+
+// ── REVENUE ──
+async function ccLoadRevenue() {
+  const data = await ccFetch('/api/cc/revenue');
+  const s = data.summary || {};
+  document.getElementById('cc-rev-stats').innerHTML = `
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--green)">₹${(s.mrr||0).toLocaleString()}</div><div class="cc-stat-label">MRR</div></div>
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--cyan)">₹${(s.arr||0).toLocaleString()}</div><div class="cc-stat-label">ARR</div></div>
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--amber)">${s.churn_rate||0}%</div><div class="cc-stat-label">CHURN RATE</div></div>
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--purple)">${s.conversion_rate||0}%</div><div class="cc-stat-label">CONVERSION</div></div>
+  `;
+  const events = data.recent_events || [];
+  document.getElementById('cc-rev-events').innerHTML = events.length ? `<table class="cc-table"><thead><tr><th>DATE</th><th>USER</th><th>EVENT</th><th>FROM</th><th>TO</th><th>AMOUNT</th></tr></thead><tbody>${events.map(e => `<tr>
+    <td style="font-size:10px;color:var(--text3)">${(e.timestamp||'').slice(0,16)}</td><td>${e.email||'—'}</td>
+    <td><span class="cc-badge ${e.event_type==='upgrade'?'cc-badge-green':e.event_type==='churn'?'cc-badge-red':'cc-badge-amber'}">${e.event_type}</span></td>
+    <td>${e.tier_from||'—'}</td><td>${e.tier_to||'—'}</td><td>₹${e.amount||0}</td>
+  </tr>`).join('')}</tbody></table>` : '<div style="color:var(--text3);font-size:11px">No revenue events yet</div>';
+}
+
+// ── PIPELINES ──
+async function ccLoadPipelines() {
+  const sys = await ccFetch('/api/cc/system-status');
+  const stats = sys.db_tables || {};
+  const topTables = Object.entries(stats).sort((a,b) => b[1]-a[1]).slice(0,6);
+  document.getElementById('cc-sys-stats').innerHTML = topTables.map(([t,c]) =>
+    `<div class="cc-card"><div class="cc-stat-num" style="color:var(--text)">${c.toLocaleString()}</div><div class="cc-stat-label">${t.toUpperCase()}</div></div>`
+  ).join('');
+  const pipes = sys.pipelines || {};
+  document.getElementById('cc-pipe-list').innerHTML = Object.entries(pipes).map(([k,v]) => {
+    const dot = v.status==='ok'?'ok':v.status==='error'?'error':'stale';
+    return `<div class="cc-pipe-row"><div class="cc-pipe-dot ${dot}"></div><div class="cc-pipe-name">${k}</div><div class="cc-pipe-info" style="flex:1">${JSON.stringify(v).replace(/[{}"]/g,'').replace(/,/g,' · ')}</div></div>`;
+  }).join('');
+}
+
+// ── CONFIG ──
+async function ccLoadConfig() {
+  const data = await ccFetch('/api/cc/config');
+  const configs = data.configs || [];
+  let currentCat = '';
+  document.getElementById('cc-config-list').innerHTML = configs.map(c => {
+    let catHeader = '';
+    if (c.category !== currentCat) { currentCat = c.category; catHeader = `<div style="padding:12px 0 6px;font-size:11px;font-weight:700;color:var(--purple);font-family:var(--mono);letter-spacing:.08em;border-top:1px solid var(--border);margin-top:8px">${c.category.toUpperCase()}</div>`; }
+    return catHeader + `<div class="cc-config-row">
+      <div class="cc-config-key">${c.key}</div>
+      <div class="cc-config-val"><input value="${c.value||''}" id="cfg-${c.key}" onchange="ccSaveConfig('${c.key}',this.value)"></div>
+      <div class="cc-config-desc">${c.description||''}</div>
+    </div>`;
+  }).join('');
+}
+async function ccSaveConfig(key, value) {
+  const r = await ccPost('/api/cc/config', {key, value});
+  if (r.status==='ok') { const el=document.getElementById('cfg-'+key); if(el){el.style.borderColor='var(--green)';setTimeout(()=>el.style.borderColor='',1500);} }
+}
+
+// ── FEATURE FLAGS ──
+async function ccLoadFlags() {
+  const data = await ccFetch('/api/cc/feature-flags');
+  const flags = data.flags || [];
+  document.getElementById('cc-flags-list').innerHTML = flags.map(f => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(30,41,59,.3)">
+      <label class="cc-toggle"><input type="checkbox" ${f.enabled?'checked':''} onchange="ccToggleFlag('${f.key}',this.checked)"><div class="cc-toggle-track"></div><div class="cc-toggle-thumb"></div></label>
+      <div><div style="font-family:var(--mono);font-size:12px;font-weight:600">${f.key}</div><div style="font-size:10px;color:var(--text3)">${f.description||''}</div></div>
+      <div style="margin-left:auto;font-size:9px;color:var(--text3);font-family:var(--mono)">${f.updated_by ? 'by '+f.updated_by : ''} ${(f.updated_at||'').slice(0,16)}</div>
+    </div>
+  `).join('');
+}
+async function ccToggleFlag(key, enabled) { await ccPost('/api/cc/feature-flags', {key, enabled}); }
+
+// ── AUDIT ──
+async function ccLoadAudit() {
+  const days = document.getElementById('cc-audit-days')?.value || 30;
+  const cat = document.getElementById('cc-audit-cat')?.value || '';
+  const params = new URLSearchParams({limit:'100',days});
+  if (cat) params.set('category', cat);
+  const data = await ccFetch('/api/cc/audit-logs?' + params);
+  const logs = data.logs || [];
+  document.getElementById('cc-audit-list').innerHTML = logs.length ? `<table class="cc-table"><thead><tr><th>TIMESTAMP</th><th>ACTOR</th><th>ACTION</th><th>CATEGORY</th><th>TARGET</th><th>DETAILS</th></tr></thead><tbody>${logs.map(l => `<tr class="cc-audit-row">
+    <td class="cc-audit-ts">${(l.timestamp||'').slice(0,19)}</td>
+    <td class="cc-audit-actor">${l.actor_email||'system'}</td>
+    <td class="cc-audit-action">${l.action}</td>
+    <td><span class="cc-badge cc-badge-cyan">${l.category||'—'}</span></td>
+    <td style="font-size:10px">${l.target_type||''} ${l.target_id||''}</td>
+    <td style="font-size:10px;color:var(--text3);max-width:200px;overflow:hidden;text-overflow:ellipsis">${l.metadata||''}</td>
+  </tr>`).join('')}</tbody></table>` : '<div style="color:var(--text3);font-size:11px">No audit logs found</div>';
+}
+
+// ── RBAC ──
+async function ccLoadRoles() {
+  const data = await ccFetch('/api/cc/roles');
+  const roles = data.roles || {};
+  document.getElementById('cc-roles-grid').innerHTML = Object.entries(roles).map(([k,v]) => `
+    <div class="cc-card">
+      <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--cyan);margin-bottom:4px">${v.name}</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:10px">${v.description}</div>
+      <div style="font-size:10px;font-family:var(--mono)">Permissions:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${(v.permissions||[]).map(p => `<span class="cc-badge cc-badge-green">${p}</span>`).join('')}</div>
+    </div>
+  `).join('');
+}
+
+// Auto-load dashboard
+ccLoadDashboard();
+</script>
+</body>
+</html>

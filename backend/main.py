@@ -142,8 +142,13 @@ def serve_app():
 
 @app.get("/admin")
 def serve_admin():
-    """Admin panel."""
+    """Admin panel (legacy)."""
     return _serve_html("admin.html")
+
+@app.get("/control-center")
+def serve_control_center():
+    """Admin Control Center."""
+    return _serve_html("control-center.html")
 
 @app.get("/index.html")
 def serve_index():
@@ -252,6 +257,115 @@ def api_admin_delete(request: Request, body: AdminDeleteUser):
 def api_admin_add(request: Request, body: AdminAddUser):
     if not _require_admin(request): return {"error": "Admin required"}
     return admin_add_user(body.email, body.name, body.password, body.tier)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONTROL CENTER API
+# ══════════════════════════════════════════════════════════════════════════════
+
+from control_center import (
+    ensure_cc_tables, ROLES,
+    get_admin_role, set_admin_role, check_permission,
+    log_audit, get_audit_logs,
+    get_system_status,
+    get_all_configs, update_config, get_config_value,
+    get_feature_flags, toggle_feature_flag,
+    get_revenue_analytics, log_revenue_event,
+    get_users_detailed, log_pipeline_run,
+)
+
+def _cc_check(request: Request, permission: str = "view"):
+    """Check Control Center access — admin tier or RBAC role with permission."""
+    user = _get_current_user(request)
+    if not user:
+        return None
+    if user.get("tier") == "admin":
+        return user
+    if check_permission(user.get("uid", 0), permission):
+        return user
+    return None
+
+# System Status
+@app.get("/api/cc/system-status")
+async def cc_system_status(request: Request):
+    user = _cc_check(request, "system")
+    if not user: return {"error": "Access denied"}
+    return get_system_status()
+
+# Audit Logs
+@app.get("/api/cc/audit-logs")
+async def cc_audit_logs(request: Request, limit: int = 100, category: str = None,
+                         actor: str = None, days: int = 30):
+    user = _cc_check(request, "audit")
+    if not user: return {"error": "Access denied"}
+    return {"logs": get_audit_logs(limit, category, actor, days)}
+
+# Configuration
+@app.get("/api/cc/config")
+async def cc_get_config(request: Request):
+    user = _cc_check(request, "config")
+    if not user: return {"error": "Access denied"}
+    return {"configs": get_all_configs()}
+
+@app.post("/api/cc/config")
+async def cc_update_config(request: Request):
+    user = _cc_check(request, "config")
+    if not user: return {"error": "Access denied"}
+    body = await request.json()
+    result = update_config(body.get("key"), body.get("value"), user.get("email", "admin"))
+    if result.get("status") == "ok":
+        log_audit(user.get("uid", 0), user.get("email", ""), "admin", "config_update",
+                  "config", "config", body.get("key"), {"old": None, "new": body.get("value")})
+    return result
+
+# Feature Flags
+@app.get("/api/cc/feature-flags")
+async def cc_feature_flags(request: Request):
+    user = _cc_check(request, "config")
+    if not user: return {"error": "Access denied"}
+    return {"flags": get_feature_flags()}
+
+@app.post("/api/cc/feature-flags")
+async def cc_toggle_flag(request: Request):
+    user = _cc_check(request, "config")
+    if not user: return {"error": "Access denied"}
+    body = await request.json()
+    result = toggle_feature_flag(body.get("key"), body.get("enabled"), user.get("email", "admin"))
+    log_audit(user.get("uid", 0), user.get("email", ""), "admin", "feature_flag_toggle",
+              "config", "feature_flag", body.get("key"), {"enabled": body.get("enabled")})
+    return result
+
+# Revenue Analytics
+@app.get("/api/cc/revenue")
+async def cc_revenue(request: Request):
+    user = _cc_check(request, "finance")
+    if not user: return {"error": "Access denied"}
+    return get_revenue_analytics()
+
+# Enhanced User Management
+@app.get("/api/cc/users")
+async def cc_users(request: Request, search: str = None, tier: str = None,
+                    status: str = None, limit: int = 100, offset: int = 0):
+    user = _cc_check(request, "users")
+    if not user: return {"error": "Access denied"}
+    return get_users_detailed(search, tier, status, limit, offset)
+
+# RBAC Management
+@app.get("/api/cc/roles")
+async def cc_roles(request: Request):
+    user = _cc_check(request, "users")
+    if not user: return {"error": "Access denied"}
+    return {"roles": ROLES}
+
+@app.post("/api/cc/set-role")
+async def cc_set_role(request: Request):
+    user = _cc_check(request, "users")
+    if not user: return {"error": "Access denied"}
+    body = await request.json()
+    result = set_admin_role(body.get("user_id"), body.get("role"), user.get("uid", 0))
+    log_audit(user.get("uid", 0), user.get("email", ""), "admin", "role_change",
+              "rbac", "user", str(body.get("user_id")), {"role": body.get("role")})
+    return result
 
 # Serve static assets if any
 if FRONTEND_DIR.exists():
@@ -2025,6 +2139,12 @@ async def startup_event():
         logger.info("✅ Auth tables ready")
     except Exception as e:
         logger.warning(f"Auth table init failed: {e}")
+
+    # 3b. Control Center tables
+    try:
+        ensure_cc_tables()
+    except Exception as e:
+        logger.warning(f"Control Center table init failed: {e}")
 
     # 4. Start daily insider sync scheduler (runs at ~6:30 PM IST / 1 PM UTC)
     asyncio.create_task(_insider_daily_scheduler())
