@@ -118,6 +118,12 @@ a{color:var(--cyan);text-decoration:none}
     <div class="cc-nav-item" onclick="ccNav('audit')"><span class="cc-nav-icon">📋</span><span>Audit Logs</span></div>
     <div class="cc-nav-section">ACCESS</div>
     <div class="cc-nav-item" onclick="ccNav('rbac')"><span class="cc-nav-icon">🔐</span><span>Roles (RBAC)</span></div>
+    <div class="cc-nav-item" onclick="ccNav('apikeys')"><span class="cc-nav-icon">🔑</span><span>API Keys</span></div>
+    <div class="cc-nav-section">INTELLIGENCE</div>
+    <div class="cc-nav-item" onclick="ccNav('alerts')"><span class="cc-nav-icon">🔔</span><span>Alerts</span></div>
+    <div class="cc-nav-item" onclick="ccNav('behavior')"><span class="cc-nav-icon">📈</span><span>User Behavior</span></div>
+    <div class="cc-nav-item" onclick="ccNav('revenuedeep')"><span class="cc-nav-icon">📊</span><span>Revenue Deep</span></div>
+    <div class="cc-nav-item" onclick="ccNav('comms')"><span class="cc-nav-icon">📢</span><span>Announcements</span></div>
     <div style="flex:1"></div>
     <div style="padding:16px 20px;border-top:1px solid var(--border);margin-top:20px">
       <a href="/app?mode=admin" style="font-size:10px;font-family:var(--mono)">← Back to App</a>
@@ -190,6 +196,56 @@ a{color:var(--cyan);text-decoration:none}
       <div class="cc-grid cc-grid-4" id="cc-roles-grid"></div>
     </section>
 
+    <!-- API KEYS -->
+    <section class="cc-section" id="cc-apikeys">
+      <div class="cc-header"><div><div class="cc-page-title">API Key Management</div><div class="cc-breadcrumb">Control Center / API Keys</div></div>
+        <button class="cc-btn cc-btn-primary" onclick="ccCreateApiKey()">+ Generate Key</button>
+      </div>
+      <div class="cc-card"><div id="cc-apikeys-list">Loading...</div></div>
+    </section>
+
+    <!-- ALERTS -->
+    <section class="cc-section" id="cc-alerts">
+      <div class="cc-header"><div><div class="cc-page-title">System Alerts</div><div class="cc-breadcrumb">Control Center / Alerts</div></div>
+        <div style="display:flex;gap:6px">
+          <button class="cc-btn" onclick="ccCheckAlerts()">🔍 Run Health Check</button>
+          <select id="cc-alert-sev" onchange="ccLoadAlerts()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="">All Severity</option><option value="critical">Critical</option><option value="warning">Warning</option><option value="info">Info</option></select>
+        </div>
+      </div>
+      <div class="cc-card"><div id="cc-alerts-list">Loading...</div></div>
+    </section>
+
+    <!-- USER BEHAVIOR -->
+    <section class="cc-section" id="cc-behavior">
+      <div class="cc-header"><div><div class="cc-page-title">User Behavior Intelligence</div><div class="cc-breadcrumb">Control Center / Behavior</div></div>
+        <select id="cc-beh-days" onchange="ccLoadBehavior()" style="padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px"><option value="7">7 Days</option><option value="30" selected>30 Days</option><option value="90">90 Days</option></select>
+      </div>
+      <div class="cc-grid cc-grid-4" id="cc-beh-stats"></div>
+      <div class="cc-grid cc-grid-2" style="margin-top:14px">
+        <div class="cc-card"><div class="cc-section-title">Top Users</div><div id="cc-beh-topusers"></div></div>
+        <div class="cc-card"><div class="cc-section-title">Device Breakdown</div><div id="cc-beh-devices"></div></div>
+      </div>
+      <div class="cc-card" style="margin-top:14px"><div class="cc-section-title">⚠ Suspicious Activity (Multi-IP)</div><div id="cc-beh-suspicious"></div></div>
+    </section>
+
+    <!-- REVENUE DEEP -->
+    <section class="cc-section" id="cc-revenuedeep">
+      <div class="cc-header"><div><div class="cc-page-title">Revenue Deep Analytics</div><div class="cc-breadcrumb">Control Center / Revenue Deep</div></div></div>
+      <div class="cc-grid cc-grid-3" id="cc-revdeep-stats"></div>
+      <div class="cc-grid cc-grid-2" style="margin-top:14px">
+        <div class="cc-card"><div class="cc-section-title">ARPU Trend (6 Months)</div><div id="cc-revdeep-arpu"></div></div>
+        <div class="cc-card"><div class="cc-section-title">Cohort Retention</div><div id="cc-revdeep-cohorts"></div></div>
+      </div>
+    </section>
+
+    <!-- ANNOUNCEMENTS -->
+    <section class="cc-section" id="cc-comms">
+      <div class="cc-header"><div><div class="cc-page-title">Communication Center</div><div class="cc-breadcrumb">Control Center / Announcements</div></div>
+        <button class="cc-btn cc-btn-primary" onclick="ccCreateAnnouncement()">+ New Announcement</button>
+      </div>
+      <div class="cc-card"><div id="cc-comms-list">Loading...</div></div>
+    </section>
+
   </main>
 </div>
 
@@ -215,6 +271,11 @@ function ccNav(section) {
   if (section === 'flags') ccLoadFlags();
   if (section === 'audit') ccLoadAudit();
   if (section === 'rbac') ccLoadRoles();
+  if (section === 'apikeys') ccLoadApiKeys();
+  if (section === 'alerts') ccLoadAlerts();
+  if (section === 'behavior') ccLoadBehavior();
+  if (section === 'revenuedeep') ccLoadRevenueDeep();
+  if (section === 'comms') ccLoadAnnouncements();
 }
 
 // ── DASHBOARD ──
@@ -301,8 +362,15 @@ async function ccLoadPipelines() {
   const pipes = sys.pipelines || {};
   document.getElementById('cc-pipe-list').innerHTML = Object.entries(pipes).map(([k,v]) => {
     const dot = v.status==='ok'?'ok':v.status==='error'?'error':'stale';
-    return `<div class="cc-pipe-row"><div class="cc-pipe-dot ${dot}"></div><div class="cc-pipe-name">${k}</div><div class="cc-pipe-info" style="flex:1">${JSON.stringify(v).replace(/[{}"]/g,'').replace(/,/g,' · ')}</div></div>`;
+    const canTrigger = ['ohlcv','insider','fiidii','rs_rankings'].includes(k);
+    const triggerBtn = canTrigger ? `<button class="cc-btn" onclick="ccTriggerSync('${k}')" style="font-size:9px;padding:2px 8px;margin-left:auto">\u25b6 Sync</button>` : '';
+    return `<div class="cc-pipe-row"><div class="cc-pipe-dot ${dot}"></div><div class="cc-pipe-name">${k}</div><div class="cc-pipe-info" style="flex:1">${JSON.stringify(v).replace(/[{}"]/g,'').replace(/,/g,' \xb7 ')}</div>${triggerBtn}</div>`;
   }).join('');
+}
+
+async function ccTriggerSync(pipeline) {
+  const r = await ccPost('/api/cc/trigger-sync', {pipeline});
+  alert(r.status === 'started' ? `${pipeline} sync started in background` : (r.error || 'Failed'));
 }
 
 // ── CONFIG ──
@@ -373,6 +441,118 @@ async function ccLoadRoles() {
 
 // Auto-load dashboard
 ccLoadDashboard();
+
+// ── ALERTS ──
+async function ccLoadAlerts() {
+  const sev = document.getElementById('cc-alert-sev')?.value || '';
+  const params = new URLSearchParams();
+  if (sev) params.set('severity', sev);
+  const data = await ccFetch('/api/cc/alerts?' + params);
+  const alerts = data.alerts || [];
+  const sevIcon = s => s==='critical'?'🔴':s==='warning'?'🟡':'🔵';
+  document.getElementById('cc-alerts-list').innerHTML = alerts.length ? `<table class="cc-table"><thead><tr><th>SEV</th><th>TITLE</th><th>MESSAGE</th><th>SOURCE</th><th>TIME</th><th>ACTION</th></tr></thead><tbody>${alerts.map(a => `<tr>
+    <td>${sevIcon(a.severity)} <span class="cc-badge ${a.severity==='critical'?'cc-badge-red':'cc-badge-amber'}">${a.severity}</span></td>
+    <td style="font-weight:700">${a.title}</td>
+    <td style="font-size:11px;color:var(--text2);max-width:300px">${a.message||''}</td>
+    <td style="font-size:10px;color:var(--text3)">${a.source||''}</td>
+    <td style="font-size:10px;color:var(--text3)">${(a.created_at||'').slice(0,16)}</td>
+    <td><button class="cc-btn" onclick="ccAckAlert(${a.id})" style="font-size:10px;padding:3px 8px">✓ Ack</button></td>
+  </tr>`).join('')}</tbody></table>` : '<div style="color:var(--green);font-size:12px;padding:20px;text-align:center">✅ No active alerts — system healthy</div>';
+}
+async function ccAckAlert(id) { await ccPost('/api/cc/alerts/acknowledge', {id}); ccLoadAlerts(); }
+async function ccCheckAlerts() { const r = await ccPost('/api/cc/alerts/check', {}); alert(`Health check complete: ${r.alerts_created||0} alerts created`); ccLoadAlerts(); }
+
+// ── API KEYS ──
+async function ccLoadApiKeys() {
+  const data = await ccFetch('/api/cc/api-keys');
+  const keys = data.keys || [];
+  document.getElementById('cc-apikeys-list').innerHTML = keys.length ? `<table class="cc-table"><thead><tr><th>PREFIX</th><th>NAME</th><th>PERMISSIONS</th><th>RATE LIMIT</th><th>CALLS TODAY</th><th>STATUS</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>${keys.map(k => `<tr>
+    <td style="font-family:var(--mono);font-weight:700">${k.key_prefix}...</td>
+    <td>${k.name||'—'}</td>
+    <td><span class="cc-badge cc-badge-cyan">${k.permissions}</span></td>
+    <td>${k.rate_limit}/hr</td>
+    <td>${k.calls_today}</td>
+    <td><span class="cc-badge ${k.status==='active'?'cc-badge-green':'cc-badge-red'}">${k.status}</span></td>
+    <td style="font-size:10px;color:var(--text3)">${(k.created_at||'').slice(0,10)}</td>
+    <td>${k.status==='active'?`<button class="cc-btn cc-btn-danger" onclick="ccRevokeKey(${k.id})" style="font-size:10px;padding:3px 8px">Revoke</button>`:''}</td>
+  </tr>`).join('')}</tbody></table>` : '<div style="color:var(--text3);font-size:11px;padding:20px;text-align:center">No API keys generated yet</div>';
+}
+async function ccCreateApiKey() {
+  const name = prompt('API Key name (e.g., "Trading Bot"):');
+  if (!name) return;
+  const r = await ccPost('/api/cc/api-keys', {name, permissions:'read', rate_limit:100});
+  if (r.key) { alert('API Key generated (copy now — shown only once):\n\n' + r.key); ccLoadApiKeys(); }
+}
+async function ccRevokeKey(id) { if (!confirm('Revoke this API key?')) return; await ccPost('/api/cc/api-keys/revoke', {id}); ccLoadApiKeys(); }
+
+// ── USER BEHAVIOR ──
+async function ccLoadBehavior() {
+  const days = document.getElementById('cc-beh-days')?.value || 30;
+  const data = await ccFetch('/api/cc/behavior?days=' + days);
+  document.getElementById('cc-beh-stats').innerHTML = `
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--cyan)">${data.mau||0}</div><div class="cc-stat-label">MAU (${days}D)</div></div>
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--green)">${data.total_sessions||0}</div><div class="cc-stat-label">TOTAL SESSIONS</div></div>
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--amber)">${data.avg_sessions_per_user||0}</div><div class="cc-stat-label">AVG SESSIONS/USER</div></div>
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--purple)">${(data.suspicious_multi_ip||[]).length}</div><div class="cc-stat-label">SUSPICIOUS</div></div>
+  `;
+  const top = data.top_users || [];
+  document.getElementById('cc-beh-topusers').innerHTML = top.length ? `<table class="cc-table"><thead><tr><th>EMAIL</th><th>NAME</th><th>SESSIONS</th><th>LAST ACTIVE</th></tr></thead><tbody>${top.map(u => `<tr>
+    <td style="font-weight:600">${u.email||'—'}</td><td>${u.name||'—'}</td><td style="font-weight:700;color:var(--cyan)">${u.sessions}</td><td style="font-size:10px;color:var(--text3)">${(u.last_active||'').slice(0,16)}</td>
+  </tr>`).join('')}</tbody></table>` : '<div style="color:var(--text3);font-size:11px">No session data yet</div>';
+  const devs = data.devices || [];
+  document.getElementById('cc-beh-devices').innerHTML = devs.length ? devs.map(d =>
+    `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(30,41,59,.3);font-family:var(--mono);font-size:11px"><span>${d.type}</span><span style="font-weight:700;color:var(--cyan)">${d.count}</span></div>`
+  ).join('') : '<div style="color:var(--text3);font-size:11px">No device data</div>';
+  const sus = data.suspicious_multi_ip || [];
+  document.getElementById('cc-beh-suspicious').innerHTML = sus.length ? sus.map(s =>
+    `<div style="padding:6px 0;font-family:var(--mono);font-size:11px;border-bottom:1px solid rgba(30,41,59,.3)">⚠ User #${s.user_id} — <span style="color:var(--red);font-weight:700">${s.ip_count} different IPs</span></div>`
+  ).join('') : '<div style="color:var(--green);font-size:11px;padding:8px 0">✅ No suspicious activity detected</div>';
+}
+
+// ── REVENUE DEEP ──
+async function ccLoadRevenueDeep() {
+  const data = await ccFetch('/api/cc/revenue-deep');
+  document.getElementById('cc-revdeep-stats').innerHTML = `
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--green)">₹${(data.estimated_ltv||0).toLocaleString()}</div><div class="cc-stat-label">EST. LTV</div></div>
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--cyan)">${(data.cohorts||[]).length}</div><div class="cc-stat-label">COHORTS TRACKED</div></div>
+    <div class="cc-card"><div class="cc-stat-num" style="color:var(--amber)">${(data.arpu_trend||[]).length}</div><div class="cc-stat-label">MONTHS DATA</div></div>
+  `;
+  const arpu = data.arpu_trend || [];
+  document.getElementById('cc-revdeep-arpu').innerHTML = arpu.length ? `<table class="cc-table"><thead><tr><th>MONTH</th><th>USERS</th><th>REVENUE</th><th>ARPU</th></tr></thead><tbody>${arpu.map(a => `<tr>
+    <td style="font-family:var(--mono)">${a.month}</td><td>${a.users}</td><td style="color:var(--green)">₹${a.revenue.toLocaleString()}</td><td style="font-weight:700;color:var(--cyan)">₹${a.arpu}</td>
+  </tr>`).join('')}</tbody></table>` : '<div style="color:var(--text3);font-size:11px">No ARPU data</div>';
+  const cohorts = data.cohorts || [];
+  document.getElementById('cc-revdeep-cohorts').innerHTML = cohorts.length ? `<table class="cc-table"><thead><tr><th>COHORT</th><th>SIGNUPS</th><th>ACTIVE</th><th>PRO</th><th>RETENTION</th></tr></thead><tbody>${cohorts.map(c => {
+    const retColor = c.retention_pct >= 80 ? 'var(--green)' : c.retention_pct >= 50 ? 'var(--amber)' : 'var(--red)';
+    return `<tr><td style="font-family:var(--mono)">${c.month}</td><td>${c.signed_up}</td><td>${c.still_active}</td><td style="color:var(--green)">${c.still_pro}</td><td style="font-weight:700;color:${retColor}">${c.retention_pct}%</td></tr>`;
+  }).join('')}</tbody></table>` : '<div style="color:var(--text3);font-size:11px">No cohort data</div>';
+}
+
+// ── ANNOUNCEMENTS ──
+async function ccLoadAnnouncements() {
+  const data = await ccFetch('/api/cc/announcements?active_only=false');
+  const anns = data.announcements || [];
+  const typeIcon = t => t==='critical'?'🔴':t==='warning'?'🟡':t==='update'?'🟢':'🔵';
+  document.getElementById('cc-comms-list').innerHTML = anns.length ? `<table class="cc-table"><thead><tr><th>STATUS</th><th>TYPE</th><th>TITLE</th><th>MESSAGE</th><th>TARGET</th><th>CREATED</th><th>ACTION</th></tr></thead><tbody>${anns.map(a => `<tr>
+    <td><span class="cc-badge ${a.active?'cc-badge-green':'cc-badge-red'}">${a.active?'LIVE':'OFF'}</span></td>
+    <td>${typeIcon(a.type)} ${a.type}</td>
+    <td style="font-weight:700">${a.title}</td>
+    <td style="font-size:11px;color:var(--text2);max-width:250px;overflow:hidden;text-overflow:ellipsis">${a.message}</td>
+    <td><span class="cc-badge cc-badge-cyan">${a.target}</span></td>
+    <td style="font-size:10px;color:var(--text3)">${(a.created_at||'').slice(0,10)}</td>
+    <td><button class="cc-btn" onclick="ccToggleAnn(${a.id},${a.active?'false':'true'})" style="font-size:10px;padding:3px 8px">${a.active?'Deactivate':'Activate'}</button></td>
+  </tr>`).join('')}</tbody></table>` : '<div style="color:var(--text3);font-size:11px;padding:20px;text-align:center">No announcements yet</div>';
+}
+async function ccCreateAnnouncement() {
+  const title = prompt('Announcement title:');
+  if (!title) return;
+  const message = prompt('Message:');
+  if (!message) return;
+  const type = prompt('Type (info/update/warning/critical):', 'info');
+  await ccPost('/api/cc/announcements', {title, message, type, target:'all'});
+  ccLoadAnnouncements();
+}
+async function ccToggleAnn(id, active) { await ccPost('/api/cc/announcements/toggle', {id, active}); ccLoadAnnouncements(); }
 </script>
 </body>
 </html>

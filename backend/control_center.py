@@ -513,3 +513,397 @@ def log_pipeline_run(pipeline: str, status: str, records: int = 0, error: str = 
         conn.close()
     except Exception as e:
         logger.debug(f"Pipeline log failed: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE 2: ALERTS SYSTEM
+# ══════════════════════════════════════════════════════════════════════════════
+
+def ensure_phase2_tables():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            severity TEXT NOT NULL DEFAULT 'warning',
+            category TEXT DEFAULT 'system',
+            title TEXT NOT NULL,
+            message TEXT,
+            source TEXT,
+            acknowledged INTEGER DEFAULT 0,
+            acknowledged_by TEXT,
+            acknowledged_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_alerts_sev ON alerts(severity);
+        CREATE INDEX IF NOT EXISTS idx_alerts_ack ON alerts(acknowledged);
+
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            key_hash TEXT NOT NULL,
+            key_prefix TEXT NOT NULL,
+            name TEXT DEFAULT '',
+            permissions TEXT DEFAULT 'read',
+            rate_limit INTEGER DEFAULT 100,
+            calls_today INTEGER DEFAULT 0,
+            last_used TEXT,
+            status TEXT DEFAULT 'active',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS api_usage_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            api_key_prefix TEXT,
+            endpoint TEXT,
+            method TEXT,
+            status_code INTEGER,
+            response_time_ms REAL,
+            ip_address TEXT,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_api_usage_ts ON api_usage_log(timestamp);
+
+        -- Phase 3: User sessions / behavior
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            session_token TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            device_type TEXT,
+            started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            last_active TEXT,
+            page_views INTEGER DEFAULT 0,
+            features_used TEXT DEFAULT '[]',
+            ended_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);
+
+        -- Phase 3: Announcements / Communication
+        CREATE TABLE IF NOT EXISTS announcements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            type TEXT DEFAULT 'info',
+            target TEXT DEFAULT 'all',
+            priority INTEGER DEFAULT 0,
+            active INTEGER DEFAULT 1,
+            created_by TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT
+        );
+    """)
+    conn.commit()
+    conn.close()
+
+
+# ── Alerts ────────────────────────────────────────────────────────────────────
+
+def create_alert(severity: str, title: str, message: str = "",
+                  category: str = "system", source: str = ""):
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("""
+        INSERT INTO alerts (severity, category, title, message, source, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (severity, category, title, message, source,
+          datetime.now(timezone.utc).isoformat()))
+    conn.commit()
+    conn.close()
+
+
+def get_alerts(acknowledged: bool = False, severity: str = None, limit: int = 50) -> list:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    query = "SELECT * FROM alerts WHERE acknowledged = ?"
+    params = [1 if acknowledged else 0]
+    if severity:
+        query += " AND severity = ?"
+        params.append(severity)
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def acknowledge_alert(alert_id: int, acknowledged_by: str = "admin") -> dict:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("UPDATE alerts SET acknowledged=1, acknowledged_by=?, acknowledged_at=? WHERE id=?",
+                 (acknowledged_by, datetime.now(timezone.utc).isoformat(), alert_id))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+
+def check_system_alerts():
+    """Auto-generate alerts based on system health checks."""
+    alerts_created = 0
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    try:
+        # Check OHLCV freshness
+        row = conn.execute("SELECT MAX(date) FROM ohlcv WHERE market='India'").fetchone()
+        if row and row[0]:
+            from datetime import date as _date
+            last = _date.fromisoformat(row[0])
+            days_old = (_date.today() - last).days
+            if days_old > 3:
+                create_alert("critical", "OHLCV Data Stale",
+                             f"Last OHLCV date is {row[0]} ({days_old} days old). Run Data Import.",
+                             "data", "auto_check")
+                alerts_created += 1
+
+        # Check TV Fundamentals freshness
+        row = conn.execute("SELECT MAX(fetched_at) FROM tv_fundamentals").fetchone()
+        if row and row[0]:
+            try:
+                age_h = (datetime.now(timezone.utc) - datetime.fromisoformat(row[0])).total_seconds() / 3600
+                if age_h > 48:
+                    create_alert("warning", "TV Fundamentals Stale",
+                                 f"Last sync was {int(age_h)} hours ago. Auto-sync may have failed.",
+                                 "data", "auto_check")
+                    alerts_created += 1
+            except:
+                pass
+
+        # Check DB size
+        db_size = os.path.getsize(DB_PATH) / 1024 / 1024
+        if db_size > 500:
+            create_alert("warning", "Database Size Warning",
+                         f"DB is {db_size:.0f} MB. Consider archiving old data.",
+                         "system", "auto_check")
+            alerts_created += 1
+
+        # Check for errors in last 24h
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        err_count = conn.execute(
+            "SELECT COUNT(*) FROM audit_logs WHERE category='error' AND timestamp >= ?",
+            (cutoff,)
+        ).fetchone()[0]
+        if err_count > 10:
+            create_alert("critical", f"{err_count} Errors in Last 24h",
+                         "Check audit logs for details.", "system", "auto_check")
+            alerts_created += 1
+
+    except Exception as e:
+        logger.debug(f"Alert check failed: {e}")
+    finally:
+        conn.close()
+
+    return alerts_created
+
+
+# ── API Key Management ────────────────────────────────────────────────────────
+
+def generate_api_key(user_id: int, name: str = "", permissions: str = "read",
+                      rate_limit: int = 100) -> dict:
+    import hashlib, secrets
+    raw_key = f"qb360_{secrets.token_urlsafe(32)}"
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    prefix = raw_key[:12]
+
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("""
+        INSERT INTO api_keys (user_id, key_hash, key_prefix, name, permissions, rate_limit, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, key_hash, prefix, name, permissions, rate_limit,
+          datetime.now(timezone.utc).isoformat()))
+    conn.commit()
+    conn.close()
+    return {"key": raw_key, "prefix": prefix, "name": name}
+
+
+def list_api_keys(user_id: int = None) -> list:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    if user_id:
+        rows = conn.execute("SELECT id, user_id, key_prefix, name, permissions, rate_limit, calls_today, last_used, status, created_at FROM api_keys WHERE user_id=?", (user_id,)).fetchall()
+    else:
+        rows = conn.execute("SELECT id, user_id, key_prefix, name, permissions, rate_limit, calls_today, last_used, status, created_at FROM api_keys ORDER BY id DESC").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def revoke_api_key(key_id: int) -> dict:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("UPDATE api_keys SET status='revoked' WHERE id=?", (key_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PHASE 3: USER BEHAVIOR INTELLIGENCE
+# ══════════════════════════════════════════════════════════════════════════════
+
+def log_session(user_id: int, ip: str = "", user_agent: str = "", device: str = ""):
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    token = f"sess_{int(time.time())}_{user_id}"
+    conn.execute("""
+        INSERT INTO user_sessions (user_id, session_token, ip_address, user_agent, device_type, started_at, last_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, token, ip, user_agent, device,
+          datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat()))
+    conn.commit()
+    conn.close()
+    return token
+
+
+def get_behavior_analytics(days: int = 30) -> dict:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    # DAU (distinct users with sessions per day)
+    dau_rows = conn.execute("""
+        SELECT DATE(started_at) as day, COUNT(DISTINCT user_id) as users
+        FROM user_sessions WHERE started_at >= ?
+        GROUP BY DATE(started_at) ORDER BY day
+    """, (cutoff,)).fetchall()
+    dau = [{"date": r[0], "users": r[1]} for r in dau_rows]
+
+    # MAU
+    mau = conn.execute("""
+        SELECT COUNT(DISTINCT user_id) FROM user_sessions WHERE started_at >= ?
+    """, (cutoff,)).fetchone()[0]
+
+    # Total sessions
+    total_sessions = conn.execute(
+        "SELECT COUNT(*) FROM user_sessions WHERE started_at >= ?", (cutoff,)
+    ).fetchone()[0]
+
+    # Avg sessions per user
+    avg_sessions = round(total_sessions / max(mau, 1), 1)
+
+    # Device breakdown
+    devices = conn.execute("""
+        SELECT device_type, COUNT(*) as cnt FROM user_sessions
+        WHERE started_at >= ? AND device_type != ''
+        GROUP BY device_type ORDER BY cnt DESC
+    """, (cutoff,)).fetchall()
+
+    # Top users by session count
+    top_users = conn.execute("""
+        SELECT s.user_id, u.email, u.name, COUNT(*) as sessions,
+               MAX(s.last_active) as last_active
+        FROM user_sessions s LEFT JOIN users u ON s.user_id = u.id
+        WHERE s.started_at >= ?
+        GROUP BY s.user_id ORDER BY sessions DESC LIMIT 10
+    """, (cutoff,)).fetchall()
+
+    # Suspicious: same user from multiple IPs
+    multi_ip = conn.execute("""
+        SELECT user_id, COUNT(DISTINCT ip_address) as ips
+        FROM user_sessions WHERE started_at >= ?
+        GROUP BY user_id HAVING ips > 5
+    """, (cutoff,)).fetchall()
+
+    conn.close()
+
+    return {
+        "dau": dau,
+        "mau": mau,
+        "total_sessions": total_sessions,
+        "avg_sessions_per_user": avg_sessions,
+        "devices": [{"type": d[0] or "Unknown", "count": d[1]} for d in devices],
+        "top_users": [{"user_id": u[0], "email": u[1], "name": u[2],
+                        "sessions": u[3], "last_active": u[4]} for u in top_users],
+        "suspicious_multi_ip": [{"user_id": m[0], "ip_count": m[1]} for m in multi_ip],
+    }
+
+
+# ── Revenue Deep Analytics ────────────────────────────────────────────────────
+
+def get_revenue_deep(days: int = 180) -> dict:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    # ARPU trend (monthly)
+    arpu_trend = []
+    for i in range(6):
+        month_start = (datetime.now(timezone.utc).replace(day=1) - timedelta(days=30 * i)).strftime("%Y-%m-01")
+        month_end = (datetime.now(timezone.utc).replace(day=1) - timedelta(days=30 * (i - 1))).strftime("%Y-%m-01")
+        total_users_month = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE created_at < ?", (month_end,)
+        ).fetchone()[0]
+        rev = conn.execute("""
+            SELECT COALESCE(SUM(amount), 0) FROM revenue_events
+            WHERE event_type IN ('payment', 'upgrade') AND timestamp >= ? AND timestamp < ?
+        """, (month_start, month_end)).fetchone()[0]
+        arpu = round(rev / max(total_users_month, 1), 2)
+        arpu_trend.append({"month": month_start[:7], "arpu": arpu, "users": total_users_month, "revenue": round(rev, 2)})
+    arpu_trend.reverse()
+
+    # Cohort analysis (users by signup month → retention)
+    cohorts = []
+    for i in range(6):
+        cohort_month = (datetime.now(timezone.utc).replace(day=1) - timedelta(days=30 * i)).strftime("%Y-%m")
+        signed_up = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE created_at LIKE ?", (f"{cohort_month}%",)
+        ).fetchone()[0]
+        still_active = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE created_at LIKE ? AND status='active'",
+            (f"{cohort_month}%",)
+        ).fetchone()[0]
+        still_pro = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE created_at LIKE ? AND tier='pro' AND status='active'",
+            (f"{cohort_month}%",)
+        ).fetchone()[0]
+        cohorts.append({
+            "month": cohort_month,
+            "signed_up": signed_up,
+            "still_active": still_active,
+            "still_pro": still_pro,
+            "retention_pct": round(still_active / max(signed_up, 1) * 100, 1),
+        })
+    cohorts.reverse()
+
+    # LTV estimate
+    avg_monthly_rev = sum(a["revenue"] for a in arpu_trend) / max(len(arpu_trend), 1)
+    avg_lifespan_months = 12  # assumption for now
+    ltv = round(avg_monthly_rev / max(conn.execute("SELECT COUNT(*) FROM users WHERE tier='pro'").fetchone()[0], 1) * avg_lifespan_months, 2)
+
+    conn.close()
+    return {
+        "arpu_trend": arpu_trend,
+        "cohorts": cohorts,
+        "estimated_ltv": ltv,
+    }
+
+
+# ── Communication Center ─────────────────────────────────────────────────────
+
+def create_announcement(title: str, message: str, ann_type: str = "info",
+                         target: str = "all", priority: int = 0,
+                         created_by: str = "admin", expires_at: str = None) -> dict:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("""
+        INSERT INTO announcements (title, message, type, target, priority, created_by, created_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (title, message, ann_type, target, priority, created_by,
+          datetime.now(timezone.utc).isoformat(), expires_at))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+
+def get_announcements(active_only: bool = True) -> list:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    if active_only:
+        rows = conn.execute("""
+            SELECT * FROM announcements WHERE active=1
+            AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY priority DESC, created_at DESC
+        """, (datetime.now(timezone.utc).isoformat(),)).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM announcements ORDER BY created_at DESC LIMIT 50").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def toggle_announcement(ann_id: int, active: bool) -> dict:
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("UPDATE announcements SET active=? WHERE id=?", (1 if active else 0, ann_id))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}

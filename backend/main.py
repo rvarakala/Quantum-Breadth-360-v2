@@ -367,6 +367,137 @@ async def cc_set_role(request: Request):
               "rbac", "user", str(body.get("user_id")), {"role": body.get("role")})
     return result
 
+
+# ── Phase 2: Alerts ──────────────────────────────────────────────────────────
+
+from control_center import (
+    ensure_phase2_tables, create_alert, get_alerts, acknowledge_alert, check_system_alerts,
+    generate_api_key, list_api_keys, revoke_api_key,
+    log_session, get_behavior_analytics, get_revenue_deep,
+    create_announcement, get_announcements, toggle_announcement,
+)
+
+@app.get("/api/cc/alerts")
+async def cc_alerts(request: Request, severity: str = None, acknowledged: bool = False):
+    user = _cc_check(request, "system")
+    if not user: return {"error": "Access denied"}
+    return {"alerts": get_alerts(acknowledged, severity)}
+
+@app.post("/api/cc/alerts/acknowledge")
+async def cc_ack_alert(request: Request):
+    user = _cc_check(request, "system")
+    if not user: return {"error": "Access denied"}
+    body = await request.json()
+    result = acknowledge_alert(body.get("id"), user.get("email", "admin"))
+    log_audit(user.get("uid", 0), user.get("email", ""), "admin", "alert_acknowledge",
+              "system", "alert", str(body.get("id")))
+    return result
+
+@app.post("/api/cc/alerts/check")
+async def cc_check_alerts(request: Request):
+    user = _cc_check(request, "system")
+    if not user: return {"error": "Access denied"}
+    count = check_system_alerts()
+    return {"alerts_created": count}
+
+# ── Phase 2: API Keys ────────────────────────────────────────────────────────
+
+@app.get("/api/cc/api-keys")
+async def cc_api_keys(request: Request):
+    user = _cc_check(request, "config")
+    if not user: return {"error": "Access denied"}
+    return {"keys": list_api_keys()}
+
+@app.post("/api/cc/api-keys")
+async def cc_create_key(request: Request):
+    user = _cc_check(request, "config")
+    if not user: return {"error": "Access denied"}
+    body = await request.json()
+    result = generate_api_key(body.get("user_id", user.get("uid", 0)),
+                               body.get("name", ""), body.get("permissions", "read"),
+                               body.get("rate_limit", 100))
+    log_audit(user.get("uid", 0), user.get("email", ""), "admin", "api_key_created",
+              "config", "api_key", result.get("prefix", ""))
+    return result
+
+@app.post("/api/cc/api-keys/revoke")
+async def cc_revoke_key(request: Request):
+    user = _cc_check(request, "config")
+    if not user: return {"error": "Access denied"}
+    body = await request.json()
+    result = revoke_api_key(body.get("id"))
+    log_audit(user.get("uid", 0), user.get("email", ""), "admin", "api_key_revoked",
+              "config", "api_key", str(body.get("id")))
+    return result
+
+# ── Phase 2: Manual Pipeline Triggers ─────────────────────────────────────────
+
+@app.post("/api/cc/trigger-sync")
+async def cc_trigger_sync(request: Request, background_tasks: BackgroundTasks):
+    user = _cc_check(request, "system")
+    if not user: return {"error": "Access denied"}
+    body = await request.json()
+    pipeline = body.get("pipeline", "")
+    log_audit(user.get("uid", 0), user.get("email", ""), "admin", f"manual_sync_{pipeline}",
+              "system", "pipeline", pipeline)
+
+    if pipeline == "ohlcv":
+        background_tasks.add_task(_auto_sync_ohlcv)
+        return {"status": "started", "pipeline": "ohlcv"}
+    elif pipeline == "insider":
+        background_tasks.add_task(_auto_sync_insider)
+        return {"status": "started", "pipeline": "insider"}
+    elif pipeline == "fiidii":
+        background_tasks.add_task(_auto_sync_fiidii)
+        return {"status": "started", "pipeline": "fiidii"}
+    elif pipeline == "rs_rankings":
+        background_tasks.add_task(_prewarm_heavy_caches)
+        return {"status": "started", "pipeline": "rs_rankings"}
+    else:
+        return {"error": f"Unknown pipeline: {pipeline}"}
+
+# ── Phase 3: User Behavior ───────────────────────────────────────────────────
+
+@app.get("/api/cc/behavior")
+async def cc_behavior(request: Request, days: int = 30):
+    user = _cc_check(request, "view")
+    if not user: return {"error": "Access denied"}
+    return get_behavior_analytics(days)
+
+# ── Phase 3: Revenue Deep ────────────────────────────────────────────────────
+
+@app.get("/api/cc/revenue-deep")
+async def cc_revenue_deep(request: Request, days: int = 180):
+    user = _cc_check(request, "finance")
+    if not user: return {"error": "Access denied"}
+    return get_revenue_deep(days)
+
+# ── Phase 3: Announcements ───────────────────────────────────────────────────
+
+@app.get("/api/cc/announcements")
+async def cc_announcements(request: Request, active_only: bool = True):
+    return {"announcements": get_announcements(active_only)}
+
+@app.post("/api/cc/announcements")
+async def cc_create_announcement(request: Request):
+    user = _cc_check(request, "edit")
+    if not user: return {"error": "Access denied"}
+    body = await request.json()
+    result = create_announcement(body.get("title", ""), body.get("message", ""),
+                                  body.get("type", "info"), body.get("target", "all"),
+                                  body.get("priority", 0), user.get("email", "admin"),
+                                  body.get("expires_at"))
+    log_audit(user.get("uid", 0), user.get("email", ""), "admin", "announcement_created",
+              "system", "announcement", body.get("title"))
+    return result
+
+@app.post("/api/cc/announcements/toggle")
+async def cc_toggle_announcement(request: Request):
+    user = _cc_check(request, "edit")
+    if not user: return {"error": "Access denied"}
+    body = await request.json()
+    return toggle_announcement(body.get("id"), body.get("active", True))
+
 # Serve static assets if any
 if FRONTEND_DIR.exists():
     try:
@@ -2143,6 +2274,7 @@ async def startup_event():
     # 3b. Control Center tables
     try:
         ensure_cc_tables()
+        ensure_phase2_tables()
     except Exception as e:
         logger.warning(f"Control Center table init failed: {e}")
 
