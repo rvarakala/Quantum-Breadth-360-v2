@@ -801,28 +801,46 @@ async function syncFiiDiiJugaad() {
   if (btn) { btn.disabled = false; btn.textContent = '⬇ Sync FII/DII (jugaad)'; }
 }
 
-async function syncFundamentalsIndianApi() {
+async function syncFundamentalsTV() {
   const btn = document.getElementById('ds-funds-btn');
   const status = document.getElementById('ds-funds-status');
-  const market = window._currentMarket || 'india';
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing...'; }
-  if (status) status.innerHTML = 'Fetching from Indian Stock API...';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing via TradingView...'; }
+  if (status) status.innerHTML = 'Fetching fundamentals from TradingView (PE, EPS, ROE, Debt, MCap, Sector)...';
 
   try {
-    const res = await fetch(`${API}/api/fundamentals/sync-indian-api?market=${market}`, { method: 'POST' });
+    // Trigger TV batch sync
+    const res = await fetch(`${API}/api/fundamentals/tv-sync`, { method: 'POST' });
     const data = await res.json();
 
-    if (data.status === 'ok') {
-      if (status) status.innerHTML =
-        `<span style="color:var(--green)">✅ ${data.tickers_synced}/${data.tickers_requested} tickers updated</span>`;
-    } else {
-      if (status) status.innerHTML =
-        `<span style="color:#f59e0b">⚠ ${data.message || 'No data returned'}</span>`;
+    if (data.error) {
+      if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${data.error}</span>`;
+      if (btn) { btn.disabled = false; btn.textContent = '⬇ Sync Fundamentals (TradingView)'; }
+      return;
     }
+
+    // Poll status until complete
+    if (status) status.innerHTML = 'TradingView sync started... polling status';
+    let done = false;
+    for (let i = 0; i < 30 && !done; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const sRes = await fetch(`${API}/api/fundamentals/tv-sync/status`);
+        const sData = await sRes.json();
+        if (sData.running === false || sData.status === 'complete' || sData.status === 'done') {
+          done = true;
+          const synced = sData.tickers_synced || sData.synced || 0;
+          if (status) status.innerHTML = `<span style="color:var(--green)">✅ ${synced} tickers synced from TradingView</span>`;
+        } else {
+          const prog = sData.progress || sData.tickers_synced || 0;
+          if (status) status.innerHTML = `⏳ Syncing... ${prog} tickers processed`;
+        }
+      } catch { }
+    }
+    if (!done && status) status.innerHTML = '<span style="color:#f59e0b">⚠ Sync still running in background — check back shortly</span>';
   } catch (e) {
     if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = '⬇ Sync Fundamentals (Indian API)'; }
+  if (btn) { btn.disabled = false; btn.textContent = '⬇ Sync Fundamentals (TradingView)'; }
 }
