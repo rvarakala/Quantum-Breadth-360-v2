@@ -7,10 +7,12 @@
 const _draw = {
   canvas: null,
   ctx: null,
-  tool: null,        // 'trend' | 'horizontal' | 'rectangle' | 'text' | 'eraser' | null
+  tool: null,        // 'trend' | 'horizontal' | 'rectangle' | 'text' | 'eraser' | 'move' | null
   drawings: [],      // [{type, points, color, ...}]
   tempPoints: [],    // in-progress drawing
   dragging: false,
+  movingIdx: -1,     // index of drawing being moved
+  moveStart: null,   // {x, y} start of move drag
   ticker: '',
   color: '#06b6d4',
   lineWidth: 2,
@@ -61,19 +63,19 @@ function initDrawingOverlay() {
 function setDrawTool(tool) {
   _draw.tool = _draw.tool === tool ? null : tool; // toggle off if same
   _draw.tempPoints = [];
+  _draw.movingIdx = -1;
 
   const overlay = document.getElementById('draw-overlay');
   if (overlay) {
     overlay.style.pointerEvents = _draw.tool ? 'auto' : 'none';
-    overlay.style.cursor = _draw.tool === 'eraser' ? 'not-allowed' : _draw.tool ? 'crosshair' : 'default';
+    overlay.style.cursor = _draw.tool === 'eraser' ? 'not-allowed' : _draw.tool === 'move' ? 'grab' : _draw.tool ? 'crosshair' : 'default';
   }
 
-  // Disable chart pan/zoom when drawing
+  // Only disable pressedMouseMove (pan), keep mouseWheel (zoom) enabled
   if (_chartState.priceChart) {
-    const enabled = !_draw.tool;
     _chartState.priceChart.applyOptions({
-      handleScroll: { mouseWheel: enabled, pressedMouseMove: enabled },
-      handleScale: { mouseWheel: enabled, axisPressedMouseMove: enabled },
+      handleScroll: { mouseWheel: true, pressedMouseMove: !_draw.tool },
+      handleScale: { mouseWheel: true, axisPressedMouseMove: !_draw.tool },
     });
   }
 
@@ -115,15 +117,30 @@ function _onDrawMouseDown(e) {
     return;
   }
 
+  // Move mode: check if clicking on existing drawing
+  if (_draw.tool === 'move') {
+    const idx = _findNearestDrawing(pt, 20);
+    if (idx >= 0) {
+      _draw.movingIdx = idx;
+      _draw.moveStart = pt;
+      _draw.dragging = true;
+      const overlay = document.getElementById('draw-overlay');
+      if (overlay) overlay.style.cursor = 'grabbing';
+    }
+    return;
+  }
+
   if (_draw.tool === 'text') {
     const text = prompt('Enter text:');
-    if (!text) return;
+    if (!text) { setDrawTool(null); return; }
     _draw.drawings.push({
       type: 'text', x: pt.x, y: pt.y, text, color: _draw.color,
       fontSize: 13, canvasW: _draw.canvas.width, canvasH: _draw.canvas.height,
     });
     _saveDrawings();
     _redrawAll();
+    // Auto-deselect text tool after placing
+    setDrawTool(null);
     return;
   }
 
@@ -137,7 +154,7 @@ function _onDrawMouseDown(e) {
     return;
   }
 
-  // Trend line or Rectangle — need 2 clicks
+  // Trend line or Rectangle — click-drag
   if (_draw.tempPoints.length === 0) {
     _draw.tempPoints = [pt];
     _draw.dragging = true;
@@ -145,13 +162,41 @@ function _onDrawMouseDown(e) {
 }
 
 function _onDrawMouseMove(e) {
-  if (!_draw.tool || !_draw.dragging || _draw.tempPoints.length === 0) return;
+  if (!_draw.tool) return;
   const pt = _getCanvasPoint(e);
-  _redrawAll();
-  _drawTemp(_draw.tempPoints[0], pt);
+
+  // Move mode: drag existing drawing
+  if (_draw.tool === 'move' && _draw.dragging && _draw.movingIdx >= 0) {
+    const d = _draw.drawings[_draw.movingIdx];
+    const dx = pt.x - _draw.moveStart.x;
+    const dy = pt.y - _draw.moveStart.y;
+    if (d.type === 'trend') { d.x1 += dx; d.y1 += dy; d.x2 += dx; d.y2 += dy; }
+    else if (d.type === 'horizontal') { d.y += dy; }
+    else if (d.type === 'rectangle') { d.x1 += dx; d.y1 += dy; d.x2 += dx; d.y2 += dy; }
+    else if (d.type === 'text') { d.x += dx; d.y += dy; }
+    _draw.moveStart = pt;
+    _redrawAll();
+    return;
+  }
+
+  // Temp drawing preview
+  if (_draw.dragging && _draw.tempPoints.length > 0) {
+    _redrawAll();
+    _drawTemp(_draw.tempPoints[0], pt);
+  }
 }
 
 function _onDrawMouseUp(e) {
+  // Move mode: finish moving
+  if (_draw.tool === 'move' && _draw.movingIdx >= 0) {
+    _draw.movingIdx = -1;
+    _draw.dragging = false;
+    _saveDrawings();
+    const overlay = document.getElementById('draw-overlay');
+    if (overlay) overlay.style.cursor = 'grab';
+    return;
+  }
+
   if (!_draw.tool || !_draw.dragging || _draw.tempPoints.length === 0) return;
   const pt = _getCanvasPoint(e);
   const p1 = _draw.tempPoints[0];
@@ -279,14 +324,11 @@ function _redrawAll() {
   }
 }
 
-// ── ERASER ────────────────────────────────────────────────────────────────────
+// ── FIND / ERASE ─────────────────────────────────────────────────────────────
 
-function _eraseAt(pt) {
+function _findNearestDrawing(pt, threshold) {
   const cw = _draw.canvas.width;
   const ch = _draw.canvas.height;
-  const threshold = 15;
-
-  // Find nearest drawing
   let nearestIdx = -1;
   let nearestDist = Infinity;
 
@@ -311,8 +353,13 @@ function _eraseAt(pt) {
     if (dist < nearestDist) { nearestDist = dist; nearestIdx = i; }
   }
 
-  if (nearestIdx >= 0 && nearestDist < threshold) {
-    _draw.drawings.splice(nearestIdx, 1);
+  return (nearestIdx >= 0 && nearestDist < threshold) ? nearestIdx : -1;
+}
+
+function _eraseAt(pt) {
+  const idx = _findNearestDrawing(pt, 15);
+  if (idx >= 0) {
+    _draw.drawings.splice(idx, 1);
     _saveDrawings();
     _redrawAll();
   }
