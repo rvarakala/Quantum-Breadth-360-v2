@@ -844,3 +844,94 @@ async function syncFundamentalsTV() {
 
   if (btn) { btn.disabled = false; btn.textContent = '⬇ Sync Fundamentals (TradingView)'; }
 }
+
+// ── SCREENER.IN DEEP FUNDAMENTALS ────────────────────────────────────────────
+
+async function syncScreenerSingle() {
+  const input = document.getElementById('ds-screener-ticker');
+  const btn = document.getElementById('ds-screener-btn');
+  const status = document.getElementById('ds-screener-status');
+  const ticker = (input?.value || '').trim().toUpperCase();
+
+  if (!ticker) { if (status) status.innerHTML = '<span style="color:var(--red)">Enter a ticker</span>'; return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Fetching...'; }
+  if (status) status.innerHTML = `Fetching screener.in data for ${ticker}...`;
+
+  try {
+    const res = await fetch(`${API}/api/screener-in/${ticker}?force=true`);
+    const data = await res.json();
+
+    if (data.error) {
+      if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${data.error}</span>`;
+    } else if (data.status === 'ok') {
+      const s = data.summary || {};
+      const parts = [];
+      if (s.latest_quarter) parts.push(`Q: ${s.latest_quarter}`);
+      if (s.sales_cagr_5y) parts.push(`Sales 5Y: ${s.sales_cagr_5y}`);
+      if (s.promoter_pct) parts.push(`Prom: ${s.promoter_pct}`);
+      if (s.pros?.length) parts.push(`${s.pros.length} pros`);
+      if (s.cons?.length) parts.push(`${s.cons.length} cons`);
+
+      if (status) status.innerHTML = `<span style="color:var(--green)">✅ ${ticker} — ${parts.join(' · ') || 'Data fetched'}</span>`;
+    } else {
+      if (status) status.innerHTML = `<span style="color:#f59e0b">⚠ ${data.status || 'Unknown response'}</span>`;
+    }
+  } catch (e) {
+    if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '⬇ Fetch'; }
+}
+
+async function syncScreenerBatch() {
+  const btn = document.getElementById('ds-screener-batch-btn');
+  const status = document.getElementById('ds-screener-status');
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading top RS stocks...'; }
+  if (status) status.innerHTML = 'Fetching top 50 RS-ranked tickers first...';
+
+  try {
+    // Get top 50 tickers from RS rankings
+    const rsRes = await fetch(`${API}/api/leaders?limit=50`);
+    const rsData = await rsRes.json();
+    const tickers = (rsData.stocks || rsData.leaders || []).map(s => s.ticker).filter(Boolean).slice(0, 50);
+
+    if (!tickers.length) {
+      if (status) status.innerHTML = '<span style="color:var(--red)">❌ No RS data — run RS Rankings first</span>';
+      if (btn) { btn.disabled = false; btn.textContent = '⬇ Batch: Top 50 RS Stocks'; }
+      return;
+    }
+
+    if (status) status.innerHTML = `Fetching screener.in for ${tickers.length} tickers (1.5s between each)...`;
+    if (btn) btn.textContent = `⏳ 0/${tickers.length}...`;
+
+    let done = 0, errors = 0;
+    for (const ticker of tickers) {
+      try {
+        const res = await fetch(`${API}/api/screener-in/${ticker}`);
+        const data = await res.json();
+        if (data.error) errors++;
+        done++;
+      } catch { errors++; done++; }
+
+      if (btn) btn.textContent = `⏳ ${done}/${tickers.length}...`;
+      if (status) status.innerHTML = `Fetching: ${done}/${tickers.length} done${errors ? ` (${errors} errors)` : ''}`;
+
+      // Rate limit — wait between requests
+      if (done < tickers.length) await new Promise(r => setTimeout(r, 1500));
+    }
+
+    if (status) status.innerHTML = `<span style="color:var(--green)">✅ Done: ${done - errors}/${tickers.length} tickers cached${errors ? ` · ${errors} failed` : ''}</span>`;
+  } catch (e) {
+    if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '⬇ Batch: Top 50 RS Stocks'; }
+}
+
+// Enter key on screener ticker input
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('ds-screener-ticker');
+  if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') syncScreenerSingle(); });
+});
