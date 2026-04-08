@@ -174,54 +174,74 @@ function renderOverview(d) {
 function renderCharts(d) {
   if (!d || d.error) return;
 
-  // A-D Line (show last 25 days)
-  const adHRaw = d.ad_history ?? [];
-  const adH = adHRaw.slice(-25);
-  if (adH.length > 0) {
-    const labels = adH.map(x => x.date.slice(5)); // MM-DD
-    const cumVals = adH.map(x => x.cumulative);
-    const minCum = Math.min(...cumVals);
-    const maxCum = Math.max(...cumVals);
-    const gradient = charts['chart-ad']?.ctx;
-    makeLineChart('chart-ad', labels, [{
-      data: cumVals,
-      borderColor: '#3b82f6',
-      backgroundColor: 'rgba(59,130,246,0.07)',
-      fill: true,
-      borderWidth: 1.5,
-    }], { y: { min: minCum * 0.99, max: maxCum * 1.01 } });
+  // ── Helper: compute simple moving average ──
+  function sma(arr, period) {
+    return arr.map((_, i) => {
+      if (i < period - 1) return null;
+      const slice = arr.slice(i - period + 1, i + 1);
+      return Math.round(slice.reduce((a, b) => a + b, 0) / period * 100) / 100;
+    });
   }
 
-  // % Above 50 DMA (show last 25 days)
+  const DAYS = 25;
+
+  // ── Card 1: A-D Line (Cumulative) ──
+  const adHRaw = d.ad_history ?? [];
+  const adH = adHRaw.slice(-DAYS);
+  if (adH.length > 0) {
+    const labels = adH.map(x => x.date.slice(5));
+    const cumVals = adH.map(x => x.cumulative);
+    const ma5 = sma(cumVals, 5);
+    const minCum = Math.min(...cumVals);
+    const maxCum = Math.max(...cumVals);
+    makeLineChart('chart-ad', labels, [
+      { data: cumVals, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.07)', fill: true, borderWidth: 1.5 },
+      { data: ma5, borderColor: '#f59e0b', borderWidth: 2, borderDash: [4, 3], pointRadius: 0, fill: false, label: '5D MA' },
+    ], { y: { min: minCum * 0.99, max: maxCum * 1.01 }, plugins: { legend: { display: true, position: 'top', labels: { color: '#94a3b8', font: { family: "'Space Mono'", size: 8 }, boxWidth: 10, padding: 6 } } } });
+  }
+
+  // ── Card 2: % Above 50 DMA ──
   const dmaHRaw = d.dma_history ?? [];
-  const dmaH = dmaHRaw.slice(-25);
+  const dmaH = dmaHRaw.slice(-DAYS);
   if (dmaH.length > 0) {
     const labels = dmaH.map(x => x.date.slice(5));
     const vals = dmaH.map(x => x.pct_above_50);
+    const ma5 = sma(vals, 5);
     const colors = vals.map(v => v >= 60 ? 'rgba(34,197,94,0.8)' : v >= 40 ? 'rgba(245,158,11,0.8)' : 'rgba(239,68,68,0.8)');
-    makeLineChart('chart-dma', labels, [{
-      data: vals,
-      borderColor: '#a855f7',
-      backgroundColor: 'rgba(168,85,247,0.06)',
-      fill: true,
-      borderWidth: 1.5,
-      pointBackgroundColor: colors,
-      pointRadius: 2,
-    }], { y: { min: 0, max: 100 } });
+    makeLineChart('chart-dma', labels, [
+      { data: vals, borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.06)', fill: true, borderWidth: 1.5, pointBackgroundColor: colors, pointRadius: 2 },
+      { data: ma5, borderColor: '#f59e0b', borderWidth: 2, borderDash: [4, 3], pointRadius: 0, fill: false, label: '5D MA' },
+    ], { y: { min: 0, max: 100 }, plugins: { legend: { display: true, position: 'top', labels: { color: '#94a3b8', font: { family: "'Space Mono'", size: 8 }, boxWidth: 10, padding: 6 } } } });
   }
 
-  // NH-NL (show last 25 days)
+  // ── Card 3: NH-NL ──
   const nhHRaw = d.nh_nl_history ?? [];
-  const nhH = nhHRaw.slice(-25);
+  const nhH = nhHRaw.slice(-DAYS);
   if (nhH.length > 0) {
     const labels = nhH.map(x => x.date.slice(5));
     const nets = nhH.map(x => x.net);
+    const ma5 = sma(nets, 5);
     const colors = nets.map(v => v >= 0 ? 'rgba(34,197,94,0.75)' : 'rgba(239,68,68,0.75)');
-    makeBarChart('chart-nh', labels, [{
-      data: nets,
-      backgroundColor: colors,
-      borderWidth: 0,
-    }]);
+    // Use bar + line overlay
+    const ctx = $('chart-nh').getContext('2d');
+    if (charts['chart-nh']) charts['chart-nh'].destroy();
+    charts['chart-nh'] = new Chart(ctx, {
+      data: {
+        labels,
+        datasets: [
+          { type: 'bar', data: nets, backgroundColor: colors, borderWidth: 0, order: 2 },
+          { type: 'line', data: ma5, borderColor: '#f59e0b', borderWidth: 2, borderDash: [4, 3], pointRadius: 0, fill: false, order: 1, label: '5D MA' },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 600 },
+        plugins: { legend: { display: true, position: 'top', labels: { color: '#94a3b8', font: { family: "'Space Mono'", size: 8 }, boxWidth: 10, padding: 6 } },
+          tooltip: { backgroundColor: '#111827', borderColor: '#253552', borderWidth: 1, titleFont: { family: "'Space Mono'", size: 9 }, bodyFont: { family: "'Space Mono'", size: 10 }, padding: 10 } },
+        scales: { x: { grid: { display: false }, ticks: { maxRotation: 30 } }, y: { grid: { color: '#1e2d4a44' } } },
+        elements: { point: { radius: 0 }, line: { tension: 0.3 } },
+      }
+    });
   }
 
   // Score gauge zones
@@ -250,10 +270,50 @@ function renderCharts(d) {
   zones.appendChild(marker);
 
   // New breadth chart components
-  renderRegimeTimeline(d);  // async — fetches score history for accurate regimes
-  renderScoreHistory(d);  // async — fetches real scores from DB
-  _ivFootprintLoaded = false; // reset so it reloads on refresh
+  renderRegimeTimeline(d);
+  renderScoreHistory(d);
+  _ivFootprintLoaded = false;
   renderIVFootprint();
+  renderLSSChart(d);
+}
+
+// ── Card 8: Liquidity Stress Score Chart ──
+function renderLSSChart(d) {
+  const canvas = document.getElementById('chart-lss');
+  if (!canvas) return;
+
+  // Compute LSS for each day from dma_history + ad_history
+  const dmaH = (d.dma_history ?? []).slice(-25);
+  const adH = (d.ad_history ?? []).slice(-25);
+  const nhH = (d.nh_nl_history ?? []).slice(-25);
+
+  if (dmaH.length === 0) return;
+
+  const lssVals = dmaH.map((dma, i) => {
+    const p50 = dma.pct_above_50 ?? 50;
+    const adr = adH[i] ? adH[i].advancers / Math.max(adH[i].decliners, 1) : 1;
+    const nlRatio = nhH[i] ? (nhH[i].new_lows || 0) / Math.max(nhH[i].new_highs || 1, 1) : 0;
+
+    const breadthStress = _stressFromValue(p50, 15, 70, true);
+    const adStress = _stressFromValue(adr, 0.5, 1.5, true);
+    const nhStress = _stressFromValue(nlRatio, 0.5, 4.0, false);
+
+    return Math.round(breadthStress * 0.40 + adStress * 0.30 + nhStress * 0.30);
+  });
+
+  const labels = dmaH.map(x => x.date.slice(5));
+  const ma5 = [];
+  for (let i = 0; i < lssVals.length; i++) {
+    if (i < 4) { ma5.push(null); continue; }
+    ma5.push(Math.round((lssVals[i] + lssVals[i-1] + lssVals[i-2] + lssVals[i-3] + lssVals[i-4]) / 5));
+  }
+
+  const colors = lssVals.map(v => v >= 75 ? 'rgba(239,68,68,0.9)' : v >= 50 ? 'rgba(245,158,11,0.9)' : v >= 25 ? 'rgba(234,179,8,0.9)' : 'rgba(34,197,94,0.9)');
+
+  makeLineChart('chart-lss', labels, [
+    { data: lssVals, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.06)', fill: true, borderWidth: 1.5, pointBackgroundColor: colors, pointRadius: 2 },
+    { data: ma5, borderColor: '#f59e0b', borderWidth: 2, borderDash: [4, 3], pointRadius: 0, fill: false, label: '5D MA' },
+  ], { y: { min: 0, max: 100 }, plugins: { legend: { display: true, position: 'top', labels: { color: '#94a3b8', font: { family: "'Space Mono'", size: 8 }, boxWidth: 10, padding: 6 } } } });
 }
 
 function renderSectors(d) {
@@ -608,62 +668,54 @@ async function renderScoreHistory(d) {
   const canvas = document.getElementById('chart-score-history');
   if (!canvas) return;
 
-  // Try real stored scores first (accurate Q-BRAM scores from DB)
+  function sma(arr, period) {
+    return arr.map((_, i) => {
+      if (i < period - 1) return null;
+      const slice = arr.slice(i - period + 1, i + 1);
+      return Math.round(slice.reduce((a, b) => a + b, 0) / period * 100) / 100;
+    });
+  }
+
   let history = [];
   try {
     const mkt = (typeof currentMarket !== 'undefined') ? currentMarket : 'INDIA';
     const res  = await fetch(`${API}/api/breadth/score-history?market=${mkt}&days=30`);
     const data = await res.json();
     if (data.history && data.history.length > 0) {
-      history = data.history.slice(-15);
+      history = data.history.slice(-25);
     }
-  } catch(e) { /* fallback below */ }
+  } catch(e) { }
 
   if (history.length >= 3) {
-    // ✅ Real stored scores
     const labels  = history.map(x => x.date.slice(5));
     const scores  = history.map(x => x.score);
     const regimes = history.map(x => x.regime || '');
+    const ma5 = sma(scores, 5);
     const colors  = scores.map(s =>
       s >= 60 ? 'rgba(34,197,94,0.9)' : s >= 40 ? 'rgba(245,158,11,0.9)' : 'rgba(239,68,68,0.9)'
     );
 
-    makeLineChart('chart-score-history', labels, [{
-      data: scores,
-      borderColor: '#a855f7',
-      backgroundColor: 'rgba(168,85,247,0.08)',
-      fill: true,
-      borderWidth: 2,
-      pointBackgroundColor: colors,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-    }], {
+    makeLineChart('chart-score-history', labels, [
+      { data: scores, borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.08)', fill: true, borderWidth: 2, pointBackgroundColor: colors, pointRadius: 3, pointHoverRadius: 5 },
+      { data: ma5, borderColor: '#f59e0b', borderWidth: 2, borderDash: [4, 3], pointRadius: 0, fill: false, label: '5D MA' },
+    ], {
       y: { min: 0, max: 100 },
-      plugins: {
-        tooltip: {
-          callbacks: {
-            title: (items) => labels[items[0].dataIndex],
-            label: (ctx) => [
-              `Score: ${ctx.parsed.y}`,
-              `Regime: ${regimes[ctx.dataIndex] || '—'}`,
-            ]
-          }
-        }
+      plugins: { legend: { display: true, position: 'top', labels: { color: '#94a3b8', font: { family: "'Space Mono'", size: 8 }, boxWidth: 10, padding: 6 } },
+        tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => [`Score: ${ctx.parsed.y}`, `Regime: ${regimes[ctx.dataIndex] || '—'}`] } }
       }
     });
 
-    // Update chart title to show it's real data
     const hdr = canvas.closest('.chart-card')?.querySelector('.chart-title');
     if (hdr) hdr.textContent = `Q-BRAM SCORE HISTORY (${history.length} SESSIONS)`;
     return;
   }
 
-  // Fallback: estimate from dma_history (only if no stored scores yet)
-  const dmaH = (d.dma_history ?? []).slice(-15);
+  // Fallback: estimate from dma_history
+  const dmaH = (d.dma_history ?? []).slice(-25);
   if (dmaH.length === 0) return;
 
-  const adH  = (d.ad_history  ?? []).slice(-15);
-  const nhH  = (d.nh_nl_history ?? []).slice(-15);
+  const adH  = (d.ad_history  ?? []).slice(-25);
+  const nhH  = (d.nh_nl_history ?? []).slice(-25);
   const scores = dmaH.map((dma, i) => {
     const p50     = dma.pct_above_50 ?? 50;
     const adRatio = adH[i]
@@ -680,31 +732,25 @@ async function renderScoreHistory(d) {
   });
 
   const labels = dmaH.map(x => x.date.slice(5));
+  const ma5 = [];
+  for (let i = 0; i < scores.length; i++) {
+    if (i < 4) { ma5.push(null); continue; }
+    ma5.push(Math.round((scores[i]+scores[i-1]+scores[i-2]+scores[i-3]+scores[i-4]) / 5));
+  }
   const colors = scores.map(s =>
     s >= 60 ? 'rgba(34,197,94,0.9)' : s >= 40 ? 'rgba(245,158,11,0.9)' : 'rgba(239,68,68,0.9)'
   );
 
-  // Mark as estimated
   const hdr = canvas.closest('.chart-card')?.querySelector('.chart-title');
   if (hdr) hdr.textContent = `Q-BRAM SCORE ESTIMATE (${dmaH.length} SESSIONS) *`;
 
-  makeLineChart('chart-score-history', labels, [{
-    data: scores,
-    borderColor: '#a855f7',
-    backgroundColor: 'rgba(168,85,247,0.08)',
-    fill: true,
-    borderWidth: 2,
-    pointBackgroundColor: colors,
-    pointRadius: 3,
-    pointHoverRadius: 5,
-  }], {
+  makeLineChart('chart-score-history', labels, [
+    { data: scores, borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.08)', fill: true, borderWidth: 2, pointBackgroundColor: colors, pointRadius: 3, pointHoverRadius: 5 },
+    { data: ma5, borderColor: '#f59e0b', borderWidth: 2, borderDash: [4, 3], pointRadius: 0, fill: false, label: '5D MA' },
+  ], {
     y: { min: 0, max: 100 },
-    plugins: {
-      tooltip: {
-        callbacks: {
-          label: (ctx) => `Est. Score: ${ctx.parsed.y} (*approximate)`
-        }
-      }
+    plugins: { legend: { display: true, position: 'top', labels: { color: '#94a3b8', font: { family: "'Space Mono'", size: 8 }, boxWidth: 10, padding: 6 } },
+      tooltip: { callbacks: { label: (ctx) => `Est. Score: ${ctx.parsed.y} (*approximate)` } }
     }
   });
 }
@@ -721,7 +767,7 @@ function renderIVFootprint() {
   _ivFootprintLoaded = true;
 
   const mkt = currentMarket === 'INDIA' ? 'India' : currentMarket === 'US' ? 'US' : currentMarket;
-  fetch(`${API}/api/breadth/iv-footprint?market=${mkt}&days=30`)
+  fetch(`${API}/api/breadth/iv-footprint?market=${mkt}&days=25`)
     .then(r => r.json())
     .then(resp => {
       const data = resp.data ?? [];
@@ -731,17 +777,24 @@ function renderIVFootprint() {
       const ivVals = data.map(x => x.iv_count);
       const ppvVals = data.map(x => x.ppv_count);
       const bsVals = data.map(x => x.bs_count);
+      const totals = data.map((x, i) => ivVals[i] + ppvVals[i] + bsVals[i]);
+
+      // 5-day MA of total signals
+      const ma5 = totals.map((_, i) => {
+        if (i < 4) return null;
+        return Math.round((totals[i]+totals[i-1]+totals[i-2]+totals[i-3]+totals[i-4]) / 5 * 10) / 10;
+      });
 
       const ctx = canvas.getContext('2d');
       if (charts['chart-iv-footprint']) charts['chart-iv-footprint'].destroy();
       charts['chart-iv-footprint'] = new Chart(ctx, {
-        type: 'bar',
         data: {
           labels,
           datasets: [
-            { label: 'IV Buy', data: ivVals, backgroundColor: 'rgba(34,197,94,0.75)', borderWidth: 0 },
-            { label: 'PPV', data: ppvVals, backgroundColor: 'rgba(59,130,246,0.75)', borderWidth: 0 },
-            { label: 'Bull Snort', data: bsVals, backgroundColor: 'rgba(234,179,8,0.75)', borderWidth: 0 },
+            { type: 'bar', label: 'IV Buy', data: ivVals, backgroundColor: 'rgba(34,197,94,0.75)', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'PPV', data: ppvVals, backgroundColor: 'rgba(59,130,246,0.75)', borderWidth: 0, order: 3 },
+            { type: 'bar', label: 'Bull Snort', data: bsVals, backgroundColor: 'rgba(234,179,8,0.75)', borderWidth: 0, order: 3 },
+            { type: 'line', label: '5D MA', data: ma5, borderColor: '#f59e0b', borderWidth: 2, borderDash: [4, 3], pointRadius: 0, fill: false, order: 1, yAxisID: 'y1' },
           ],
         },
         options: {
@@ -749,9 +802,8 @@ function renderIVFootprint() {
           animation: { duration: 600 },
           plugins: {
             legend: {
-              display: true,
-              position: 'top',
-              labels: { color: '#94a3b8', font: { family: "'Space Mono'", size: 9 }, boxWidth: 12, padding: 8 },
+              display: true, position: 'top',
+              labels: { color: '#94a3b8', font: { family: "'Space Mono'", size: 8 }, boxWidth: 10, padding: 6 },
             },
             tooltip: {
               backgroundColor: '#111827', borderColor: '#253552', borderWidth: 1,
@@ -763,6 +815,7 @@ function renderIVFootprint() {
           scales: {
             x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 30, color: '#4b5e7a', font: { size: 9 } } },
             y: { stacked: true, grid: { color: '#1e2d4a44' }, ticks: { color: '#4b5e7a' } },
+            y1: { display: false, stacked: false },
           },
         },
       });

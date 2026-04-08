@@ -2170,6 +2170,9 @@ body::before {
 
 .bc-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
 @media (max-width: 768px) { .bc-two-col { grid-template-columns: 1fr; } }
+.bc-three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+@media (max-width: 1100px) { .bc-three-col { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 768px) { .bc-three-col { grid-template-columns: 1fr; } }
 
 /* Regime Timeline */
 .rt-card { padding: 14px 16px; }
@@ -2198,10 +2201,12 @@ body::before {
 /* Compact breadth charts layout — fit viewport without scrolling */
 .rt-card { padding: 12px 16px !important; }
 .rt-card .chart-card-header { margin-bottom: 6px !important; }
-#tab-breadth .chart-card { padding: 12px 16px; }
-#tab-breadth .chart-card-header { margin-bottom: 6px; }
-#tab-breadth .chart-wrap canvas { max-height: 150px; }
-#tab-breadth .bc-two-col .chart-card { padding: 10px 14px; }
+#tab-breadth .chart-card { padding: 14px 18px; }
+#tab-breadth .chart-card-header { margin-bottom: 8px; }
+#tab-breadth .chart-wrap { height: 220px; }
+#tab-breadth .chart-wrap canvas { max-height: none; }
+#tab-breadth .bc-three-col .chart-card { padding: 12px 16px; }
+#tab-breadth .bc-three-col .chart-wrap { height: 200px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    PEEP INTO PAST

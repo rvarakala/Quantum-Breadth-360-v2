@@ -55,24 +55,25 @@ Chart.defaults.font.size = 9;
 function makeLineChart(canvasId, labels, datasets, opts = {}) {
   const ctx = $(canvasId).getContext('2d');
   if (charts[canvasId]) charts[canvasId].destroy();
+  const defaultPlugins = { legend: { display: false }, tooltip: {
+    backgroundColor: '#111827', borderColor: '#253552', borderWidth: 1,
+    titleFont: { family: "'Space Mono', monospace", size: 9 },
+    bodyFont:  { family: "'Space Mono', monospace", size: 10 },
+    padding: 10,
+  }};
+  const mergedPlugins = { ...defaultPlugins, ...(opts.plugins || {}) };
   charts[canvasId] = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 800, easing: 'easeInOutQuart' },
-      plugins: { legend: { display: false }, tooltip: {
-        backgroundColor: '#111827', borderColor: '#253552', borderWidth: 1,
-        titleFont: { family: "'Space Mono', monospace", size: 9 },
-        bodyFont:  { family: "'Space Mono', monospace", size: 10 },
-        padding: 10,
-      }},
+      plugins: mergedPlugins,
       scales: {
-        x: { grid: { color: '#1e2d4a44' }, ticks: { maxTicksLimit: 6, maxRotation: 0 } },
+        x: { grid: { color: '#1e2d4a44' }, ticks: { maxTicksLimit: 8, maxRotation: 0 } },
         y: { grid: { color: '#1e2d4a44' }, ...opts.y },
       },
       elements: { point: { radius: 0, hoverRadius: 4 }, line: { tension: 0.3 } },
-      ...opts
     }
   });
 }

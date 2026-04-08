@@ -1230,7 +1230,6 @@
       </div>
       <div style="display:flex;gap:0;padding:8px 0">
         <div id="score-zones" style="display:flex;width:100%;height:28px;border-radius:6px;overflow:hidden;position:relative">
-          <!-- filled by JS -->
         </div>
       </div>
       <div style="display:flex;justify-content:space-between;padding-top:6px">
@@ -1246,21 +1245,28 @@
     <!-- Regime Timeline (full width) -->
     <div id="regime-timeline-card" class="chart-card fade-in rt-card" style="margin-bottom:8px"></div>
 
-    <!-- Score History + IV Footprint row -->
-    <div class="bc-two-col">
+    <!-- Score History + IV Footprint + Liquidity Stress (3-col) -->
+    <div class="bc-three-col">
       <div class="chart-card fade-in">
         <div class="chart-card-header">
-          <span class="chart-title">Q-BRAM SCORE ESTIMATE (15 SESSIONS)</span>
-          <span class="chart-badge" style="background:var(--purple)22;color:var(--purple)">15D</span>
+          <span class="chart-title">Q-BRAM SCORE HISTORY (25 SESSIONS)</span>
+          <span class="chart-badge" style="background:var(--purple)22;color:var(--purple)">25D</span>
         </div>
         <div class="chart-wrap"><canvas id="chart-score-history"></canvas></div>
       </div>
       <div class="chart-card fade-in">
         <div class="chart-card-header">
-          <span class="chart-title">IV FOOTPRINT — SMART MONEY (30D)</span>
-          <span class="chart-badge" style="background:var(--green-dim);color:var(--green)">30D</span>
+          <span class="chart-title">IV FOOTPRINT — SMART MONEY</span>
+          <span class="chart-badge" style="background:var(--green-dim);color:var(--green)">25D</span>
         </div>
         <div class="chart-wrap"><canvas id="chart-iv-footprint"></canvas></div>
+      </div>
+      <div class="chart-card fade-in">
+        <div class="chart-card-header">
+          <span class="chart-title">LIQUIDITY STRESS SCORE</span>
+          <span class="chart-badge" style="background:rgba(239,68,68,.15);color:var(--red)">25D</span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-lss"></canvas></div>
       </div>
     </div>
   </div>
