@@ -958,7 +958,7 @@ def sync_fundamentals_indian_api(symbols: list = None, market: str = "india") ->
         try:
             conn = sqlite3.connect(str(DB_PATH), timeout=10)
             rows = conn.execute(
-                "SELECT DISTINCT symbol FROM ohlcv WHERE market = ? LIMIT 2000",
+                "SELECT DISTINCT ticker FROM ohlcv WHERE market = ? LIMIT 2000",
                 (market,)
             ).fetchall()
             conn.close()

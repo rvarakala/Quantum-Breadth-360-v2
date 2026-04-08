@@ -2016,7 +2016,7 @@ async def api_ohlcv_sync_bhavcopy(
     try:
         conn = sqlite3.connect("breadth_data.db", timeout=10)
         rows = conn.execute(
-            "SELECT DISTINCT symbol FROM ohlcv WHERE market = ? LIMIT 500",
+            "SELECT DISTINCT ticker FROM ohlcv WHERE market = ? LIMIT 500",
             (market,)
         ).fetchall()
         conn.close()
