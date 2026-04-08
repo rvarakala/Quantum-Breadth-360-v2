@@ -1,314 +1,159 @@
 """
-screener_in.py — Scrape screener.in for quarterly results, ownership, fund count.
-Caches per-ticker to avoid repeated hits. Returns structured dicts.
+screener_in.py — Screener.in fundamental data via screener-scraper-pro (npm)
+Calls Node.js bridge script, caches results in SQLite.
+Used for: quarterly results, balance sheet, cash flow, shareholding, CAGRs.
 """
 
-import logging, time, re
-from typing import Optional
-from functools import lru_cache
+import subprocess, json, logging, sqlite3, time
+from pathlib import Path
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
-
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Accept": "text/html,application/xhtml+xml",
-    "Accept-Language": "en-US,en;q=0.9",
-}
-
-# In-memory cache: ticker → {data, timestamp}
-_cache = {}
-_CACHE_TTL = 3600 * 6  # 6 hours
+DB_PATH = str(Path(__file__).parent / "breadth_data.db")
+BRIDGE_PATH = str(Path(__file__).parent / "screener_bridge.mjs")
+CACHE_TTL_HOURS = 24
 
 
-def _fetch_page(ticker: str) -> Optional[str]:
-    """Fetch screener.in company page HTML."""
-    import httpx
-    url = f"https://www.screener.in/company/{ticker}/consolidated/"
-    try:
-        r = httpx.get(url, headers=_HEADERS, follow_redirects=True, timeout=15)
-        if r.status_code == 200:
-            return r.text
-        # Try standalone if consolidated fails
-        url2 = f"https://www.screener.in/company/{ticker}/"
-        r2 = httpx.get(url2, headers=_HEADERS, follow_redirects=True, timeout=15)
-        if r2.status_code == 200:
-            return r2.text
-        logger.warning(f"screener.in: {ticker} returned {r.status_code}/{r2.status_code}")
-        return None
-    except Exception as e:
-        logger.warning(f"screener.in fetch error for {ticker}: {e}")
-        return None
+def ensure_screener_table():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS screener_fundamentals (
+            ticker TEXT PRIMARY KEY,
+            data_json TEXT,
+            summary_json TEXT,
+            fetched_at TEXT,
+            source TEXT DEFAULT 'screener.in'
+        )
+    """)
+    conn.commit()
+    conn.close()
 
 
-def _parse_quarterly(html: str) -> list:
-    """Extract quarterly results table: [{quarter, sales, expenses, profit, eps}, ...]"""
-    results = []
-    try:
-        # Find quarterly results section
-        match = re.search(r'id="quarters".*?<table.*?>(.*?)</table>', html, re.DOTALL)
-        if not match:
-            return results
-        table = match.group(1)
-
-        # Parse header for quarter dates
-        hdr_match = re.search(r'<thead>(.*?)</thead>', table, re.DOTALL)
-        if not hdr_match:
-            return results
-        headers = re.findall(r'<th[^>]*>(.*?)</th>', hdr_match.group(1), re.DOTALL)
-        # headers[0] is blank, rest are like "Mar 2025", "Dec 2024" etc.
-        quarter_dates = [h.strip() for h in headers[1:] if h.strip()]
-
-        # Parse body rows
-        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table, re.DOTALL)
-        row_data = {}
-        for row in rows:
-            cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-            if not cells:
-                continue
-            label = re.sub(r'<[^>]+>', '', cells[0]).strip()
-            vals = []
-            for c in cells[1:]:
-                txt = re.sub(r'<[^>]+>', '', c).strip().replace(',', '')
-                try:
-                    vals.append(float(txt))
-                except ValueError:
-                    vals.append(None)
-            if label:
-                row_data[label.lower()] = vals
-
-        sales = row_data.get('sales', row_data.get('revenue', []))
-        expenses = row_data.get('expenses', [])
-        profit = row_data.get('net profit', row_data.get('profit', []))
-        eps_row = row_data.get('eps', row_data.get('eps (rs)', []))
-
-        for i, qd in enumerate(quarter_dates):
-            entry = {"quarter": qd}
-            if i < len(sales) and sales[i] is not None:
-                entry["sales"] = sales[i]
-            if i < len(expenses) and expenses[i] is not None:
-                entry["expenses"] = expenses[i]
-            if i < len(profit) and profit[i] is not None:
-                entry["profit"] = profit[i]
-            if i < len(eps_row) and eps_row[i] is not None:
-                entry["eps"] = eps_row[i]
-            if len(entry) > 1:  # has more than just quarter name
-                results.append(entry)
-
-    except Exception as e:
-        logger.debug(f"Quarterly parse error: {e}")
-    return results
-
-
-def _parse_annual(html: str) -> list:
-    """Extract annual P&L: [{year, sales, profit, eps}, ...]"""
-    results = []
-    try:
-        match = re.search(r'id="profit-loss".*?<table.*?>(.*?)</table>', html, re.DOTALL)
-        if not match:
-            return results
-        table = match.group(1)
-
-        hdr_match = re.search(r'<thead>(.*?)</thead>', table, re.DOTALL)
-        if not hdr_match:
-            return results
-        headers = re.findall(r'<th[^>]*>(.*?)</th>', hdr_match.group(1), re.DOTALL)
-        years = [h.strip() for h in headers[1:] if h.strip()]
-
-        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table, re.DOTALL)
-        row_data = {}
-        for row in rows:
-            cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-            if not cells:
-                continue
-            label = re.sub(r'<[^>]+>', '', cells[0]).strip().lower()
-            vals = []
-            for c in cells[1:]:
-                txt = re.sub(r'<[^>]+>', '', c).strip().replace(',', '')
-                try:
-                    vals.append(float(txt))
-                except ValueError:
-                    vals.append(None)
-            if label:
-                row_data[label] = vals
-
-        sales = row_data.get('sales', row_data.get('revenue', []))
-        profit = row_data.get('net profit', row_data.get('profit', []))
-        eps_row = row_data.get('eps', row_data.get('eps (rs)', []))
-
-        for i, yr in enumerate(years):
-            entry = {"year": yr}
-            if i < len(sales) and sales[i] is not None:
-                entry["sales"] = sales[i]
-            if i < len(profit) and profit[i] is not None:
-                entry["profit"] = profit[i]
-            if i < len(eps_row) and eps_row[i] is not None:
-                entry["eps"] = eps_row[i]
-            if len(entry) > 1:
-                results.append(entry)
-
-    except Exception as e:
-        logger.debug(f"Annual parse error: {e}")
-    return results
-
-
-def _parse_shareholding(html: str) -> list:
-    """Extract shareholding pattern: [{quarter, promoters, fii, dii, public, num_funds}, ...]"""
-    results = []
-    try:
-        match = re.search(r'id="shareholding".*?<table.*?>(.*?)</table>', html, re.DOTALL)
-        if not match:
-            return results
-        table = match.group(1)
-
-        hdr_match = re.search(r'<thead>(.*?)</thead>', table, re.DOTALL)
-        if not hdr_match:
-            return results
-        headers = re.findall(r'<th[^>]*>(.*?)</th>', hdr_match.group(1), re.DOTALL)
-        quarters = [h.strip() for h in headers[1:] if h.strip()]
-
-        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table, re.DOTALL)
-        row_data = {}
-        for row in rows:
-            cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-            if not cells:
-                continue
-            label = re.sub(r'<[^>]+>', '', cells[0]).strip().lower()
-            vals = []
-            for c in cells[1:]:
-                txt = re.sub(r'<[^>]+>', '', c).strip().replace(',', '').replace('%', '')
-                try:
-                    vals.append(float(txt))
-                except ValueError:
-                    vals.append(None)
-            if label:
-                row_data[label] = vals
-
-        promoters = row_data.get('promoters', row_data.get('promoter', []))
-        fii = row_data.get('fiis', row_data.get('fii', []))
-        dii = row_data.get('diis', row_data.get('dii', []))
-        public = row_data.get('public', [])
-        # No. of shareholders or MF schemes
-        num_sh = row_data.get('no. of shareholders', [])
-
-        for i, q in enumerate(quarters):
-            entry = {"quarter": q}
-            if i < len(promoters) and promoters[i] is not None:
-                entry["promoters"] = promoters[i]
-            if i < len(fii) and fii[i] is not None:
-                entry["fii"] = fii[i]
-            if i < len(dii) and dii[i] is not None:
-                entry["dii"] = dii[i]
-            if i < len(public) and public[i] is not None:
-                entry["public"] = public[i]
-            if i < len(num_sh) and num_sh[i] is not None:
-                entry["num_shareholders"] = int(num_sh[i])
-            if len(entry) > 1:
-                results.append(entry)
-
-    except Exception as e:
-        logger.debug(f"Shareholding parse error: {e}")
-    return results
-
-
-def _parse_ratios(html: str) -> dict:
-    """Extract key ratios from the ratios section."""
-    ratios = {}
-    try:
-        # Look for the ratios list (top section with ROE, PE, etc.)
-        ul_match = re.search(r'id="top-ratios".*?<ul[^>]*>(.*?)</ul>', html, re.DOTALL)
-        if not ul_match:
-            # Try alternate: look for ratio items in the header area
-            items = re.findall(r'<li[^>]*class="[^"]*flex[^"]*"[^>]*>.*?<span[^>]*class="name"[^>]*>(.*?)</span>.*?<span[^>]*class="[^"]*number[^"]*"[^>]*>(.*?)</span>', html, re.DOTALL)
-            for name, val in items:
-                name = re.sub(r'<[^>]+>', '', name).strip()
-                val = re.sub(r'<[^>]+>', '', val).strip().replace(',', '').replace('%', '').replace('₹', '')
-                try:
-                    ratios[name] = float(val)
-                except ValueError:
-                    ratios[name] = val
-            return ratios
-
-        list_html = ul_match.group(1)
-        items = re.findall(r'<li[^>]*>(.*?)</li>', list_html, re.DOTALL)
-        for item in items:
-            name_m = re.search(r'<span[^>]*class="[^"]*name[^"]*"[^>]*>(.*?)</span>', item, re.DOTALL)
-            val_m = re.search(r'<span[^>]*class="[^"]*number[^"]*"[^>]*>(.*?)</span>', item, re.DOTALL)
-            if name_m and val_m:
-                name = re.sub(r'<[^>]+>', '', name_m.group(1)).strip()
-                val = re.sub(r'<[^>]+>', '', val_m.group(1)).strip().replace(',', '').replace('%', '').replace('₹', '')
-                try:
-                    ratios[name] = float(val)
-                except ValueError:
-                    ratios[name] = val
-
-    except Exception as e:
-        logger.debug(f"Ratios parse error: {e}")
-    return ratios
-
-
-def _parse_num_funds(html: str) -> list:
-    """Extract number of mutual fund schemes holding the stock over quarters."""
-    results = []
-    try:
-        # Look for mutual fund section
-        match = re.search(r'Mutual Funds.*?(\d+)\s*(?:scheme|fund)', html, re.IGNORECASE)
-        if match:
-            # Simple: just extract the current count
-            pass
-
-        # Better: look for the shareholding table and extract DII/MF details
-        # screener.in shows "No. of Mutual Fund Schemes" in shareholding
-        sh_match = re.search(r'id="shareholding".*?</section>', html, re.DOTALL)
-        if sh_match:
-            sh_html = sh_match.group(0)
-            # Find rows with "Mutual Funds" or "No. of" in shareholding
-            fund_match = re.findall(r'No\.\s*of\s*(?:Mutual\s*Fund\s*)?(?:Schemes|shareholders)[^<]*</.*?(?:<td[^>]*>(.*?)</td>)', sh_html, re.DOTALL | re.IGNORECASE)
-            # Fallback: look for any row mentioning funds
-            mf_rows = re.findall(r'(?:Mutual\s*Fund|MF)\s*Schemes?\s*</.*?(<td.*?</tr>)', sh_html, re.DOTALL | re.IGNORECASE)
-            for row in mf_rows:
-                vals = re.findall(r'<td[^>]*>(.*?)</td>', row)
-                for v in vals:
-                    txt = re.sub(r'<[^>]+>', '', v).strip().replace(',', '')
-                    try:
-                        results.append(int(float(txt)))
-                    except ValueError:
-                        pass
-    except Exception as e:
-        logger.debug(f"Fund count parse error: {e}")
-    return results
-
-
-def get_screener_in_data(ticker: str) -> dict:
+def fetch_screener_data(ticker: str, force: bool = False) -> dict:
     """
-    Main entry point — fetch and parse all screener.in data for a ticker.
-    Returns cached data if fresh enough.
+    Fetch comprehensive fundamental data from screener.in via Node.js bridge.
+    Caches for 24h.
     """
-    ticker = ticker.upper().strip()
+    ticker = ticker.upper().strip().replace(".NS", "").replace(".BO", "")
+    if not ticker:
+        return {"error": "No ticker provided"}
 
-    # Check cache
-    if ticker in _cache:
-        age = time.time() - _cache[ticker]["ts"]
-        if age < _CACHE_TTL:
-            return _cache[ticker]["data"]
+    if not force:
+        cached = _get_cached(ticker)
+        if cached:
+            return cached
 
-    html = _fetch_page(ticker)
-    if not html:
-        return {"ticker": ticker, "error": "Could not fetch screener.in page",
-                "quarterly": [], "annual": [], "shareholding": [], "ratios": {}}
+    logger.info(f"Fetching screener.in data for {ticker}")
+    try:
+        result = subprocess.run(
+            ["node", BRIDGE_PATH, ticker],
+            capture_output=True, text=True, timeout=30,
+            cwd=str(Path(__file__).parent.parent)
+        )
 
-    data = {
-        "ticker": ticker,
-        "quarterly": _parse_quarterly(html),
-        "annual": _parse_annual(html),
-        "shareholding": _parse_shareholding(html),
-        "ratios": _parse_ratios(html),
-        "source": "screener.in",
-        "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        if result.returncode != 0:
+            err = result.stderr.strip() or "Bridge script failed"
+            logger.warning(f"Screener bridge error for {ticker}: {err}")
+            return {"error": err, "ticker": ticker}
+
+        data = json.loads(result.stdout.strip())
+
+        if data.get("status") == "error":
+            logger.warning(f"Screener.in error for {ticker}: {data.get('error')}")
+            return data
+
+        _store_cached(ticker, data)
+        return data
+
+    except subprocess.TimeoutExpired:
+        return {"error": "Timeout (>30s)", "ticker": ticker}
+    except json.JSONDecodeError as e:
+        return {"error": f"Invalid JSON: {e}", "ticker": ticker}
+    except FileNotFoundError:
+        return {"error": "Node.js not found", "ticker": ticker}
+    except Exception as e:
+        return {"error": str(e), "ticker": ticker}
+
+
+def get_screener_summary(ticker: str) -> dict:
+    data = fetch_screener_data(ticker)
+    if data.get("error"):
+        return data
+    return data.get("summary", {})
+
+
+def get_screener_quarters(ticker: str) -> dict:
+    data = fetch_screener_data(ticker)
+    if data.get("error"):
+        return data
+    return data.get("quarters", {})
+
+
+def get_screener_shareholding(ticker: str) -> dict:
+    data = fetch_screener_data(ticker)
+    if data.get("error"):
+        return data
+    return data.get("shareholding", {})
+
+
+def get_screener_financials(ticker: str) -> dict:
+    data = fetch_screener_data(ticker)
+    if data.get("error"):
+        return data
+    return {
+        "profitLoss": data.get("profitLoss"),
+        "balanceSheet": data.get("balanceSheet"),
+        "cashFlow": data.get("cashFlow"),
+        "ratios": data.get("ratios"),
     }
 
-    # Cache it
-    _cache[ticker] = {"data": data, "ts": time.time()}
-    logger.info(f"screener.in: {ticker} — {len(data['quarterly'])} quarters, "
-                f"{len(data['shareholding'])} shareholding periods, "
-                f"{len(data['ratios'])} ratios")
-    return data
+
+def get_screener_cache_stats() -> dict:
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        total = conn.execute("SELECT COUNT(*) FROM screener_fundamentals").fetchone()[0]
+        latest = conn.execute("SELECT MAX(fetched_at) FROM screener_fundamentals").fetchone()[0]
+        conn.close()
+        return {"cached_tickers": total, "latest_fetch": latest}
+    except:
+        return {"cached_tickers": 0, "latest_fetch": None}
+
+
+# ── Cache ─────────────────────────────────────────────────────────────────────
+
+def _get_cached(ticker: str) -> dict:
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        row = conn.execute(
+            "SELECT data_json, fetched_at FROM screener_fundamentals WHERE ticker=?",
+            (ticker,)
+        ).fetchone()
+        conn.close()
+        if not row:
+            return None
+        fetched_at = row[1]
+        if fetched_at:
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(fetched_at)).total_seconds() / 3600
+            if age > CACHE_TTL_HOURS:
+                return None
+        data = json.loads(row[0])
+        data["_cached"] = True
+        data["_fetched_at"] = fetched_at
+        return data
+    except:
+        return None
+
+
+def _store_cached(ticker: str, data: dict):
+    try:
+        summary = data.get("summary", {})
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn.execute("""
+            INSERT OR REPLACE INTO screener_fundamentals (ticker, data_json, summary_json, fetched_at)
+            VALUES (?, ?, ?, ?)
+        """, (ticker, json.dumps(data), json.dumps(summary),
+              datetime.now(timezone.utc).isoformat()))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.debug(f"Cache write error for {ticker}: {e}")

@@ -2283,6 +2283,7 @@ async def startup_event():
     try:
         ensure_cc_tables()
         ensure_phase2_tables()
+        ensure_screener_table()
     except Exception as e:
         logger.warning(f"Control Center table init failed: {e}")
 
@@ -2709,11 +2710,21 @@ async def smart_chart_data(ticker: str, days: int = 500):
         # 4. Screener.in data (quarterly, shareholding, ratios)
         scr_data = {}
         try:
-            from screener_in import get_screener_in_data
-            scr_data = await loop.run_in_executor(executor, get_screener_in_data, ticker)
+            from screener_in import fetch_screener_data
+            raw = await loop.run_in_executor(executor, fetch_screener_data, ticker)
+            if raw.get("status") == "ok":
+                scr_data = {
+                    "quarterly": raw.get("quarters"),
+                    "shareholding": raw.get("shareholding"),
+                    "cagrs": raw.get("cagrs"),
+                    "analysis": raw.get("analysis"),
+                    "ratios": raw.get("ratios"),
+                }
+            else:
+                scr_data = {}
         except Exception as e:
             logger.warning(f"Smart Chart screener.in error for {ticker}: {e}")
-            scr_data = {"quarterly": [], "annual": [], "shareholding": [], "ratios": {}}
+            scr_data = {}
 
         # 5. Sector peers (top RS in same sector)
         peers = []
@@ -2737,6 +2748,50 @@ async def smart_chart_data(ticker: str, days: int = 500):
         logger.error(f"Smart Chart error for {ticker}: {e}")
         import traceback; traceback.print_exc()
         return {"error": str(e), "ticker": ticker}
+
+
+# ── Screener.in Fundamentals ─────────────────────────────────────────────────
+
+from screener_in import (
+    fetch_screener_data, get_screener_summary, get_screener_quarters,
+    get_screener_shareholding, get_screener_financials, get_screener_cache_stats,
+    ensure_screener_table,
+)
+
+@app.get("/api/screener-in/{ticker}")
+async def api_screener_in(ticker: str, force: bool = False):
+    """Full screener.in data for a ticker (quarterly, P&L, BS, CF, shareholding, CAGRs)."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, lambda: fetch_screener_data(ticker, force))
+
+@app.get("/api/screener-in/{ticker}/summary")
+async def api_screener_summary(ticker: str):
+    """Quick summary: CAGRs, latest quarter, shareholding."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, get_screener_summary, ticker)
+
+@app.get("/api/screener-in/{ticker}/quarters")
+async def api_screener_quarters(ticker: str):
+    """Quarterly results (13 quarters of Sales, Profit, EPS, OPM)."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, get_screener_quarters, ticker)
+
+@app.get("/api/screener-in/{ticker}/shareholding")
+async def api_screener_shareholding(ticker: str):
+    """Shareholding pattern: Promoter, FII, DII, Public (quarterly)."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, get_screener_shareholding, ticker)
+
+@app.get("/api/screener-in/{ticker}/financials")
+async def api_screener_financials(ticker: str):
+    """P&L + Balance Sheet + Cash Flow + Ratios (12 years)."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, get_screener_financials, ticker)
+
+@app.get("/api/screener-in/cache/stats")
+async def api_screener_cache():
+    """Screener.in cache statistics."""
+    return get_screener_cache_stats()
 
 
 # ── Ticker Search (Autocomplete) ──────────────────────────────────────────────
