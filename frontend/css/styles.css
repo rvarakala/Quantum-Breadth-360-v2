@@ -4268,3 +4268,30 @@ select option:checked {
 @media (max-width:600px) {
   .sbm-cards-grid { grid-template-columns:1fr; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHART DRAWING TOOLS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.draw-toolbar {
+  display: flex; align-items: center; gap: 4px; padding: 4px 8px;
+  background: rgba(10,15,30,0.85); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--table-border, #1e293b);
+  z-index: 60; position: relative;
+}
+.draw-tool-group { display: flex; align-items: center; gap: 2px; }
+.draw-separator { width: 1px; height: 20px; background: var(--table-border, #1e293b); margin: 0 4px; }
+.draw-tool-btn {
+  width: 30px; height: 28px; border: 1px solid transparent; border-radius: 4px;
+  background: transparent; color: var(--text-secondary, #94a3b8);
+  font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono, 'Space Mono', monospace); transition: all .15s;
+}
+.draw-tool-btn:hover { background: rgba(6,182,212,0.08); color: var(--text-primary, #e2e8f0); border-color: rgba(6,182,212,0.2); }
+.draw-tool-btn.active { background: rgba(6,182,212,0.15); color: #06b6d4; border-color: #06b6d4; }
+.draw-color-btn {
+  width: 16px; height: 16px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; transition: all .15s;
+}
+.draw-color-btn:hover { transform: scale(1.2); }
+.draw-color-btn.active { border-color: #fff; box-shadow: 0 0 6px rgba(255,255,255,0.3); }
+#draw-overlay { position: absolute; top: 0; left: 0; }

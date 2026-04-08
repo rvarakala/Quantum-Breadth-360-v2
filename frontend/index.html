@@ -754,6 +754,30 @@
       <span style="color:var(--text3);font-size:12px">Type a ticker and press Enter or click Load</span>
     </div>
     <div class="chart-container" id="chart-container">
+      <!-- Drawing toolbar -->
+      <div class="draw-toolbar" id="draw-toolbar">
+        <div class="draw-tool-group">
+          <button class="draw-tool-btn" data-tool="trend" onclick="setDrawTool('trend')" title="Trend Line (click-drag)">╱</button>
+          <button class="draw-tool-btn" data-tool="horizontal" onclick="setDrawTool('horizontal')" title="Horizontal Line (click)">━</button>
+          <button class="draw-tool-btn" data-tool="rectangle" onclick="setDrawTool('rectangle')" title="Rectangle (click-drag)">▭</button>
+          <button class="draw-tool-btn" data-tool="text" onclick="setDrawTool('text')" title="Text Label (click)">T</button>
+          <button class="draw-tool-btn" data-tool="eraser" onclick="setDrawTool('eraser')" title="Eraser (click near drawing)">✕</button>
+        </div>
+        <div class="draw-separator"></div>
+        <div class="draw-tool-group">
+          <button class="draw-color-btn active" data-color="#06b6d4" onclick="setDrawColor('#06b6d4')" style="background:#06b6d4" title="Cyan"></button>
+          <button class="draw-color-btn" data-color="#22c55e" onclick="setDrawColor('#22c55e')" style="background:#22c55e" title="Green"></button>
+          <button class="draw-color-btn" data-color="#ef4444" onclick="setDrawColor('#ef4444')" style="background:#ef4444" title="Red"></button>
+          <button class="draw-color-btn" data-color="#f59e0b" onclick="setDrawColor('#f59e0b')" style="background:#f59e0b" title="Amber"></button>
+          <button class="draw-color-btn" data-color="#a855f7" onclick="setDrawColor('#a855f7')" style="background:#a855f7" title="Purple"></button>
+          <button class="draw-color-btn" data-color="#ffffff" onclick="setDrawColor('#ffffff')" style="background:#ffffff" title="White"></button>
+        </div>
+        <div class="draw-separator"></div>
+        <div class="draw-tool-group">
+          <button class="draw-tool-btn" onclick="undoLastDrawing()" title="Undo last drawing">↩</button>
+          <button class="draw-tool-btn" onclick="clearAllDrawings()" title="Clear all drawings">🗑</button>
+        </div>
+      </div>
       <div id="chart-price-pane"></div>
       <div id="chart-vol-pane"></div>
     </div>
@@ -1959,6 +1983,7 @@
 <script src="/static/js/stockbee.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/stockbee-monitor.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/charts-tab.js?v=__ASSET_VERSION__"></script>
+<script src="/static/js/chart-drawing.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/heatmap.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/watchlist.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/smart-metrics.js?v=__ASSET_VERSION__"></script>

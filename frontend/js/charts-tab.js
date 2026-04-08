@@ -667,6 +667,12 @@ async function loadChart(ticker) {
     _chartState.data = data;
     _renderChartData(_chartState, data);
 
+    // Init drawing overlay and load saved drawings for this ticker
+    setTimeout(() => {
+      if (typeof initDrawingOverlay === 'function') initDrawingOverlay();
+      if (typeof loadDrawingsForTicker === 'function') loadDrawingsForTicker(t);
+    }, 300);
+
     // Update info bar
     if (infoBar) {
       const info = data.info;
