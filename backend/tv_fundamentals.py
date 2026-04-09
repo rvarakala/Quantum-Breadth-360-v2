@@ -95,24 +95,52 @@ TV_FIELDS = [
 
 def fetch_batch_fundamentals(market: str = "india") -> dict:
     """
-    Fetch fundamental summary for ALL NSE stocks via TradingView screener.
-    Uses pagination (5000 limit) to get the full universe.
-    Retries once on failure. Stores in tv_fundamentals SQLite table.
+    Fetch fundamental summary for ALL NSE stocks.
+    Waterfall: TradingView screener → yfinance batch (fallback).
+    Stores in tv_fundamentals SQLite table.
     """
     _ensure_tables()
 
+    # Try TradingView first (fastest: ~10s for 2500+ stocks)
+    result = _try_tradingview_batch(market)
+
+    if len(result) >= 100:
+        logger.info(f"✅ TV batch: {len(result)} tickers from TradingView")
+        _store_batch_to_db(result)
+        return result
+
+    # TV failed or returned too few — try yfinance as fallback
+    logger.warning(f"TradingView returned only {len(result)} stocks — trying yfinance fallback")
+    yf_result = _try_yfinance_batch(market)
+
+    if yf_result:
+        # Merge: TV data + yfinance data (yfinance fills gaps)
+        for ticker, data in yf_result.items():
+            if ticker not in result:
+                result[ticker] = data
+
+    if result:
+        _store_batch_to_db(result)
+        logger.info(f"✅ Fundamentals: {len(result)} tickers total (TV + yfinance fallback)")
+    else:
+        logger.error("❌ All fundamentals sources failed")
+
+    return result
+
+
+def _try_tradingview_batch(market: str) -> dict:
+    """TradingView screener — gets 2500+ stocks in ~10s."""
     try:
         from tradingview_screener import Query
     except ImportError:
         logger.error("tradingview-screener not installed: pip install tradingview-screener")
         return {}
 
-    logger.info(f"Fetching batch fundamentals for {market} via TradingView screener...")
+    logger.info(f"Trying TradingView batch for {market}...")
     t0 = time.time()
+    result = {}
 
-    # Fetch with higher limit to get ALL stocks (NSE has ~2500)
-    df = None
-    for attempt in range(2):  # retry once
+    for attempt in range(2):
         try:
             count, df = (Query()
                 .set_markets(market)
@@ -121,65 +149,149 @@ def fetch_batch_fundamentals(market: str = "india") -> dict:
                 .get_scanner_data()
             )
             logger.info(f"TradingView returned {count} stocks in {round(time.time()-t0,1)}s (attempt {attempt+1})")
-            break
-        except Exception as e:
-            logger.warning(f"TradingView batch attempt {attempt+1} failed: {e}")
-            if attempt == 0:
-                time.sleep(3)  # wait before retry
-            else:
-                logger.error(f"TradingView batch fetch failed after 2 attempts")
+
+            if df is None or len(df) == 0:
+                logger.warning("TradingView returned empty dataframe")
+                if attempt == 0:
+                    time.sleep(3)
+                    continue
                 return {}
 
-    if df is None or len(df) == 0:
-        logger.error("TradingView returned empty dataframe")
-        return {}
+            for _, row in df.iterrows():
+                entry = _parse_tv_row(row)
+                if entry:
+                    result[entry["_ticker"]] = entry
+            break
 
-    conn = sqlite3.connect(str(DB_PATH), timeout=30)
-    now  = datetime.now(timezone.utc).isoformat()
-    stored = 0
+        except Exception as e:
+            logger.warning(f"TradingView attempt {attempt+1} failed: {e}")
+            if attempt == 0:
+                time.sleep(3)
+
+    return result
+
+
+def _try_yfinance_batch(market: str) -> dict:
+    """yfinance fallback — slower but reliable. Fetches info for top tickers."""
     result = {}
+    try:
+        import yfinance as yf
 
-    for _, row in df.iterrows():
-        raw_ticker = str(row.get('ticker', '') or row.get('name', '') or '')
-        ticker = raw_ticker.split(':')[-1].strip().upper()
-        if not ticker:
-            continue
+        # Get tickers from OHLCV DB
+        conn = sqlite3.connect(str(DB_PATH), timeout=10)
+        mkt = "India" if market.lower() == "india" else market
+        rows = conn.execute(
+            "SELECT DISTINCT ticker FROM ohlcv WHERE market=? LIMIT 500", (mkt,)
+        ).fetchall()
+        conn.close()
+        tickers = [r[0] for r in rows]
 
-        def _f(col, default=None):
-            v = row.get(col)
-            if v is None:
-                return default
+        if not tickers:
+            return {}
+
+        logger.info(f"yfinance fallback: fetching info for {len(tickers)} tickers...")
+        # Batch download basic info via yfinance
+        # yfinance doesn't have a true batch info endpoint, so we get what we can from download
+        for i, ticker in enumerate(tickers):
             try:
-                f = float(v)
-                return None if (math.isnan(f) or math.isinf(f)) else f
-            except:
-                return default
+                sym = ticker + ".NS" if market.lower() == "india" else ticker
+                tk = yf.Ticker(sym)
+                info = tk.info or {}
+                if not info.get("regularMarketPrice"):
+                    continue
 
-        def _s(col, default=''):
-            v = row.get(col)
-            return str(v).strip() if v and str(v) not in ('nan','None','') else default
+                entry = {
+                    "_ticker": ticker,
+                    "pe_ratio": info.get("trailingPE"),
+                    "pb_ratio": info.get("priceToBook"),
+                    "roe": info.get("returnOnEquity", 0) * 100 if info.get("returnOnEquity") else None,
+                    "roa": info.get("returnOnAssets", 0) * 100 if info.get("returnOnAssets") else None,
+                    "gross_margin": info.get("grossMargins", 0) * 100 if info.get("grossMargins") else None,
+                    "operating_margin": info.get("operatingMargins", 0) * 100 if info.get("operatingMargins") else None,
+                    "net_margin": info.get("profitMargins", 0) * 100 if info.get("profitMargins") else None,
+                    "debt_to_equity": info.get("debtToEquity"),
+                    "current_ratio": info.get("currentRatio"),
+                    "eps_ttm": info.get("trailingEps"),
+                    "eps_growth_ttm": None,
+                    "revenue_ttm": info.get("totalRevenue"),
+                    "revenue_growth": info.get("revenueGrowth", 0) * 100 if info.get("revenueGrowth") else None,
+                    "market_cap": info.get("marketCap"),
+                    "company_name": info.get("longName") or info.get("shortName") or ticker,
+                    "sector": info.get("sector", ""),
+                    "industry": info.get("industry", ""),
+                }
+                result[ticker] = entry
 
-        entry = {
-            "pe_ratio":         _f('price_earnings_ttm'),
-            "pb_ratio":         _f('price_book_fq'),
-            "roe":              _f('return_on_equity'),
-            "roa":              _f('return_on_assets'),
-            "gross_margin":     _f('gross_margin'),
-            "operating_margin": _f('operating_margin'),
-            "net_margin":       _f('net_margin'),
-            "debt_to_equity":   _f('debt_to_equity'),
-            "current_ratio":    _f('current_ratio'),
-            "eps_ttm":          _f('earnings_per_share_basic_ttm'),
-            "eps_growth_ttm":   _f('earnings_per_share_basic_yoy_growth_fy'),
-            "revenue_ttm":      _f('total_revenue'),
-            "revenue_growth":   _f('revenue_growth_quarterly_yoy'),
-            "market_cap":       _f('market_cap_basic'),
-            "company_name":     _s('description') or _s('name'),
-            "sector":           _s('sector'),
-            "industry":         _s('industry'),
-        }
-        result[ticker] = entry
+                if (i + 1) % 50 == 0:
+                    logger.info(f"yfinance: {i+1}/{len(tickers)} done")
 
+                time.sleep(0.3)  # rate limit
+
+            except Exception as e:
+                logger.debug(f"yfinance info failed for {ticker}: {e}")
+                continue
+
+            # Cap at 200 for speed (yfinance is slow per-ticker)
+            if len(result) >= 200:
+                logger.info(f"yfinance: capped at 200 tickers for speed")
+                break
+
+    except Exception as e:
+        logger.warning(f"yfinance batch failed: {e}")
+
+    return result
+
+
+def _parse_tv_row(row) -> dict:
+    """Parse a TradingView screener row into our standard format."""
+    raw_ticker = str(row.get('ticker', '') or row.get('name', '') or '')
+    ticker = raw_ticker.split(':')[-1].strip().upper()
+    if not ticker:
+        return None
+
+    def _f(col, default=None):
+        v = row.get(col)
+        if v is None:
+            return default
+        try:
+            f = float(v)
+            return None if (math.isnan(f) or math.isinf(f)) else f
+        except:
+            return default
+
+    def _s(col, default=''):
+        v = row.get(col)
+        return str(v).strip() if v and str(v) not in ('nan','None','') else default
+
+    return {
+        "_ticker": ticker,
+        "pe_ratio":         _f('price_earnings_ttm'),
+        "pb_ratio":         _f('price_book_fq'),
+        "roe":              _f('return_on_equity'),
+        "roa":              _f('return_on_assets'),
+        "gross_margin":     _f('gross_margin'),
+        "operating_margin": _f('operating_margin'),
+        "net_margin":       _f('net_margin'),
+        "debt_to_equity":   _f('debt_to_equity'),
+        "current_ratio":    _f('current_ratio'),
+        "eps_ttm":          _f('earnings_per_share_basic_ttm'),
+        "eps_growth_ttm":   _f('earnings_per_share_basic_yoy_growth_fy'),
+        "revenue_ttm":      _f('total_revenue'),
+        "revenue_growth":   _f('revenue_growth_quarterly_yoy'),
+        "market_cap":       _f('market_cap_basic'),
+        "company_name":     _s('description') or _s('name'),
+        "sector":           _s('sector'),
+        "industry":         _s('industry'),
+    }
+
+
+def _store_batch_to_db(result: dict):
+    """Store batch fundamentals to SQLite."""
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
+    now = datetime.now(timezone.utc).isoformat()
+    stored = 0
+
+    for ticker, entry in result.items():
         try:
             conn.execute("""
                 INSERT OR REPLACE INTO tv_fundamentals
@@ -190,25 +302,23 @@ def fetch_batch_fundamentals(market: str = "india") -> dict:
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 ticker,
-                entry["pe_ratio"],    entry["pb_ratio"],
-                entry["roe"],         entry["roa"],
-                entry["gross_margin"],entry["operating_margin"], entry["net_margin"],
-                entry["debt_to_equity"], entry["current_ratio"],
-                entry["eps_ttm"],     entry["eps_growth_ttm"],
-                entry["revenue_ttm"], entry["revenue_growth"],
-                entry["market_cap"],
-                entry["company_name"], entry["sector"], entry["industry"],
+                entry.get("pe_ratio"), entry.get("pb_ratio"),
+                entry.get("roe"), entry.get("roa"),
+                entry.get("gross_margin"), entry.get("operating_margin"), entry.get("net_margin"),
+                entry.get("debt_to_equity"), entry.get("current_ratio"),
+                entry.get("eps_ttm"), entry.get("eps_growth_ttm"),
+                entry.get("revenue_ttm"), entry.get("revenue_growth"),
+                entry.get("market_cap"),
+                entry.get("company_name", ""), entry.get("sector", ""), entry.get("industry", ""),
                 now,
             ))
             stored += 1
         except Exception as e:
-            logger.debug(f"TV store error for {ticker}: {e}")
+            logger.debug(f"Store error for {ticker}: {e}")
 
     conn.commit()
     conn.close()
-    elapsed = round(time.time() - t0, 1)
-    logger.info(f"✅ TV batch fundamentals: {stored} tickers stored in {elapsed}s")
-    return result
+    logger.info(f"Stored {stored} tickers to tv_fundamentals")
 
 
 def get_batch_fundamental(ticker: str) -> Optional[dict]:

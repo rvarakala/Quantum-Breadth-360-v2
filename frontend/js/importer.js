@@ -805,11 +805,10 @@ async function syncFundamentalsTV() {
   const btn = document.getElementById('ds-funds-btn');
   const status = document.getElementById('ds-funds-status');
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing via TradingView...'; }
-  if (status) status.innerHTML = 'Fetching fundamentals from TradingView (PE, EPS, ROE, Debt, MCap, Sector)...';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Syncing (TV → yfinance fallback)...'; }
+  if (status) status.innerHTML = 'Starting fundamentals sync (TradingView → yfinance fallback chain)...';
 
   try {
-    // Trigger TV batch sync
     const res = await fetch(`${API}/api/fundamentals/tv-sync`, { method: 'POST' });
     const data = await res.json();
 
@@ -819,10 +818,10 @@ async function syncFundamentalsTV() {
       return;
     }
 
-    // Poll status until complete
     if (status) status.innerHTML = 'TradingView sync started... polling status';
+
     let done = false;
-    for (let i = 0; i < 30 && !done; i++) {
+    for (let i = 0; i < 60 && !done; i++) {
       await new Promise(r => setTimeout(r, 2000));
       try {
         const sRes = await fetch(`${API}/api/fundamentals/tv-sync/status`);
@@ -830,14 +829,16 @@ async function syncFundamentalsTV() {
         if (sData.running === false || sData.status === 'complete' || sData.status === 'done') {
           done = true;
           const synced = sData.tickers_synced || sData.synced || 0;
-          if (status) status.innerHTML = `<span style="color:var(--green)">✅ ${synced} tickers synced from TradingView</span>`;
+          const source = synced > 500 ? 'TradingView' : synced > 0 ? 'TV + yfinance' : 'failed';
+          if (status) status.innerHTML = `<span style="color:var(--green)">✅ ${synced} tickers synced (${source})</span>`;
         } else {
           const prog = sData.progress || sData.tickers_synced || 0;
-          if (status) status.innerHTML = `⏳ Syncing... ${prog} tickers processed`;
+          const msg = sData.message || `${prog} tickers processed`;
+          if (status) status.innerHTML = `⏳ ${msg}`;
         }
       } catch { }
     }
-    if (!done && status) status.innerHTML = '<span style="color:#f59e0b">⚠ Sync still running in background — check back shortly</span>';
+    if (!done && status) status.innerHTML = '<span style="color:#f59e0b">⚠ Sync running in background — check back shortly</span>';
   } catch (e) {
     if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
   }
