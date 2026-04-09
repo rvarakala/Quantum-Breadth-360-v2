@@ -884,27 +884,25 @@ async function syncScreenerSingle() {
   if (btn) { btn.disabled = false; btn.textContent = '⬇ Fetch'; }
 }
 
-async function syncScreenerBatch() {
+async function syncScreenerBatch(limit = 50) {
   const btn = document.getElementById('ds-screener-batch-btn');
   const status = document.getElementById('ds-screener-status');
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading top RS stocks...'; }
-  if (status) status.innerHTML = 'Fetching top 50 RS-ranked tickers first...';
+  if (btn) { btn.disabled = true; }
+  if (status) status.innerHTML = `Fetching top ${limit} RS-ranked tickers...`;
 
   try {
-    // Get top 50 tickers from RS rankings
-    const rsRes = await fetch(`${API}/api/leaders?limit=50`);
+    const rsRes = await fetch(`${API}/api/leaders?limit=${limit}`);
     const rsData = await rsRes.json();
-    const tickers = (rsData.stocks || rsData.leaders || []).map(s => s.ticker).filter(Boolean).slice(0, 50);
+    const tickers = (rsData.stocks || rsData.leaders || []).map(s => s.ticker).filter(Boolean).slice(0, limit);
 
     if (!tickers.length) {
       if (status) status.innerHTML = '<span style="color:var(--red)">❌ No RS data — run RS Rankings first</span>';
-      if (btn) { btn.disabled = false; btn.textContent = '⬇ Batch: Top 50 RS Stocks'; }
+      if (btn) { btn.disabled = false; }
       return;
     }
 
     if (status) status.innerHTML = `Fetching screener.in for ${tickers.length} tickers (1.5s between each)...`;
-    if (btn) btn.textContent = `⏳ 0/${tickers.length}...`;
 
     let done = 0, errors = 0;
     for (const ticker of tickers) {
@@ -915,23 +913,84 @@ async function syncScreenerBatch() {
         done++;
       } catch { errors++; done++; }
 
-      if (btn) btn.textContent = `⏳ ${done}/${tickers.length}...`;
-      if (status) status.innerHTML = `Fetching: ${done}/${tickers.length} done${errors ? ` (${errors} errors)` : ''}`;
+      if (status) status.innerHTML = `⏳ ${done}/${tickers.length} done${errors ? ` (${errors} errors)` : ''} — ${ticker}`;
 
-      // Rate limit — wait between requests
       if (done < tickers.length) await new Promise(r => setTimeout(r, 1500));
     }
 
     if (status) status.innerHTML = `<span style="color:var(--green)">✅ Done: ${done - errors}/${tickers.length} tickers cached${errors ? ` · ${errors} failed` : ''}</span>`;
+    _loadScreenerCacheStats();
   } catch (e) {
     if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = '⬇ Batch: Top 50 RS Stocks'; }
+  if (btn) { btn.disabled = false; }
 }
 
-// Enter key on screener ticker input
+async function syncScreenerNifty500() {
+  const status = document.getElementById('ds-screener-status');
+  if (!confirm('This will fetch screener.in data for ~500 tickers.\nTakes ~12 minutes (1.5s rate limit).\nContinue?')) return;
+
+  if (status) status.innerHTML = 'Loading NIFTY 500 constituents...';
+
+  try {
+    // Get NIFTY 500 tickers from index constituents
+    const idxRes = await fetch(`${API}/api/nse-indices/constituents?index=NIFTY 500`);
+    const idxData = await idxRes.json();
+    let tickers = (idxData.constituents || []).map(c => c.ticker || c.symbol).filter(Boolean);
+
+    if (!tickers.length) {
+      // Fallback: get from RS rankings
+      const rsRes = await fetch(`${API}/api/leaders?limit=500`);
+      const rsData = await rsRes.json();
+      tickers = (rsData.stocks || rsData.leaders || []).map(s => s.ticker).filter(Boolean);
+    }
+
+    if (!tickers.length) {
+      if (status) status.innerHTML = '<span style="color:var(--red)">❌ No tickers found — sync indices first</span>';
+      return;
+    }
+
+    if (status) status.innerHTML = `Fetching screener.in for ${tickers.length} tickers...`;
+
+    let done = 0, errors = 0, skipped = 0;
+    for (const ticker of tickers) {
+      try {
+        // Use non-force to skip already cached (< 24h)
+        const res = await fetch(`${API}/api/screener-in/${ticker}`);
+        const data = await res.json();
+        if (data._cached) { skipped++; done++; continue; }
+        if (data.error) errors++;
+        done++;
+      } catch { errors++; done++; }
+
+      if (done % 5 === 0 || done === tickers.length) {
+        if (status) status.innerHTML = `⏳ ${done}/${tickers.length} (${skipped} cached, ${errors} errors) — ${ticker}`;
+      }
+
+      // Rate limit (skip delay for cached results)
+      if (done < tickers.length && !skipped) await new Promise(r => setTimeout(r, 1500));
+    }
+
+    if (status) status.innerHTML = `<span style="color:var(--green)">✅ NIFTY 500 done: ${done - errors - skipped} fetched, ${skipped} cached, ${errors} failed</span>`;
+    _loadScreenerCacheStats();
+  } catch (e) {
+    if (status) status.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
+  }
+}
+
+async function _loadScreenerCacheStats() {
+  try {
+    const res = await fetch(`${API}/api/screener-in/cache/stats`);
+    const data = await res.json();
+    const el = document.getElementById('ds-screener-cache');
+    if (el) el.textContent = `Cache: ${data.cached_tickers || 0} tickers · Last: ${(data.latest_fetch || '—').slice(0, 16)}`;
+  } catch {}
+}
+
+// Enter key on screener ticker input + load cache stats
 document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('ds-screener-ticker');
   if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') syncScreenerSingle(); });
+  _loadScreenerCacheStats();
 });
