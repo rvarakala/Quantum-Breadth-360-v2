@@ -95,9 +95,9 @@ TV_FIELDS = [
 
 def fetch_batch_fundamentals(market: str = "india") -> dict:
     """
-    Fetch fundamental summary for ALL NSE stocks in one API call.
-    Returns {ticker: {pe, roe, eps_ttm, ...}} dict.
-    Stores in tv_fundamentals SQLite table.
+    Fetch fundamental summary for ALL NSE stocks via TradingView screener.
+    Uses pagination (5000 limit) to get the full universe.
+    Retries once on failure. Stores in tv_fundamentals SQLite table.
     """
     _ensure_tables()
 
@@ -110,16 +110,28 @@ def fetch_batch_fundamentals(market: str = "india") -> dict:
     logger.info(f"Fetching batch fundamentals for {market} via TradingView screener...")
     t0 = time.time()
 
-    try:
-        count, df = (Query()
-            .set_markets(market)
-            .select(*TV_FIELDS)
-            .limit(2000)
-            .get_scanner_data()
-        )
-        logger.info(f"TradingView returned {count} stocks in {round(time.time()-t0,1)}s")
-    except Exception as e:
-        logger.error(f"TradingView batch fetch failed: {e}")
+    # Fetch with higher limit to get ALL stocks (NSE has ~2500)
+    df = None
+    for attempt in range(2):  # retry once
+        try:
+            count, df = (Query()
+                .set_markets(market)
+                .select(*TV_FIELDS)
+                .limit(5000)
+                .get_scanner_data()
+            )
+            logger.info(f"TradingView returned {count} stocks in {round(time.time()-t0,1)}s (attempt {attempt+1})")
+            break
+        except Exception as e:
+            logger.warning(f"TradingView batch attempt {attempt+1} failed: {e}")
+            if attempt == 0:
+                time.sleep(3)  # wait before retry
+            else:
+                logger.error(f"TradingView batch fetch failed after 2 attempts")
+                return {}
+
+    if df is None or len(df) == 0:
+        logger.error("TradingView returned empty dataframe")
         return {}
 
     conn = sqlite3.connect(str(DB_PATH), timeout=30)
@@ -168,30 +180,34 @@ def fetch_batch_fundamentals(market: str = "india") -> dict:
         }
         result[ticker] = entry
 
-        conn.execute("""
-            INSERT OR REPLACE INTO tv_fundamentals
-            (ticker, pe_ratio, pb_ratio, roe, roa, gross_margin, operating_margin,
-             net_margin, debt_to_equity, current_ratio, eps_ttm, eps_growth_ttm,
-             revenue_ttm, revenue_growth, market_cap, company_name, sector, industry,
-             fetched_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, (
-            ticker,
-            entry["pe_ratio"],    entry["pb_ratio"],
-            entry["roe"],         entry["roa"],
-            entry["gross_margin"],entry["operating_margin"], entry["net_margin"],
-            entry["debt_to_equity"], entry["current_ratio"],
-            entry["eps_ttm"],     entry["eps_growth_ttm"],
-            entry["revenue_ttm"], entry["revenue_growth"],
-            entry["market_cap"],
-            entry["company_name"], entry["sector"], entry["industry"],
-            now,
-        ))
-        stored += 1
+        try:
+            conn.execute("""
+                INSERT OR REPLACE INTO tv_fundamentals
+                (ticker, pe_ratio, pb_ratio, roe, roa, gross_margin, operating_margin,
+                 net_margin, debt_to_equity, current_ratio, eps_ttm, eps_growth_ttm,
+                 revenue_ttm, revenue_growth, market_cap, company_name, sector, industry,
+                 fetched_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                ticker,
+                entry["pe_ratio"],    entry["pb_ratio"],
+                entry["roe"],         entry["roa"],
+                entry["gross_margin"],entry["operating_margin"], entry["net_margin"],
+                entry["debt_to_equity"], entry["current_ratio"],
+                entry["eps_ttm"],     entry["eps_growth_ttm"],
+                entry["revenue_ttm"], entry["revenue_growth"],
+                entry["market_cap"],
+                entry["company_name"], entry["sector"], entry["industry"],
+                now,
+            ))
+            stored += 1
+        except Exception as e:
+            logger.debug(f"TV store error for {ticker}: {e}")
 
     conn.commit()
     conn.close()
-    logger.info(f"✅ TV batch fundamentals: {stored} tickers stored")
+    elapsed = round(time.time() - t0, 1)
+    logger.info(f"✅ TV batch fundamentals: {stored} tickers stored in {elapsed}s")
     return result
 
 

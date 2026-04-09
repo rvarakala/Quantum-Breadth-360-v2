@@ -2210,22 +2210,10 @@ async def startup_event():
     except Exception as _e:
         logger.warning(f"API key env load failed: {_e}")
 
-    # Ensure TradingView fundamentals tables exist + auto-sync if stale
+    # Ensure TradingView fundamentals tables exist (sync handled in _staggered_startup)
     try:
         ensure_tv_tables()
         logger.info("✅ TV fundamentals tables ready")
-        # Auto-refresh TV batch fundamentals if >24h stale or empty
-        if not is_batch_fresh(max_age_hours=24):
-            logger.info("⏳ TV fundamentals stale — auto-syncing in background...")
-            import asyncio as _aio
-            async def _auto_tv_sync():
-                await _aio.sleep(10)   # wait for server to finish starting
-                try:
-                    result = fetch_batch_fundamentals(market="india")
-                    logger.info(f"✅ Auto TV sync: {len(result)} tickers refreshed")
-                except Exception as _e:
-                    logger.warning(f"Auto TV sync failed: {_e}")
-            _aio.ensure_future(_auto_tv_sync())
     except Exception as e:
         logger.warning(f"TV fundamentals table init failed: {e}")
 
@@ -2290,16 +2278,49 @@ async def startup_event():
     # 4. Start daily insider sync scheduler (runs at ~6:30 PM IST / 1 PM UTC)
     asyncio.create_task(_insider_daily_scheduler())
 
-    # 4b. Auto-sync FII/DII data from NSE
-    asyncio.create_task(_auto_sync_fiidii())
+    # 4b. STAGGERED background syncs to avoid DB lock contention
+    # Order: breadth (critical) → OHLCV → TV fundamentals → insider → FII/DII → RS prewarm
+    asyncio.create_task(_staggered_startup())
 
-    # 4c. Auto-sync OHLCV data — ensures all prices are fresh
-    asyncio.create_task(_auto_sync_ohlcv())
 
-    # 5. Pre-warm RS rankings + Leaders + F-Value in background
-    #    These are the slowest computations — do them once on startup so tabs load instantly
-    #    NOTE: Waits for OHLCV sync to finish first (via delay in _prewarm_heavy_caches)
-    asyncio.create_task(_prewarm_heavy_caches())
+async def _staggered_startup():
+    """Run background syncs in sequence with delays to prevent DB contention and thread exhaustion."""
+    import asyncio as _aio
+
+    # 1. OHLCV sync first (prices needed for everything else)
+    logger.info("⏳ Startup sequence: OHLCV sync...")
+    await _auto_sync_ohlcv()
+
+    # 2. TV Fundamentals (needed for F-Value, Smart Money enrichment)
+    await _aio.sleep(3)
+    logger.info("⏳ Startup sequence: TV Fundamentals...")
+    try:
+        from tv_fundamentals import fetch_batch_fundamentals, is_batch_fresh
+        if not is_batch_fresh(max_age_hours=24):
+            loop = _aio.get_event_loop()
+            result = await loop.run_in_executor(executor, fetch_batch_fundamentals, "india")
+            logger.info(f"✅ TV Fundamentals: {len(result)} tickers synced")
+        else:
+            logger.info("✅ TV Fundamentals: already fresh (<24h)")
+    except Exception as e:
+        logger.warning(f"TV Fundamentals sync failed: {e}")
+
+    # 3. Insider data
+    await _aio.sleep(2)
+    logger.info("⏳ Startup sequence: Insider sync...")
+    await _auto_sync_insider()
+
+    # 4. FII/DII
+    await _aio.sleep(2)
+    logger.info("⏳ Startup sequence: FII/DII sync...")
+    await _auto_sync_fiidii()
+
+    # 5. Pre-warm heavy caches (RS Rankings, Leaders, F-Value)
+    await _aio.sleep(3)
+    logger.info("⏳ Startup sequence: Pre-warming RS/Leaders/F-Value...")
+    await _prewarm_heavy_caches()
+
+    logger.info("🚀 Startup sequence complete — all data ready")
 
 
 async def _auto_sync_ohlcv():
