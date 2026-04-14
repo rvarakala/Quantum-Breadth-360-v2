@@ -277,8 +277,28 @@ function _getFilteredTickers() {
   // SM Score filter
   if (smMin > 0) tickers = tickers.filter(t => (t.sm_score || 0) >= smMin);
 
-  // Sector filter
-  if (sectorFilter !== 'all') tickers = tickers.filter(t => t.sector === sectorFilter);
+  // Sector filter — with drill-down fallback using breadth data
+  if (sectorFilter !== 'all') {
+    const drillCtx = window._sectorDrillContext;
+    const filtered = tickers.filter(t => t.sector === sectorFilter);
+    
+    if (filtered.length > 0) {
+      tickers = filtered;
+    } else if (drillCtx) {
+      // Sectors empty in SM data — try matching from breadth sector data
+      const breadthData = currentData?.[currentMarket];
+      if (breadthData?.sector_breadth) {
+        const secData = breadthData.sector_breadth.find(s => 
+          s.sector === drillCtx.sector || 
+          s.sector.toLowerCase() === (sectorFilter || '').toLowerCase()
+        );
+        if (secData?.tickers) {
+          const secTickers = new Set(secData.tickers.map(t => t.toUpperCase()));
+          tickers = tickers.filter(t => secTickers.has(t.ticker.toUpperCase()));
+        }
+      }
+    }
+  }
 
   // Cluster mode sort
   if (_smClusterMode) tickers.sort((a, b) => b.total_signals - a.total_signals);

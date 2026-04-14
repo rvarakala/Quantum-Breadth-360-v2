@@ -652,12 +652,29 @@ def _build_sector_map():
         import sqlite3, pathlib
         conn = sqlite3.connect(
             str(pathlib.Path(__file__).parent / "breadth_data.db"), timeout=10)
+
+        # Primary: sector_map table
         rows = conn.execute(
             "SELECT ticker, sector FROM sector_map WHERE sector IS NOT NULL AND sector != ''"
         ).fetchall()
-        conn.close()
         _ticker_sector_map = {r[0]: r[1] for r in rows}
-        logger.info(f"Sector map: {len(_ticker_sector_map):,} entries")
+
+        # Fallback: fill gaps from tv_fundamentals.sector
+        if len(_ticker_sector_map) < 100:
+            try:
+                tv_rows = conn.execute(
+                    "SELECT ticker, sector FROM tv_fundamentals WHERE sector IS NOT NULL AND sector != ''"
+                ).fetchall()
+                for ticker, sector in tv_rows:
+                    if ticker not in _ticker_sector_map:
+                        _ticker_sector_map[ticker] = sector
+                logger.info(f"Sector map: {len(_ticker_sector_map):,} entries (sector_map + tv_fundamentals fallback)")
+            except:
+                pass
+        else:
+            logger.info(f"Sector map: {len(_ticker_sector_map):,} entries")
+
+        conn.close()
     except Exception as e:
         logger.warning(f"sector_map load failed: {e}")
 

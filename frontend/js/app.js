@@ -254,10 +254,24 @@ function _showSectorDrillBanner() {
 
   // Use matched sector name for filtering
   const sectorKey = ctx.matchedSector || ctx.sector;
-  const sectorTickers = (_smMoneyData?.tickers || []).filter(t =>
+  let sectorTickers = (_smMoneyData?.tickers || []).filter(t =>
     t.sector === sectorKey ||
     (t.sector || '').toLowerCase() === (sectorKey || '').toLowerCase()
   );
+  
+  // If sector field is empty in SM data, use breadth tickers list
+  if (sectorTickers.length === 0) {
+    const breadthData = typeof currentData !== 'undefined' ? currentData?.[typeof currentMarket !== 'undefined' ? currentMarket : 'INDIA'] : null;
+    if (breadthData?.sector_breadth) {
+      const secData = breadthData.sector_breadth.find(s => 
+        s.sector === ctx.sector || s.sector.toLowerCase() === ctx.sector.toLowerCase()
+      );
+      if (secData?.tickers) {
+        const secTickerSet = new Set(secData.tickers.map(t => t.toUpperCase()));
+        sectorTickers = (_smMoneyData?.tickers || []).filter(t => secTickerSet.has(t.ticker.toUpperCase()));
+      }
+    }
+  }
   const totalStocks = sectorTickers.length;
   const stage2Count = sectorTickers.filter(t => t.stage === 'Stage 2').length;
   const avgRS = totalStocks ? Math.round(sectorTickers.reduce((s, t) => s + (t.rs_rating || 0), 0) / totalStocks) : 0;

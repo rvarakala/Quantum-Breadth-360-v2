@@ -355,18 +355,20 @@ def _regime_interp(r):
 def _sector_breadth(sector_map, stock_data):
     out=[]
     for name,tickers in sector_map.items():
-        a50=tot=0; rets=[]
+        a50=tot=0; rets=[]; valid_tickers=[]
         for t in tickers:
             df=stock_data.get(t)
             if df is None or len(df)<51: continue
             tot+=1; c=df["Close"]; cur=safe_float(c.iloc[-1])
+            valid_tickers.append(t)
             if cur>safe_float(c.rolling(50).mean().iloc[-1]): a50+=1
             if len(df)>=5:
                 p5=safe_float(c.iloc[-5])
                 if p5>0: rets.append((cur-p5)/p5*100)
         pct=round(a50/tot*100,1) if tot>0 else 0
         out.append({"sector":name,"pct_above_50":pct,
-                    "week_return":round(float(np.mean(rets)),2) if rets else 0,"stocks_counted":tot})
+                    "week_return":round(float(np.mean(rets)),2) if rets else 0,
+                    "stocks_counted":tot,"tickers":valid_tickers})
     return sorted(out,key=lambda x:x["pct_above_50"],reverse=True)
 
 def _ad_history(stock_data,days=252):
