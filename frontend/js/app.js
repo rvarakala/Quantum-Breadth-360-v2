@@ -202,50 +202,62 @@ function switchTab(tab) {
 // ── Sector Drill-Down → Smart Money Tab ─────────────────────────────────────
 
 function drillIntoSector(sectorName, pctAbove50, weekReturn) {
-  // Store sector context for the banner
   window._sectorDrillContext = {
     sector: sectorName,
     pctAbove50: pctAbove50 ?? 0,
     weekReturn: weekReturn ?? 0,
   };
 
-  // Switch to Smart Money tab
   switchTab('smart-money');
 
-  // Wait for Smart Money data to load, then apply sector filter
-  const _applyFilter = () => {
-    const sel = document.getElementById('sm-filter-sector');
-    if (!sel) { setTimeout(_applyFilter, 300); return; }
+  const _applyFilter = (retries = 0) => {
+    if (retries > 20) return; // give up after 10 seconds
 
-    // Check if data is loaded
-    if (!_smMoneyData?.tickers) {
-      setTimeout(_applyFilter, 500);
+    const sel = document.getElementById('sm-filter-sector');
+    if (!sel || !_smMoneyData?.tickers?.length) {
+      setTimeout(() => _applyFilter(retries + 1), 500);
       return;
     }
 
-    // Set the sector dropdown
-    sel.value = sectorName;
+    // Fuzzy match: find the closest sector name in Smart Money data
+    const allSectors = [...new Set(_smMoneyData.tickers.map(t => t.sector).filter(Boolean))];
+    const exactMatch = allSectors.find(s => s === sectorName);
+    const looseMatch = allSectors.find(s =>
+      s.toLowerCase() === sectorName.toLowerCase() ||
+      s.toLowerCase().includes(sectorName.toLowerCase()) ||
+      sectorName.toLowerCase().includes(s.toLowerCase())
+    );
+    const matchedSector = exactMatch || looseMatch;
 
-    // Show the sector summary banner
+    if (matchedSector) {
+      window._sectorDrillContext.matchedSector = matchedSector;
+      sel.value = matchedSector;
+    } else {
+      // No match in dropdown — inject it temporarily
+      window._sectorDrillContext.matchedSector = sectorName;
+      console.warn(`Sector '${sectorName}' not found in Smart Money data. Available:`, allSectors);
+    }
+
     _showSectorDrillBanner();
-
-    // Trigger filter
     if (typeof filterSmartMoney === 'function') filterSmartMoney();
   };
 
-  setTimeout(_applyFilter, 200);
+  setTimeout(() => _applyFilter(0), 300);
 }
 
 function _showSectorDrillBanner() {
   const ctx = window._sectorDrillContext;
   if (!ctx) return;
 
-  // Remove existing banner
   const old = document.getElementById('sm-sector-drill-banner');
   if (old) old.remove();
 
-  // Compute sector stats from Smart Money data
-  const sectorTickers = (_smMoneyData?.tickers || []).filter(t => t.sector === ctx.sector);
+  // Use matched sector name for filtering
+  const sectorKey = ctx.matchedSector || ctx.sector;
+  const sectorTickers = (_smMoneyData?.tickers || []).filter(t =>
+    t.sector === sectorKey ||
+    (t.sector || '').toLowerCase() === (sectorKey || '').toLowerCase()
+  );
   const totalStocks = sectorTickers.length;
   const stage2Count = sectorTickers.filter(t => t.stage === 'Stage 2').length;
   const avgRS = totalStocks ? Math.round(sectorTickers.reduce((s, t) => s + (t.rs_rating || 0), 0) / totalStocks) : 0;
@@ -268,6 +280,7 @@ function _showSectorDrillBanner() {
         <span style="font-size:16px">📊</span>
         <span style="font-family:var(--font-mono);font-size:15px;font-weight:800;color:var(--cyan);letter-spacing:.04em">${ctx.sector.toUpperCase()}</span>
         <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">SECTOR DRILL-DOWN</span>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">(${totalStocks} stocks)</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px">
         <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">% ABOVE 50 DMA</div><div style="font-size:18px;font-weight:800;color:${pctColor};font-family:var(--font-mono)">${pct.toFixed(1)}%</div></div>
@@ -278,14 +291,13 @@ function _showSectorDrillBanner() {
         <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">SIGNALS</div><div style="font-size:18px;font-weight:800;color:var(--cyan);font-family:var(--font-mono)">${totalSignals}</div></div>
         <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">INSIDER BUYS</div><div style="font-size:18px;font-weight:800;color:${insiderBuys>0?'var(--green)':'var(--text3)'};font-family:var(--font-mono)">${insiderBuys}</div></div>
       </div>
-      ${topGainer ? `<div style="margin-top:8px;display:flex;gap:16px;font-family:var(--font-mono);font-size:10px">
+      ${topGainer && totalStocks > 0 ? `<div style="margin-top:8px;display:flex;gap:16px;font-family:var(--font-mono);font-size:10px">
         <span style="color:var(--text3)">Top Gainer:</span>
         <span style="color:var(--green);font-weight:700;cursor:pointer" onclick="loadChart('${topGainer.ticker}')">${topGainer.ticker} +${(topGainer.change_pct||0).toFixed(1)}%</span>
         ${topLoser && topLoser.ticker !== topGainer.ticker ? `<span style="color:var(--text3)">Top Loser:</span><span style="color:var(--red);font-weight:700;cursor:pointer" onclick="loadChart('${topLoser.ticker}')">${topLoser.ticker} ${(topLoser.change_pct||0).toFixed(1)}%</span>` : ''}
       </div>` : ''}
     </div>`;
 
-  // Insert before the Smart Money table
   const tableWrap = document.getElementById('sm-table-wrap');
   if (tableWrap) tableWrap.parentElement.insertBefore(banner, tableWrap);
 }

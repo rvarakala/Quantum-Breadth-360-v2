@@ -49,6 +49,11 @@ async function loadSmartMoney() {
     _populateSectorFilter();
     _renderSmartMoneyStats();
     _renderSmartMoneyTable();
+    
+    // Re-show sector drill banner if context exists
+    if (window._sectorDrillContext) {
+      setTimeout(() => _showSectorDrillBanner(), 100);
+    }
   } catch (e) {
     wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);font-family:var(--font-mono)">\u26a0 ${e.message}<br><button onclick="loadSmartMoney()" style="margin-top:8px;padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--cyan);cursor:pointer;font-family:var(--font-mono);font-size:11px">\ud83d\udd04 Retry</button></div>`;
   }
@@ -224,7 +229,11 @@ function _populateSectorFilter() {
   const sel = document.getElementById('sm-filter-sector');
   if (!sel || !_smMoneyData?.tickers) return;
   const sectors = [...new Set(_smMoneyData.tickers.map(t => t.sector).filter(Boolean))].sort();
-  const current = sel.value;
+  
+  // Preserve drill-down context if active
+  const drillCtx = window._sectorDrillContext;
+  const current = drillCtx?.matchedSector || drillCtx?.sector || sel.value;
+  
   sel.innerHTML = '<option value="all">All Sectors</option>' +
     sectors.map(s => `<option value="${s}" ${s === current ? 'selected' : ''}>${s}</option>`).join('');
 }
