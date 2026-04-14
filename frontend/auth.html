@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Breadth 360 — Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f8f9fc;--card:#fff;--border:#e2e6ef;
+  --text:#1a1d2e;--text2:#636b83;--text3:#9ca3b8;
+  --accent:#6366f1;--accent2:#4f46e5;--accent-glow:rgba(99,102,241,.12);
+  --green:#10b981;--red:#ef4444;--amber:#f59e0b;
+  --radius:14px;--font:'DM Sans',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  background-image:radial-gradient(ellipse at 30% 0%,rgba(99,102,241,.06),transparent 60%),
+                   radial-gradient(ellipse at 70% 100%,rgba(16,185,129,.04),transparent 50%);
+}
+.auth-wrap{width:100%;max-width:420px}
+.auth-brand{text-align:center;margin-bottom:32px}
+.auth-brand h1{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.auth-brand h1 span{color:var(--accent)}
+.auth-brand p{font-size:13px;color:var(--text3);margin-top:6px}
+.auth-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:32px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.03)}
+.auth-tabs{display:flex;gap:0;margin-bottom:28px;border-bottom:2px solid var(--border)}
+.auth-tab{flex:1;text-align:center;padding:10px 0;font-size:14px;font-weight:600;
+  color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;
+  transition:all .2s}
+.auth-tab:hover{color:var(--text2)}
+.auth-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.auth-form{display:none}
+.auth-form.active{display:block}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text2);
+  margin-bottom:6px;letter-spacing:.03em;text-transform:uppercase}
+.field input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;
+  font-size:14px;font-family:var(--font);color:var(--text);background:var(--bg);
+  outline:none;transition:border-color .2s,box-shadow .2s}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.field input::placeholder{color:var(--text3)}
+.auth-btn{width:100%;padding:12px;border:none;border-radius:10px;font-size:15px;
+  font-weight:600;font-family:var(--font);cursor:pointer;transition:all .2s;
+  background:var(--accent);color:#fff;margin-top:6px}
+.auth-btn:hover{background:var(--accent2);transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(99,102,241,.3)}
+.auth-btn:active{transform:translateY(0)}
+.auth-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.auth-error{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);
+  color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;
+  display:none}
+.auth-error.show{display:block}
+.auth-success{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);
+  color:var(--green);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;
+  display:none}
+.auth-success.show{display:block}
+.auth-footer{text-align:center;margin-top:24px;font-size:12px;color:var(--text3)}
+.auth-footer a{color:var(--accent);text-decoration:none;font-weight:500}
+.auth-footer a:hover{text-decoration:underline}
+.trial-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(16,185,129,.08);
+  border:1px solid rgba(16,185,129,.2);color:var(--green);font-size:12px;font-weight:600;
+  padding:6px 12px;border-radius:20px;margin-top:12px}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--text3);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.password-toggle{position:relative}
+.password-toggle input{padding-right:40px}
+.password-toggle button{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.auth-card{animation:fadeIn .4s ease-out}
+@media(max-width:480px){
+  .auth-card{padding:24px 20px}
+  .auth-brand h1{font-size:19px}
+}
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-brand">
+    <h1><span>Quantum</span> Breadth 360</h1>
+    <p>Market Intelligence Platform</p>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="showAuthTab('login')">Sign In</div>
+      <div class="auth-tab" onclick="showAuthTab('signup')">Create Account</div>
+    </div>
+
+    <div id="auth-error" class="auth-error"></div>
+    <div id="auth-success" class="auth-success"></div>
+
+    <!-- LOGIN FORM -->
+    <form class="auth-form active" id="form-login" onsubmit="handleLogin(event)">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@email.com" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="password-toggle">
+          <input type="password" id="login-password" placeholder="Enter password" required autocomplete="current-password">
+          <button type="button" onclick="togglePw('login-password',this)">👁</button>
+        </div>
+      </div>
+      <button type="submit" class="auth-btn" id="login-btn">Sign In</button>
+    </form>
+
+    <!-- SIGNUP FORM -->
+    <form class="auth-form" id="form-signup" onsubmit="handleSignup(event)">
+      <div class="field">
+        <label>Full Name</label>
+        <input type="text" id="signup-name" placeholder="Your name" required autocomplete="name">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="signup-email" placeholder="you@email.com" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="password-toggle">
+          <input type="password" id="signup-password" placeholder="Min 6 characters" required minlength="6" autocomplete="new-password">
+          <button type="button" onclick="togglePw('signup-password',this)">👁</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <div class="password-toggle">
+          <input type="password" id="signup-confirm" placeholder="Confirm password" required minlength="6" autocomplete="new-password">
+          <button type="button" onclick="togglePw('signup-confirm',this)">👁</button>
+        </div>
+      </div>
+      <button type="submit" class="auth-btn" id="signup-btn">Create Account</button>
+      <div style="text-align:center">
+        <div class="trial-badge">✨ Includes 14-day Pro trial — full access, no card required</div>
+      </div>
+    </form>
+
+    <!-- FORGOT PASSWORD -->
+    <form class="auth-form" id="form-forgot" onsubmit="handleForgot(event)">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+        For password resets during MVP, please contact your administrator.
+      </p>
+      <div class="field">
+        <label>Account Email</label>
+        <input type="email" id="forgot-email" placeholder="you@email.com" required>
+      </div>
+      <button type="submit" class="auth-btn" style="background:var(--text3)">Request Reset</button>
+    </form>
+  </div>
+
+  <div class="auth-footer">
+    <span id="forgot-link" style="cursor:pointer" onclick="showAuthTab('forgot')">Forgot password?</span>
+    &nbsp;·&nbsp; <a href="https://quantumtradeledger.com" target="_blank">quantumtradeledger.com</a>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+
+function showAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t, i) => {
+    t.classList.toggle('active', ['login','signup','forgot'][i] === tab);
+  });
+  document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+  document.getElementById(`form-${tab}`).classList.add('active');
+  clearMessages();
+}
+
+function clearMessages() {
+  document.getElementById('auth-error').className = 'auth-error';
+  document.getElementById('auth-success').className = 'auth-success';
+}
+
+function showError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.className = 'auth-error show';
+  document.getElementById('auth-success').className = 'auth-success';
+}
+
+function showSuccess(msg) {
+  const el = document.getElementById('auth-success');
+  el.textContent = msg; el.className = 'auth-success show';
+  document.getElementById('auth-error').className = 'auth-error';
+}
+
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🔒';
+}
+
+async function handleLogin(e) {
+  e.preventDefault(); clearMessages();
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+
+  try {
+    const res = await fetch(`${API}/api/auth/login`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        email: document.getElementById('login-email').value.trim(),
+        password: document.getElementById('login-password').value,
+      })
+    });
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+
+    localStorage.setItem('qb360_token', data.token);
+    localStorage.setItem('qb360_user', JSON.stringify(data.user));
+    window.location.href = '/app';
+  } catch (err) {
+    showError('Connection failed. Is the server running?');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+async function handleSignup(e) {
+  e.preventDefault(); clearMessages();
+  const pw = document.getElementById('signup-password').value;
+  const confirm = document.getElementById('signup-confirm').value;
+  if (pw !== confirm) { showError('Passwords do not match'); return; }
+
+  const btn = document.getElementById('signup-btn');
+  btn.disabled = true; btn.textContent = 'Creating account...';
+
+  try {
+    const res = await fetch(`${API}/api/auth/register`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        name: document.getElementById('signup-name').value.trim(),
+        email: document.getElementById('signup-email').value.trim(),
+        password: pw,
+      })
+    });
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+
+    localStorage.setItem('qb360_token', data.token);
+    localStorage.setItem('qb360_user', JSON.stringify(data.user));
+    window.location.href = '/app';
+  } catch (err) {
+    showError('Connection failed. Is the server running?');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Create Account';
+  }
+}
+
+function handleForgot(e) {
+  e.preventDefault();
+  showSuccess('Please contact your administrator to reset your password.');
+}
+
+// If already logged in, redirect to app
+(async () => {
+  const token = localStorage.getItem('qb360_token');
+  if (!token) return;
+  try {
+    const res = await fetch(`${API}/api/auth/me`, {headers: {'Authorization': `Bearer ${token}`}});
+    const data = await res.json();
+    if (!data.error) window.location.href = '/app';
+  } catch {}
+})();
+</script>
+</body>
+</html>

@@ -1,63 +1,184 @@
 
-// ─── AUTH — determined by entry route, not enforced here ──────────────────
+// ─── AUTH — validate token, apply tier gating ──────────────────────────────
 let _currentUser = null;
-const _FREE_TABS = ['overview', 'breadth', 'sectors'];
+let _allowedTabs = [];
 
-// Check access mode from URL or localStorage
-(function initAuth() {
-  const mode = new URLSearchParams(window.location.search).get('mode') || localStorage.getItem('qb360_mode') || 'user';
-  if (mode === 'admin' || mode === 'dev') {
-    // Full access — no restrictions
-    _currentUser = { tier: 'admin', email: mode + '@quantumtrade.pro', name: mode.toUpperCase() };
-    localStorage.setItem('qb360_mode', mode);
-    const userEl = document.getElementById('sidebar-user-info');
-    if (userEl) userEl.innerHTML = `<span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">${mode.toUpperCase()} MODE · <b style="color:var(--amber)">FULL ACCESS</b></span>`;
-    const adminLink = document.getElementById('sidebar-admin-link');
-    if (adminLink) adminLink.style.display = '';
-    return;
-  }
-  // User mode — check token and apply tier restrictions
+// Tier → allowed tabs (synced with backend auth.py TIERS)
+const TIER_TABS = {
+  explorer: ['overview', 'breadth', 'compare', 'sectors'],
+  trader:   ['overview', 'breadth', 'compare', 'sectors', 'smart-money', 'leaders', 'screeners', 'charts', 'scanner', 'stockbee'],
+  pro:      ['overview', 'breadth', 'compare', 'sectors', 'smart-money', 'leaders', 'screeners', 'charts', 'scanner', 'stockbee',
+             'fvalue', 'smart-screener', 'smart-metrics', 'insider', 'fiidii', 'journal', 'watchlist'],
+  elite:    '__all__',
+  admin:    '__all__',
+};
+
+(async function initAuth() {
   const token = localStorage.getItem('qb360_token');
-  if (!token) { window.location.href = '/'; return; }
-  fetch(`${API}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } })
-    .then(r => r.json())
-    .then(data => {
-      if (data.error || !data.tier) { localStorage.removeItem('qb360_token'); window.location.href = '/'; return; }
-      _currentUser = data;
-      if (data.refreshed_token) localStorage.setItem('qb360_token', data.refreshed_token);
-      if (data.tier === 'admin' || data.tier === 'pro') return; // Full access
-      _applyTierRestrictions(data.tier);
-      const userEl = document.getElementById('sidebar-user-info');
-      if (userEl) userEl.innerHTML = `<span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">${data.email} · <b style="color:var(--cyan)">${data.tier.toUpperCase()}</b></span>`;
-    })
-    .catch(e => console.warn('Auth check failed:', e));
+  if (!token) { window.location.href = '/auth'; return; }
+
+  try {
+    const res = await fetch(`${API}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+
+    if (data.error || !data.email) {
+      localStorage.removeItem('qb360_token');
+      localStorage.removeItem('qb360_user');
+      window.location.href = '/auth';
+      return;
+    }
+
+    _currentUser = data;
+    if (data.refreshed_token) localStorage.setItem('qb360_token', data.refreshed_token);
+
+    // Use effective_tier (accounts for trial)
+    const effectiveTier = data.effective_tier || data.tier;
+    const tierTabs = TIER_TABS[effectiveTier];
+    _allowedTabs = tierTabs === '__all__' ? '__all__' : (tierTabs || TIER_TABS.explorer);
+
+    // Apply sidebar restrictions
+    _applyTierRestrictions(effectiveTier);
+
+    // Show user info in sidebar
+    _renderSidebarUser(data);
+
+    // Show trial banner if active
+    if (data.trial_active && data.trial_days_left != null) {
+      _showTrialBanner(data.trial_days_left);
+    }
+
+  } catch (e) {
+    console.warn('Auth check failed:', e);
+    // Don't redirect on network error — let app work with cached data
+  }
 })();
 
-function _applyTierRestrictions(tier) {
-  if (tier === 'admin' || tier === 'pro') return;
+function _applyTierRestrictions(effectiveTier) {
+  if (effectiveTier === 'admin' || effectiveTier === 'elite') return; // Full access
+
+  const allowed = TIER_TABS[effectiveTier] || TIER_TABS.explorer;
+  if (allowed === '__all__') return;
+
   document.querySelectorAll('.sidebar .nav-item[data-tab]').forEach(btn => {
     const tab = btn.dataset.tab;
     if (!tab) return;
-    if (!_FREE_TABS.includes(tab)) {
+    if (!allowed.includes(tab)) {
       btn.classList.add('locked-tab');
-      btn.setAttribute('title', 'Pro plan required');
       const label = btn.querySelector('.nav-label');
       if (label && !label.textContent.includes('🔒')) label.textContent += ' 🔒';
+
+      // Determine which tier unlocks this tab
+      let requiredTier = 'elite';
+      for (const [t, tabs] of Object.entries(TIER_TABS)) {
+        if (tabs === '__all__' || tabs.includes(tab)) { requiredTier = t; break; }
+      }
+      btn.setAttribute('title', `Requires ${requiredTier.charAt(0).toUpperCase() + requiredTier.slice(1)} plan`);
     }
   });
 }
 
+function _renderSidebarUser(user) {
+  const el = document.getElementById('sidebar-user-info');
+  if (!el) return;
+  const eff = user.effective_tier || user.tier;
+  const tierColors = { explorer: '#94a3b8', trader: '#06b6d4', pro: '#a855f7', elite: '#f59e0b', admin: '#ef4444' };
+  const color = tierColors[eff] || '#94a3b8';
+  const tierLabel = user.trial_active ? `PRO TRIAL (${user.trial_days_left}d)` : eff.toUpperCase();
+
+  el.innerHTML = `
+    <div style="padding:8px 12px;font-family:var(--font-mono);font-size:10px;line-height:1.6">
+      <div style="color:var(--text2)">${user.name || user.email}</div>
+      <div><span style="color:${color};font-weight:700">${tierLabel}</span></div>
+    </div>`;
+
+  // Show admin link if admin
+  const adminLink = document.getElementById('sidebar-admin-link');
+  if (adminLink) adminLink.style.display = eff === 'admin' ? '' : 'none';
+
+  // Show logout button
+  const logoutEl = document.getElementById('sidebar-logout');
+  if (logoutEl) logoutEl.style.display = '';
+}
+
+function _showTrialBanner(daysLeft) {
+  const existing = document.getElementById('trial-banner');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'trial-banner';
+  const urgency = daysLeft <= 3 ? 'var(--red)' : daysLeft <= 7 ? 'var(--amber)' : 'var(--green)';
+  banner.innerHTML = `
+    <div style="background:rgba(99,102,241,.08);border-bottom:1px solid rgba(99,102,241,.15);
+      padding:8px 16px;display:flex;align-items:center;justify-content:space-between;font-family:var(--font-mono);font-size:11px">
+      <span>
+        ✨ <b style="color:var(--cyan)">Pro Trial</b> —
+        <b style="color:${urgency}">${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining</b>
+        · Full access to all features
+      </span>
+      <a href="#" onclick="showUpgradeModal();return false"
+        style="color:var(--cyan);font-weight:700;text-decoration:none;padding:4px 12px;
+        border:1px solid var(--cyan);border-radius:6px;font-size:10px">Upgrade Now</a>
+    </div>`;
+  const main = document.querySelector('.main-content') || document.body;
+  main.prepend(banner);
+}
+
 function logout() {
   localStorage.removeItem('qb360_token');
+  localStorage.removeItem('qb360_user');
   localStorage.removeItem('qb360_mode');
-  window.location.href = '/';
+  window.location.href = '/auth';
 }
 
 // ─── UPGRADE MODAL ───────────────────────────────────────────────────────
-function _showUpgradeModal() {
-  const m = document.getElementById('upgrade-modal');
-  if (m) m.style.display = 'flex';
+function showUpgradeModal(requiredTier) {
+  let m = document.getElementById('upgrade-modal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'upgrade-modal';
+    m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center';
+    m.onclick = e => { if (e.target === m) m.style.display = 'none'; };
+    document.body.appendChild(m);
+  }
+  m.innerHTML = `
+    <div style="background:var(--card-bg,#0f1628);border:1px solid var(--border,#1e293b);border-radius:16px;
+      padding:32px;max-width:480px;width:90%;text-align:center;font-family:var(--font-mono)">
+      <div style="font-size:32px;margin-bottom:12px">🚀</div>
+      <h2 style="color:var(--text,#e2e8f0);font-size:18px;margin-bottom:8px">Upgrade Your Plan</h2>
+      <p style="color:var(--text3,#64748b);font-size:12px;line-height:1.6;margin-bottom:24px">
+        This feature requires a higher subscription tier.<br>
+        Unlock powerful tools for smarter trading decisions.
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px">
+        <div style="border:1px solid #06b6d433;border-radius:10px;padding:14px">
+          <div style="color:#06b6d4;font-weight:700;font-size:14px">Trader</div>
+          <div style="color:var(--text,#e2e8f0);font-size:22px;font-weight:800;margin:6px 0">$29</div>
+          <div style="color:var(--text3);font-size:10px">/month</div>
+          <div style="color:var(--text3);font-size:9px;margin-top:8px">Smart Money · RS Rankings<br>Charts · Scanner · Leaders</div>
+        </div>
+        <div style="border:2px solid #a855f7;border-radius:10px;padding:14px;background:rgba(168,85,247,.05)">
+          <div style="color:#a855f7;font-weight:700;font-size:14px">Pro</div>
+          <div style="color:var(--text,#e2e8f0);font-size:22px;font-weight:800;margin:6px 0">$79</div>
+          <div style="color:var(--text3);font-size:10px">/month</div>
+          <div style="color:var(--text3);font-size:9px;margin-top:8px">Everything in Trader +<br>AI · Screener · F-Value</div>
+        </div>
+        <div style="border:1px solid #f59e0b33;border-radius:10px;padding:14px">
+          <div style="color:#f59e0b;font-weight:700;font-size:14px">Elite</div>
+          <div style="color:var(--text,#e2e8f0);font-size:22px;font-weight:800;margin:6px 0">$149</div>
+          <div style="color:var(--text3);font-size:10px">/month</div>
+          <div style="color:var(--text3);font-size:9px;margin-top:8px">Everything + API<br>Admin · Custom Alerts</div>
+        </div>
+      </div>
+      <button onclick="document.getElementById('upgrade-modal').style.display='none'"
+        style="padding:8px 24px;border:1px solid var(--border,#1e293b);border-radius:8px;
+        background:transparent;color:var(--text3);font-family:var(--font-mono);font-size:11px;cursor:pointer">
+        Maybe Later
+      </button>
+    </div>`;
+  m.style.display = 'flex';
 }
+// Keep old name for compatibility
+function _showUpgradeModal() { showUpgradeModal(); }
 
 // ─── CLEAR CACHE ───────────────────────────────────────────────────────────
 async function clearBreadthCache() {
@@ -144,10 +265,9 @@ function toggleSidebarCollapse() {
 })();
 
 function switchTab(tab) {
-  // Tier gate: block free users from Pro-only tabs (skip for admin/dev/pro)
-  const mode = localStorage.getItem('qb360_mode');
-  if (!mode && _currentUser && _currentUser.tier === 'explorer' && !_FREE_TABS.includes(tab)) {
-    _showUpgradeModal();
+  // Tier gate: check if tab is allowed for current user
+  if (_currentUser && _allowedTabs !== '__all__' && !_allowedTabs.includes(tab)) {
+    showUpgradeModal();
     return;
   }
 
