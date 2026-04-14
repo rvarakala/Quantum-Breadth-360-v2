@@ -644,7 +644,9 @@ RS_CACHE_TTL = 14400  # 4 hours
 _ticker_sector_map = {}
 
 def _build_sector_map():
-    """Populate _ticker_sector_map from SQLite. Called at startup."""
+    """Populate _ticker_sector_map from SQLite. Called at startup.
+    Tries: sector_map table → tv_fundamentals → INDIA_SECTORS hardcoded fallback.
+    """
     global _ticker_sector_map
     if not DB_AVAILABLE:
         return
@@ -653,30 +655,50 @@ def _build_sector_map():
         conn = sqlite3.connect(
             str(pathlib.Path(__file__).parent / "breadth_data.db"), timeout=10)
 
-        # Primary: sector_map table
-        rows = conn.execute(
-            "SELECT ticker, sector FROM sector_map WHERE sector IS NOT NULL AND sector != ''"
-        ).fetchall()
-        _ticker_sector_map = {r[0]: r[1] for r in rows}
+        # Source 1: sector_map table (primary — populated by NSE index import)
+        try:
+            rows = conn.execute(
+                "SELECT ticker, sector FROM sector_map WHERE sector IS NOT NULL AND sector != ''"
+            ).fetchall()
+            _ticker_sector_map = {r[0]: r[1] for r in rows}
+            logger.info(f"Sector map source 1 (sector_map table): {len(_ticker_sector_map)} entries")
+        except Exception as e:
+            logger.warning(f"sector_map table read failed: {e}")
 
-        # Fallback: fill gaps from tv_fundamentals.sector
+        # Source 2: tv_fundamentals table (if source 1 is too small)
         if len(_ticker_sector_map) < 100:
             try:
                 tv_rows = conn.execute(
                     "SELECT ticker, sector FROM tv_fundamentals WHERE sector IS NOT NULL AND sector != ''"
                 ).fetchall()
+                added = 0
                 for ticker, sector in tv_rows:
                     if ticker not in _ticker_sector_map:
                         _ticker_sector_map[ticker] = sector
-                logger.info(f"Sector map: {len(_ticker_sector_map):,} entries (sector_map + tv_fundamentals fallback)")
-            except:
-                pass
-        else:
-            logger.info(f"Sector map: {len(_ticker_sector_map):,} entries")
+                        added += 1
+                logger.info(f"Sector map source 2 (tv_fundamentals): +{added} entries")
+            except Exception as e:
+                logger.debug(f"tv_fundamentals sector fallback failed: {e}")
 
         conn.close()
+
+        # Source 3: Hardcoded INDIA_SECTORS fallback (always fill gaps)
+        try:
+            from utils import INDIA_SECTORS
+            added = 0
+            for sec_name, tickers_list in INDIA_SECTORS.items():
+                for t in tickers_list:
+                    if t not in _ticker_sector_map:
+                        _ticker_sector_map[t] = sec_name
+                        added += 1
+            if added > 0:
+                logger.info(f"Sector map source 3 (hardcoded): +{added} entries")
+        except:
+            pass
+
+        logger.info(f"✅ Sector map total: {len(_ticker_sector_map)} tickers with sector info")
     except Exception as e:
-        logger.warning(f"sector_map load failed: {e}")
+        logger.warning(f"_build_sector_map failed: {e}")
 
 def _rs_cache_key(market): return f"rs_{market}"
 
