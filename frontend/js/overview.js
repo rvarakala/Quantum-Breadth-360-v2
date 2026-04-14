@@ -330,7 +330,9 @@ function renderSectors(d) {
     else if (pct >= 35) { bg='rgba(245,158,11,.06)'; tc='#f59e0b'; bc='#f59e0b'; }
     else { bg='rgba(239,68,68,.06)'; tc='#ef4444'; bc='#ef4444'; }
 
-    return `<div class="sector-tile" style="background:${bg};border-color:${bc}22">
+    return `<div class="sector-tile" style="background:${bg};border-color:${bc}22;cursor:pointer"
+      onclick="drillIntoSector('${s.sector.replace(/'/g,"\\'")}', ${pct}, ${ret})"
+      title="Click to view all ${s.sector} stocks in Smart Money">
       <div class="sector-name" style="color:${tc}">${s.sector}</div>
       <div class="sector-pct" style="color:${tc}">${fmtPct(pct)}</div>
       <div class="sector-ret" style="color:${ret>=0?'#22c55e':'#ef4444'}">

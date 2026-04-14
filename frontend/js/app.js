@@ -199,6 +199,106 @@ function switchTab(tab) {
   if (tab === 'fiidii') { if(typeof onFiiDiiTabLoad==='function') onFiiDiiTabLoad(); }
 }
 
+// ── Sector Drill-Down → Smart Money Tab ─────────────────────────────────────
+
+function drillIntoSector(sectorName, pctAbove50, weekReturn) {
+  // Store sector context for the banner
+  window._sectorDrillContext = {
+    sector: sectorName,
+    pctAbove50: pctAbove50 ?? 0,
+    weekReturn: weekReturn ?? 0,
+  };
+
+  // Switch to Smart Money tab
+  switchTab('smart-money');
+
+  // Wait for Smart Money data to load, then apply sector filter
+  const _applyFilter = () => {
+    const sel = document.getElementById('sm-filter-sector');
+    if (!sel) { setTimeout(_applyFilter, 300); return; }
+
+    // Check if data is loaded
+    if (!_smMoneyData?.tickers) {
+      setTimeout(_applyFilter, 500);
+      return;
+    }
+
+    // Set the sector dropdown
+    sel.value = sectorName;
+
+    // Show the sector summary banner
+    _showSectorDrillBanner();
+
+    // Trigger filter
+    if (typeof filterSmartMoney === 'function') filterSmartMoney();
+  };
+
+  setTimeout(_applyFilter, 200);
+}
+
+function _showSectorDrillBanner() {
+  const ctx = window._sectorDrillContext;
+  if (!ctx) return;
+
+  // Remove existing banner
+  const old = document.getElementById('sm-sector-drill-banner');
+  if (old) old.remove();
+
+  // Compute sector stats from Smart Money data
+  const sectorTickers = (_smMoneyData?.tickers || []).filter(t => t.sector === ctx.sector);
+  const totalStocks = sectorTickers.length;
+  const stage2Count = sectorTickers.filter(t => t.stage === 'Stage 2').length;
+  const avgRS = totalStocks ? Math.round(sectorTickers.reduce((s, t) => s + (t.rs_rating || 0), 0) / totalStocks) : 0;
+  const totalSignals = sectorTickers.reduce((s, t) => s + (t.total_signals || 0), 0);
+  const topGainer = sectorTickers.reduce((best, t) => (!best || (t.change_pct || 0) > (best.change_pct || 0)) ? t : best, null);
+  const topLoser = sectorTickers.reduce((worst, t) => (!worst || (t.change_pct || 0) < (worst.change_pct || 0)) ? t : worst, null);
+  const insiderBuys = sectorTickers.reduce((s, t) => s + (t.insider_buys || 0), 0);
+
+  const pct = ctx.pctAbove50;
+  const ret = ctx.weekReturn;
+  const pctColor = pct >= 60 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  const retColor = ret >= 0 ? '#22c55e' : '#ef4444';
+
+  const banner = document.createElement('div');
+  banner.id = 'sm-sector-drill-banner';
+  banner.innerHTML = `
+    <div style="background:linear-gradient(135deg, rgba(6,182,212,.06), rgba(168,85,247,.04));border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:14px;position:relative">
+      <button onclick="clearSectorDrill()" style="position:absolute;top:8px;right:12px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px" title="Clear sector filter">✕</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:16px">📊</span>
+        <span style="font-family:var(--font-mono);font-size:15px;font-weight:800;color:var(--cyan);letter-spacing:.04em">${ctx.sector.toUpperCase()}</span>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">SECTOR DRILL-DOWN</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px">
+        <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">% ABOVE 50 DMA</div><div style="font-size:18px;font-weight:800;color:${pctColor};font-family:var(--font-mono)">${pct.toFixed(1)}%</div></div>
+        <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">5D RETURN</div><div style="font-size:18px;font-weight:800;color:${retColor};font-family:var(--font-mono)">${ret>=0?'+':''}${ret.toFixed(1)}%</div></div>
+        <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">STOCKS</div><div style="font-size:18px;font-weight:800;color:var(--text);font-family:var(--font-mono)">${totalStocks}</div></div>
+        <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">STAGE 2</div><div style="font-size:18px;font-weight:800;color:var(--green);font-family:var(--font-mono)">${stage2Count}</div></div>
+        <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">AVG RS</div><div style="font-size:18px;font-weight:800;color:${avgRS>=70?'var(--green)':avgRS>=50?'var(--amber)':'var(--red)'};font-family:var(--font-mono)">${avgRS}</div></div>
+        <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">SIGNALS</div><div style="font-size:18px;font-weight:800;color:var(--cyan);font-family:var(--font-mono)">${totalSignals}</div></div>
+        <div><div style="font-size:8px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.08em">INSIDER BUYS</div><div style="font-size:18px;font-weight:800;color:${insiderBuys>0?'var(--green)':'var(--text3)'};font-family:var(--font-mono)">${insiderBuys}</div></div>
+      </div>
+      ${topGainer ? `<div style="margin-top:8px;display:flex;gap:16px;font-family:var(--font-mono);font-size:10px">
+        <span style="color:var(--text3)">Top Gainer:</span>
+        <span style="color:var(--green);font-weight:700;cursor:pointer" onclick="loadChart('${topGainer.ticker}')">${topGainer.ticker} +${(topGainer.change_pct||0).toFixed(1)}%</span>
+        ${topLoser && topLoser.ticker !== topGainer.ticker ? `<span style="color:var(--text3)">Top Loser:</span><span style="color:var(--red);font-weight:700;cursor:pointer" onclick="loadChart('${topLoser.ticker}')">${topLoser.ticker} ${(topLoser.change_pct||0).toFixed(1)}%</span>` : ''}
+      </div>` : ''}
+    </div>`;
+
+  // Insert before the Smart Money table
+  const tableWrap = document.getElementById('sm-table-wrap');
+  if (tableWrap) tableWrap.parentElement.insertBefore(banner, tableWrap);
+}
+
+function clearSectorDrill() {
+  window._sectorDrillContext = null;
+  const banner = document.getElementById('sm-sector-drill-banner');
+  if (banner) banner.remove();
+  const sel = document.getElementById('sm-filter-sector');
+  if (sel) sel.value = 'all';
+  if (typeof filterSmartMoney === 'function') filterSmartMoney();
+}
+
 // ─── SUMMARY MODAL ────────────────────────────────────────────────────────────
 
 let _summaryHtml = '';

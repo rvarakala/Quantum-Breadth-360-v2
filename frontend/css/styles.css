@@ -585,12 +585,13 @@ body::before {
   border-radius: var(--radius);
   padding: 14px;
   border: 1px solid transparent;
-  cursor: default;
-  transition: transform .15s, border-color .2s;
+  cursor: pointer;
+  transition: transform .15s, border-color .2s, box-shadow .2s;
   position: relative;
   overflow: hidden;
 }
-.sector-tile:hover { transform: translateY(-2px); }
+.sector-tile:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(6,182,212,.12); }
+.sector-tile:active { transform: translateY(0); }
 .sector-tile::before {
   content: '';
   position: absolute;
