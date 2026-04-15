@@ -1,5 +1,5 @@
 // ─── CONFIG ─────────────────────────────────────────────────────────────────
-const API = 'http://localhost:8001';
+const API = window.location.origin;
 let currentMarket = 'INDIA';
 let currentData = {};
 let charts = {};

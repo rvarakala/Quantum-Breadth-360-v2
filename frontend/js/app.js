@@ -140,45 +140,124 @@ function showUpgradeModal(requiredTier) {
     m.onclick = e => { if (e.target === m) m.style.display = 'none'; };
     document.body.appendChild(m);
   }
+
+  const isLoggedIn = !!_currentUser;
+  const currentTier = _currentUser?.effective_tier || _currentUser?.tier || 'explorer';
+  const ctaBtn = isLoggedIn
+    ? `<a href="mailto:support@quantumtrade.pro?subject=Upgrade to ${requiredTier || 'Pro'}&body=Account: ${_currentUser?.email}%0ATier: ${currentTier}%0ARequest: Upgrade"
+        style="display:inline-block;padding:10px 28px;border-radius:8px;background:#6366f1;color:#fff;
+        font-family:var(--font-mono);font-size:12px;font-weight:700;text-decoration:none;cursor:pointer;margin-right:12px">
+        Contact to Upgrade</a>`
+    : `<a href="/auth" style="display:inline-block;padding:10px 28px;border-radius:8px;background:#6366f1;color:#fff;
+        font-family:var(--font-mono);font-size:12px;font-weight:700;text-decoration:none;cursor:pointer;margin-right:12px">
+        Create Free Account</a>`;
+
   m.innerHTML = `
     <div style="background:var(--card-bg,#0f1628);border:1px solid var(--border,#1e293b);border-radius:16px;
-      padding:32px;max-width:480px;width:90%;text-align:center;font-family:var(--font-mono)">
+      padding:32px;max-width:520px;width:92%;text-align:center;font-family:var(--font-mono);position:relative">
+      <button onclick="document.getElementById('upgrade-modal').style.display='none'"
+        style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text3);
+        cursor:pointer;font-size:18px">✕</button>
       <div style="font-size:32px;margin-bottom:12px">🚀</div>
-      <h2 style="color:var(--text,#e2e8f0);font-size:18px;margin-bottom:8px">Upgrade Your Plan</h2>
-      <p style="color:var(--text3,#64748b);font-size:12px;line-height:1.6;margin-bottom:24px">
-        This feature requires a higher subscription tier.<br>
+      <h2 style="color:var(--text,#e2e8f0);font-size:18px;margin-bottom:6px">Upgrade Your Plan</h2>
+      <p style="color:var(--text3,#64748b);font-size:12px;line-height:1.6;margin-bottom:20px">
         Unlock powerful tools for smarter trading decisions.
       </p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px">
-        <div style="border:1px solid #06b6d433;border-radius:10px;padding:14px">
-          <div style="color:#06b6d4;font-weight:700;font-size:14px">Trader</div>
-          <div style="color:var(--text,#e2e8f0);font-size:22px;font-weight:800;margin:6px 0">$29</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;text-align:center">
+        <div style="border:1px solid ${currentTier==='trader'?'#06b6d4':'#06b6d433'};border-radius:10px;padding:14px;
+          ${currentTier==='trader'?'background:rgba(6,182,212,.08)':''}">
+          <div style="color:#06b6d4;font-weight:700;font-size:13px">Trader</div>
+          <div style="color:var(--text,#e2e8f0);font-size:24px;font-weight:800;margin:4px 0">$29</div>
           <div style="color:var(--text3);font-size:10px">/month</div>
-          <div style="color:var(--text3);font-size:9px;margin-top:8px">Smart Money · RS Rankings<br>Charts · Scanner · Leaders</div>
+          <div style="color:var(--text3);font-size:9px;margin-top:8px;line-height:1.5">
+            Smart Money · RS Rankings<br>Charts · Scanner · Leaders<br>Stockbee Monitor
+          </div>
+          ${currentTier==='trader'?'<div style="margin-top:8px;color:#06b6d4;font-size:9px;font-weight:700">CURRENT PLAN</div>':''}
         </div>
-        <div style="border:2px solid #a855f7;border-radius:10px;padding:14px;background:rgba(168,85,247,.05)">
-          <div style="color:#a855f7;font-weight:700;font-size:14px">Pro</div>
-          <div style="color:var(--text,#e2e8f0);font-size:22px;font-weight:800;margin:6px 0">$79</div>
+        <div style="border:2px solid #a855f7;border-radius:10px;padding:14px;background:rgba(168,85,247,.05);position:relative">
+          <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#a855f7;color:#fff;
+            font-size:8px;font-weight:700;padding:2px 10px;border-radius:10px;letter-spacing:.05em">POPULAR</div>
+          <div style="color:#a855f7;font-weight:700;font-size:13px">Pro</div>
+          <div style="color:var(--text,#e2e8f0);font-size:24px;font-weight:800;margin:4px 0">$79</div>
           <div style="color:var(--text3);font-size:10px">/month</div>
-          <div style="color:var(--text3);font-size:9px;margin-top:8px">Everything in Trader +<br>AI · Screener · F-Value</div>
+          <div style="color:var(--text3);font-size:9px;margin-top:8px;line-height:1.5">
+            Everything in Trader +<br>F-Value · AI Screener<br>Insider · FII/DII · Export
+          </div>
+          ${currentTier==='pro'?'<div style="margin-top:8px;color:#a855f7;font-size:9px;font-weight:700">CURRENT PLAN</div>':''}
         </div>
-        <div style="border:1px solid #f59e0b33;border-radius:10px;padding:14px">
-          <div style="color:#f59e0b;font-weight:700;font-size:14px">Elite</div>
-          <div style="color:var(--text,#e2e8f0);font-size:22px;font-weight:800;margin:6px 0">$149</div>
+        <div style="border:1px solid ${currentTier==='elite'?'#f59e0b':'#f59e0b33'};border-radius:10px;padding:14px;
+          ${currentTier==='elite'?'background:rgba(245,158,11,.08)':''}">
+          <div style="color:#f59e0b;font-weight:700;font-size:13px">Elite</div>
+          <div style="color:var(--text,#e2e8f0);font-size:24px;font-weight:800;margin:4px 0">$149</div>
           <div style="color:var(--text3);font-size:10px">/month</div>
-          <div style="color:var(--text3);font-size:9px;margin-top:8px">Everything + API<br>Admin · Custom Alerts</div>
+          <div style="color:var(--text3);font-size:9px;margin-top:8px;line-height:1.5">
+            Everything + API Access<br>Admin Panel · Alerts<br>Peep Into Past
+          </div>
+          ${currentTier==='elite'?'<div style="margin-top:8px;color:#f59e0b;font-size:9px;font-weight:700">CURRENT PLAN</div>':''}
         </div>
       </div>
-      <button onclick="document.getElementById('upgrade-modal').style.display='none'"
-        style="padding:8px 24px;border:1px solid var(--border,#1e293b);border-radius:8px;
-        background:transparent;color:var(--text3);font-family:var(--font-mono);font-size:11px;cursor:pointer">
-        Maybe Later
-      </button>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+        ${ctaBtn}
+        <button onclick="document.getElementById('upgrade-modal').style.display='none'"
+          style="padding:10px 20px;border:1px solid var(--border,#1e293b);border-radius:8px;
+          background:transparent;color:var(--text3);font-family:var(--font-mono);font-size:11px;cursor:pointer">
+          Maybe Later
+        </button>
+      </div>
     </div>`;
   m.style.display = 'flex';
 }
-// Keep old name for compatibility
 function _showUpgradeModal() { showUpgradeModal(); }
+
+// ─── SESSION AUTO-REFRESH ────────────────────────────────────────────────
+// Refresh token every 60 minutes to prevent expiry during long sessions
+setInterval(async () => {
+  const token = localStorage.getItem('qb360_token');
+  if (!token) return;
+  try {
+    const res = await fetch(`${API}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (data.error) { logout(); return; }
+    if (data.refreshed_token) localStorage.setItem('qb360_token', data.refreshed_token);
+    // Update trial banner if days changed
+    if (_currentUser && data.trial_days_left !== _currentUser.trial_days_left) {
+      _currentUser = data;
+      if (data.trial_active) _showTrialBanner(data.trial_days_left);
+    }
+  } catch {}
+}, 60 * 60 * 1000); // every 60 minutes
+
+// Refresh on window focus (user returns to tab after being away)
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden) return;
+  const token = localStorage.getItem('qb360_token');
+  if (!token) return;
+  try {
+    const res = await fetch(`${API}/api/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (data.error) { logout(); return; }
+    if (data.refreshed_token) localStorage.setItem('qb360_token', data.refreshed_token);
+  } catch {}
+});
+
+// ─── AUTH HEADER HELPER — inject JWT into fetch calls ────────────────────
+// Override global fetch to auto-inject Authorization header for API calls
+const _originalFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+  // Only inject for our API calls
+  if (typeof url === 'string' && url.includes('/api/')) {
+    const token = localStorage.getItem('qb360_token');
+    if (token) {
+      options.headers = options.headers || {};
+      if (options.headers instanceof Headers) {
+        if (!options.headers.has('Authorization')) options.headers.set('Authorization', `Bearer ${token}`);
+      } else {
+        if (!options.headers['Authorization']) options.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+  }
+  return _originalFetch.call(this, url, options);
+};
 
 // ─── CLEAR CACHE ───────────────────────────────────────────────────────────
 async function clearBreadthCache() {
