@@ -16,14 +16,16 @@ async function jnlLoadTrades() {
     _jnlRenderStats();
     _jnlRenderTable();
     _jnlLoadTilt();
+    _jnlLoadRiskCheck();
     if (_jnlView === 'analytics') _jnlLoadAnalytics();
     if (_jnlView === 'ai')        _jnlLoadAICoach();
+    if (_jnlView === 'settings')  { jnlLoadSettings(); }
   } catch (e) { console.error('Journal load error:', e); }
 }
 
 function jnlToggleView(view) {
   _jnlView = view;
-  ['table','analytics','ai'].forEach(v => {
+  ['table','analytics','ai','settings'].forEach(v => {
     const p = document.getElementById(`jnl-view-${v}-panel`);
     if (p) p.style.display = v === view ? '' : 'none';
     const b = document.getElementById(`jnl-view-${v}`);
@@ -31,6 +33,7 @@ function jnlToggleView(view) {
   });
   if (view === 'analytics') _jnlLoadAnalytics();
   if (view === 'ai')        _jnlLoadAICoach();
+  if (view === 'settings')  jnlLoadSettings();
 }
 
 async function _jnlLoadTilt() {
@@ -165,6 +168,17 @@ async function _jnlLoadAnalytics() {
     _jnlRenderBreakdownTable('jnl-emotion-content', _jnlAnalytics.by_emotion || {});
     _jnlRenderMistakes(_jnlAnalytics.mistakes || {});
     _jnlRenderPsychTrend();
+    // TOD + DOW charts
+    try {
+      const [todRes, dowRes] = await Promise.all([
+        fetch(`${API}/api/journal/time-of-day`),
+        fetch(`${API}/api/journal/day-of-week`),
+      ]);
+      _jnlRenderTOD((await todRes.json()).hours || []);
+      _jnlRenderDOW((await dowRes.json()).days  || []);
+    } catch {}
+    // Gamification badges
+    _jnlLoadGamification();
   } catch (e) { console.error('Analytics error:', e); }
 }
 
@@ -304,7 +318,7 @@ function jnlShowAddModal() {
   document.getElementById('jnl-edit-id').value='';
   document.getElementById('jnl-modal-title').textContent='New Trade';
   ['jnl-ticker','jnl-entry-price','jnl-stop','jnl-target','jnl-qty','jnl-exit-price',
-   'jnl-notes','jnl-fees','jnl-risk-amount','jnl-mae','jnl-mfe','jnl-broker','jnl-post-notes'
+   'jnl-notes','jnl-fees','jnl-risk-amount','jnl-mae','jnl-mfe','jnl-broker','jnl-post-notes','jnl-strategy'
   ].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('jnl-entry-date').value=new Date().toISOString().slice(0,10);
   ['jnl-exit-date','jnl-entry-time','jnl-exit-time'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
@@ -461,4 +475,191 @@ function jnlExportCSV() {
   const blob=new Blob([rows.join('\n')],{type:'text/csv'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download=`trade_journal_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+// ── Settings view ─────────────────────────────────────────────────────────────
+async function jnlLoadSettings() {
+  try {
+    const res  = await fetch(`${API}/api/journal/settings`);
+    const data = await res.json();
+    const s = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+    s('jnl-setting-capital',    data.starting_capital);
+    s('jnl-setting-risk-pct',   data.max_risk_per_trade);
+    s('jnl-setting-daily-loss', data.max_daily_loss_pct);
+    s('jnl-setting-weekly-dd',  data.max_weekly_drawdown_pct);
+    s('jnl-setting-max-trades', data.max_trades_per_day);
+    s('jnl-setting-max-losses', data.max_consecutive_losses);
+    // Prefill calculator with capital
+    const calcCap = document.getElementById('jnl-calc-capital');
+    if (calcCap && !calcCap.value) calcCap.value = data.starting_capital;
+  } catch {}
+}
+
+async function jnlSaveSettings() {
+  const g = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const settings = {
+    starting_capital:          g('jnl-setting-capital')    || 1000000,
+    max_risk_per_trade:        g('jnl-setting-risk-pct')   || 1.0,
+    max_daily_loss_pct:        g('jnl-setting-daily-loss') || 2.0,
+    max_weekly_drawdown_pct:   g('jnl-setting-weekly-dd')  || 5.0,
+    max_trades_per_day:        parseInt(document.getElementById('jnl-setting-max-trades')?.value) || 5,
+    max_consecutive_losses:    parseInt(document.getElementById('jnl-setting-max-losses')?.value) || 3,
+  };
+  try {
+    await fetch(`${API}/api/journal/settings`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+    // Flash confirmation
+    const btn = document.querySelector('[onclick="jnlSaveSettings()"]');
+    if (btn) { const orig = btn.textContent; btn.textContent = '✅ Saved!'; btn.style.background = 'var(--green)';
+      setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1500); }
+    // Re-run risk check with new settings
+    _jnlLoadRiskCheck();
+  } catch (e) { alert('Save failed: ' + e.message); }
+}
+
+// ── Risk Rules Engine ─────────────────────────────────────────────────────────
+async function _jnlLoadRiskCheck() {
+  try {
+    const res  = await fetch(`${API}/api/journal/risk-check`);
+    const data = await res.json();
+    _jnlRenderRiskAlert(data);
+  } catch {}
+}
+
+function _jnlRenderRiskAlert(d) {
+  const banner  = document.getElementById('jnl-risk-alert');
+  const content = document.getElementById('jnl-risk-alert-content');
+  const lock    = document.getElementById('jnl-lock-banner');
+  if (!banner || !content) return;
+
+  if (!d.alerts || d.alerts.length === 0) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  banner.style.display = '';
+  content.innerHTML = d.alerts.map(a => `
+    <div style="display:flex;gap:8px;align-items:start;margin-bottom:6px;font-family:var(--font-mono);font-size:10px">
+      <span>${a.icon}</span>
+      <span><b style="color:var(--text)">${a.rule}:</b> <span style="color:var(--text2)">${a.msg}</span></span>
+    </div>`).join('');
+
+  if (lock) lock.style.display = d.lock_trading ? '' : 'none';
+}
+
+// ── Position Sizing Calculator ────────────────────────────────────────────────
+function jnlCalcPosition() {
+  const capital  = parseFloat(document.getElementById('jnl-calc-capital')?.value)   || 0;
+  const riskPct  = parseFloat(document.getElementById('jnl-calc-risk-pct')?.value)  || 0;
+  const entry    = parseFloat(document.getElementById('jnl-calc-entry')?.value)     || 0;
+  const stop     = parseFloat(document.getElementById('jnl-calc-stop')?.value)      || 0;
+  const result   = document.getElementById('jnl-calc-result');
+  if (!result) return;
+
+  if (!capital || !riskPct || !entry || !stop || entry === stop) {
+    result.innerHTML = '<span style="color:var(--text3)">Enter all values above to calculate</span>';
+    return;
+  }
+
+  const riskAmt   = capital * riskPct / 100;
+  const riskPtRs  = Math.abs(entry - stop);
+  const qty       = Math.floor(riskAmt / riskPtRs);
+  const posSize   = qty * entry;
+  const posPct    = (posSize / capital * 100).toFixed(1);
+  const color     = qty > 0 ? 'var(--cyan)' : 'var(--red)';
+
+  result.innerHTML = `
+    <div style="color:${color}"><b style="font-size:16px">${qty.toLocaleString('en-IN')}</b> shares</div>
+    <div style="color:var(--text3)">Position Size: <b style="color:var(--text)">₹${posSize.toLocaleString('en-IN', {maximumFractionDigits:0})}</b> (${posPct}% of capital)</div>
+    <div style="color:var(--text3)">Risk Amount: <b style="color:var(--red)">₹${riskAmt.toLocaleString('en-IN', {maximumFractionDigits:0})}</b> (${riskPct}% of ₹${capital.toLocaleString('en-IN')})</div>
+    <div style="color:var(--text3)">Risk per Share: <b style="color:var(--text)">₹${riskPtRs.toFixed(2)}</b></div>`;
+}
+
+// ── Gamification Badges ───────────────────────────────────────────────────────
+async function _jnlLoadGamification() {
+  try {
+    const res  = await fetch(`${API}/api/journal/gamification`);
+    const data = await res.json();
+    _jnlRenderBadges(data);
+  } catch {}
+}
+
+function _jnlRenderBadges(data) {
+  const el = document.getElementById('jnl-badges-content');
+  if (!el) return;
+  const badges = data.badges || [];
+  if (!badges.length) {
+    el.innerHTML = '<span style="color:var(--text3);font-size:11px;font-family:var(--font-mono)">Keep trading consistently to earn badges!</span>';
+    return;
+  }
+  el.innerHTML = badges.map(b => `
+    <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;
+      border:1px solid ${b.color}44;background:${b.color}11;font-family:var(--font-mono);font-size:10px;font-weight:700;color:${b.color}">
+      ${b.icon} ${b.label}
+    </div>`).join('');
+}
+
+// ── Time-of-day + Day-of-week charts ──────────────────────────────────────────
+function _jnlRenderTOD(hours) {
+  const canvas = document.getElementById('jnl-tod-canvas');
+  if (!canvas || !hours.length) return;
+  _jnlDestroyChart('jnl-tod-canvas');
+  const isDark = !document.documentElement.getAttribute('data-theme');
+  const colors = hours.map(h => h.win_rate >= 60 ? 'rgba(34,197,94,0.8)' : h.win_rate >= 40 ? 'rgba(245,158,11,0.8)' : 'rgba(239,68,68,0.8)');
+  _jnlCharts['jnl-tod-canvas'] = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: hours.map(h => h.label), datasets: [{
+      data: hours.map(h => h.win_rate), backgroundColor: colors,
+      label: 'Win Rate %',
+    }]},
+    options: { ..._jnlChartOpts(isDark),
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `Win: ${ctx.raw}% (${hours[ctx.dataIndex].trades} trades)` } } }
+    }
+  });
+}
+
+function _jnlRenderDOW(days) {
+  const canvas = document.getElementById('jnl-dow-canvas');
+  if (!canvas || !days.length) return;
+  _jnlDestroyChart('jnl-dow-canvas');
+  const isDark = !document.documentElement.getAttribute('data-theme');
+  const colors = days.map(d => d.total_pnl >= 0 ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)');
+  _jnlCharts['jnl-dow-canvas'] = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: days.map(d => d.day), datasets: [{
+      data: days.map(d => d.win_rate), backgroundColor: colors, label: 'Win Rate %',
+    }]},
+    options: { ..._jnlChartOpts(isDark),
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `Win: ${ctx.raw}% (${days[ctx.dataIndex].trades} trades)` } } }
+    }
+  });
+}
+
+// ── CSV Import ────────────────────────────────────────────────────────────────
+async function jnlImportCSV() {
+  const csv    = document.getElementById('jnl-import-csv')?.value.trim();
+  const broker = document.getElementById('jnl-import-broker')?.value || 'generic';
+  const result = document.getElementById('jnl-import-result');
+  if (!csv) { if(result) result.innerHTML='<span style="color:var(--red)">Paste CSV content first</span>'; return; }
+  if (result) result.innerHTML = '⏳ Importing…';
+  try {
+    const res  = await fetch(`${API}/api/journal/import-csv`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: csv, broker }),
+    });
+    const data = await res.json();
+    if (result) {
+      result.innerHTML = data.error
+        ? `<span style="color:var(--red)">Error: ${data.error}</span>`
+        : `<span style="color:var(--green)">✅ Imported ${data.imported} trades${data.errors ? ` (${data.errors} skipped)` : ''}</span>`;
+    }
+    if (data.imported > 0) {
+      document.getElementById('jnl-import-csv').value = '';
+      await jnlLoadTrades();
+    }
+  } catch(e) { if(result) result.innerHTML=`<span style="color:var(--red)">Failed: ${e.message}</span>`; }
 }

@@ -90,6 +90,7 @@ def _ensure_journal_tables():
 
     # Add new columns to existing DBs (ALTER TABLE is idempotent via try/except)
     new_cols = [
+        ("strategy_name", "TEXT DEFAULT ''"),
         ("broker", "TEXT DEFAULT ''"),
         ("market_type", "TEXT DEFAULT 'Stocks'"),
         ("entry_time", "TEXT DEFAULT ''"),
@@ -740,3 +741,231 @@ def get_ai_insights(analytics: dict, trades: list) -> list:
             "text": "No major issues detected. Keep logging trades consistently for deeper pattern detection."})
 
     return insights[:8]  # cap at 8 insights
+
+
+def get_day_of_week_stats(trades: list) -> list:
+    """Group closed trades by day of week."""
+    from collections import defaultdict
+    closed = [t for t in trades if t["status"] in ("Closed","StoppedOut")]
+    days_map = {0:"Mon",1:"Tue",2:"Wed",3:"Thu",4:"Fri",5:"Sat",6:"Sun"}
+    dow: dict = defaultdict(lambda: {"trades":0,"wins":0,"total_pnl":0.0})
+    for t in closed:
+        ed = t.get("entry_date","") or ""
+        try:
+            from datetime import datetime
+            d = datetime.strptime(ed[:10], "%Y-%m-%d").weekday()
+            dow[d]["trades"] += 1
+            if t.get("pnl_pct",0) > 0: dow[d]["wins"] += 1
+            dow[d]["total_pnl"] += t.get("pnl_amount",0)
+        except: pass
+    result = []
+    for d in range(7):
+        if d in dow:
+            n = dow[d]["trades"]
+            result.append({
+                "day": days_map[d], "trades": n,
+                "win_rate": round(dow[d]["wins"]/n*100,1) if n else 0,
+                "total_pnl": round(dow[d]["total_pnl"],2),
+            })
+    return result
+
+
+def check_risk_rules(trades: list, settings: dict) -> dict:
+    """
+    Check if user has breached any risk rules today/this week.
+    Returns alerts list and lock_trading flag.
+    """
+    from datetime import datetime, timedelta, timezone
+    alerts = []
+    lock_trading = False
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    week_start = (datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday())).strftime("%Y-%m-%d")
+
+    closed = [t for t in trades if t["status"] in ("Closed","StoppedOut")]
+    starting_capital = settings.get("starting_capital", 1000000)
+    max_daily_loss_pct = settings.get("max_daily_loss_pct", 2.0)
+    max_weekly_dd_pct = settings.get("max_weekly_drawdown_pct", 5.0)
+    max_trades_day = settings.get("max_trades_per_day", 5)
+    max_consec = settings.get("max_consecutive_losses", 3)
+    max_risk_pct = settings.get("max_risk_per_trade", 1.0)
+
+    # Daily loss check
+    today_closed = [t for t in closed if (t.get("exit_date") or "")[:10] == today]
+    today_pnl = sum(t.get("pnl_amount",0) for t in today_closed)
+    today_pnl_pct = (today_pnl / starting_capital * 100) if starting_capital > 0 else 0
+    if today_pnl_pct <= -max_daily_loss_pct:
+        alerts.append({
+            "type":"danger","icon":"🚨",
+            "rule":"Max Daily Loss",
+            "msg":f"Daily loss {today_pnl_pct:.2f}% exceeds limit of -{max_daily_loss_pct}%. Consider stopping for today.",
+        })
+        lock_trading = True
+
+    # Max trades per day
+    today_all = [t for t in trades if (t.get("entry_date") or "")[:10] == today]
+    if len(today_all) >= max_trades_day:
+        alerts.append({
+            "type":"warning","icon":"⚠",
+            "rule":"Max Trades/Day",
+            "msg":f"{len(today_all)} trades today — at or above your limit of {max_trades_day}.",
+        })
+
+    # Weekly drawdown
+    week_closed = [t for t in closed if (t.get("exit_date") or "")[:10] >= week_start]
+    week_pnl = sum(t.get("pnl_amount",0) for t in week_closed)
+    week_pnl_pct = (week_pnl / starting_capital * 100) if starting_capital > 0 else 0
+    if week_pnl_pct <= -max_weekly_dd_pct:
+        alerts.append({
+            "type":"danger","icon":"🔴",
+            "rule":"Weekly Drawdown",
+            "msg":f"Weekly drawdown {week_pnl_pct:.2f}% exceeds -{max_weekly_dd_pct}% limit.",
+        })
+        lock_trading = True
+
+    # Consecutive losses
+    streak = 0
+    for t in sorted(closed, key=lambda x: x.get("exit_date") or "", reverse=True)[:10]:
+        if t.get("pnl_pct",0) < 0: streak += 1
+        else: break
+    if streak >= max_consec:
+        alerts.append({
+            "type":"warning","icon":"🛑",
+            "rule":"Consecutive Losses",
+            "msg":f"{streak} consecutive losses. Rule limit is {max_consec}. Take a break before next trade.",
+        })
+
+    return {"alerts": alerts, "lock_trading": lock_trading,
+            "today_pnl": round(today_pnl,2), "today_pnl_pct": round(today_pnl_pct,2),
+            "today_trades": len(today_all), "week_pnl_pct": round(week_pnl_pct,2),
+            "consecutive_losses": streak}
+
+
+def get_gamification(trades: list) -> dict:
+    """Compute gamification badges and streaks."""
+    closed = sorted([t for t in trades if t["status"] in ("Closed","StoppedOut")],
+                    key=lambda t: t.get("exit_date") or "")
+
+    badges = []
+
+    # Discipline streak — consecutive trades with discipline >= 7
+    disc_streak = 0
+    for t in reversed(closed):
+        if t.get("discipline_score",0) >= 7: disc_streak += 1
+        else: break
+    if disc_streak >= 5:
+        badges.append({"id":"discipline_5","icon":"⭐","label":f"{disc_streak}-Trade Discipline Streak","color":"#f59e0b"})
+    if disc_streak >= 10:
+        badges.append({"id":"discipline_10","icon":"🏆","label":"10 Disciplined Trades","color":"#f59e0b"})
+
+    # Win streak
+    win_streak = 0
+    for t in reversed(closed):
+        if t.get("pnl_pct",0) > 0: win_streak += 1
+        else: break
+    if win_streak >= 3:
+        badges.append({"id":"win_streak_3","icon":"🔥","label":f"{win_streak}-Trade Win Streak","color":"#22c55e"})
+    if win_streak >= 7:
+        badges.append({"id":"win_streak_7","icon":"⚡","label":"7 Wins in a Row!","color":"#22c55e"})
+
+    # Green week — net positive P&L this week
+    from datetime import datetime, timedelta, timezone
+    week_start = (datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday())).strftime("%Y-%m-%d")
+    week_closed = [t for t in closed if (t.get("exit_date") or "")[:10] >= week_start]
+    if week_closed and sum(t.get("pnl_amount",0) for t in week_closed) > 0:
+        badges.append({"id":"green_week","icon":"🟢","label":"Green Week","color":"#22c55e"})
+
+    # Tilt-free week (no revenge/FOMO trades this week)
+    tilt_free = all(
+        t.get("pre_emotion","") not in ("Revenge","FOMO") and t.get("psych_revenge",0) < 7
+        for t in week_closed
+    )
+    if week_closed and tilt_free:
+        badges.append({"id":"tilt_free","icon":"🧘","label":"Tilt-Free Week","color":"#06b6d4"})
+
+    # Plan follower — 5 consecutive trades with followed_plan=1
+    plan_streak = 0
+    for t in reversed(closed):
+        if t.get("followed_plan",1) == 1: plan_streak += 1
+        else: break
+    if plan_streak >= 5:
+        badges.append({"id":"plan_5","icon":"✅","label":f"Followed Plan: {plan_streak} in a Row","color":"#a855f7"})
+
+    # Total trades milestone
+    if len(trades) >= 50:
+        badges.append({"id":"trades_50","icon":"📊","label":"50 Trades Logged","color":"#94a3b8"})
+    if len(trades) >= 100:
+        badges.append({"id":"trades_100","icon":"💯","label":"100 Trades!","color":"#f59e0b"})
+
+    return {
+        "badges": badges,
+        "win_streak": win_streak,
+        "disc_streak": disc_streak,
+        "plan_streak": plan_streak,
+    }
+
+
+def parse_csv_import(content: str, broker: str = "generic") -> list:
+    """
+    Parse broker CSV exports into standardised trade dicts.
+    Supports: zerodha, ibkr, mt5, generic
+    Returns list of trade dicts ready for add_trade().
+    """
+    import csv, io
+    reader = csv.DictReader(io.StringIO(content.strip()))
+    rows = list(reader)
+    if not rows:
+        return []
+
+    trades = []
+    headers = [h.strip().lower() for h in (rows[0].keys() if rows else [])]
+
+    for row in rows:
+        r = {k.strip().lower(): v.strip() for k, v in row.items()}
+        try:
+            # Zerodha Console format
+            if broker == "zerodha" or "symbol" in headers and "buy value" in headers:
+                ticker  = r.get("symbol","").replace(".NS","").replace("-EQ","").upper()
+                qty     = abs(float(r.get("quantity",r.get("qty","0")) or 0))
+                entry   = float(r.get("buy price",r.get("avg. buy price","0")) or 0)
+                exit_p  = float(r.get("sell price",r.get("avg. sell price","0")) or 0)
+                pnl     = float(r.get("p&l",r.get("realised profit","0")) or 0)
+                date    = r.get("trade date",r.get("date",""))[:10]
+            # IBKR Activity Statement
+            elif broker == "ibkr" or "symbol" in headers and "t. price" in headers:
+                ticker  = r.get("symbol","").upper()
+                qty     = abs(float(r.get("quantity","0") or 0))
+                entry   = float(r.get("t. price","0") or 0)
+                exit_p  = None
+                pnl     = float(r.get("realized p/l","0") or 0)
+                date    = (r.get("date/time","") or "")[:10]
+            # MT5 History
+            elif broker == "mt5" or "type" in headers and "profit" in headers:
+                ticker  = r.get("symbol","").upper()
+                qty     = abs(float(r.get("volume","0") or 0))
+                entry   = float(r.get("price","0") or 0)
+                exit_p  = float(r.get("s / l","0") or 0) or None
+                pnl     = float(r.get("profit","0") or 0)
+                date    = (r.get("time","") or "")[:10]
+            # Generic: try common column names
+            else:
+                ticker  = (r.get("ticker","") or r.get("symbol","") or r.get("instrument","")).upper()
+                qty     = abs(float(r.get("quantity","0") or r.get("qty","0") or 0))
+                entry   = float(r.get("entry","0") or r.get("entry price","0") or r.get("buy","0") or 0)
+                exit_p  = float(r.get("exit","0") or r.get("exit price","0") or r.get("sell","0") or 0) or None
+                pnl     = float(r.get("pnl","0") or r.get("profit","0") or r.get("p&l","0") or 0)
+                date    = (r.get("date","") or r.get("trade date",""))[:10]
+
+            if not ticker or not entry: continue
+            direction = "Long"
+            status    = "Closed" if exit_p else "Open"
+            trades.append({
+                "ticker": ticker, "direction": direction, "entry_date": date,
+                "entry_price": entry, "exit_price": exit_p, "quantity": qty,
+                "status": status, "broker": broker.title(),
+                "notes": f"Imported from {broker.upper()} CSV",
+            })
+        except Exception:
+            continue
+
+    return trades

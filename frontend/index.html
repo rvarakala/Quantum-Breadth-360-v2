@@ -685,6 +685,7 @@
         <button class="jnl-btn" onclick="jnlToggleView('table')" id="jnl-view-table">📋 Table</button>
         <button class="jnl-btn" onclick="jnlToggleView('analytics')" id="jnl-view-analytics">📊 Analytics</button>
         <button class="jnl-btn" onclick="jnlToggleView('ai')" id="jnl-view-ai">🤖 AI Coach</button>
+        <button class="jnl-btn" onclick="jnlToggleView('settings')" id="jnl-view-settings">⚙ Settings</button>
         <button class="jnl-btn" onclick="jnlExportCSV()">📄 Export</button>
       </div>
     </div>
@@ -773,12 +774,133 @@
           <div class="sc-panel-title">⚠ Mistake Frequency</div>
           <div id="jnl-mistake-content"></div>
         </div>
+        <!-- Time of Day heatmap -->
+        <div class="jnl-analytics-card">
+          <div class="sc-panel-title">🕐 Time of Day Win Rate</div>
+          <canvas id="jnl-tod-canvas" height="110" style="width:100%"></canvas>
+        </div>
+        <!-- Day of Week -->
+        <div class="jnl-analytics-card">
+          <div class="sc-panel-title">📅 Day of Week Performance</div>
+          <canvas id="jnl-dow-canvas" height="110" style="width:100%"></canvas>
+        </div>
+        <!-- Gamification badges -->
+        <div class="jnl-analytics-card" style="grid-column:span 3">
+          <div class="sc-panel-title">🏆 Badges & Achievements</div>
+          <div id="jnl-badges-content" style="display:flex;flex-wrap:wrap;gap:8px;padding:6px 0"></div>
+        </div>
       </div>
     </div>
 
     <!-- AI COACH VIEW -->
     <div id="jnl-view-ai-panel" style="display:none">
       <div id="jnl-ai-content" style="padding:8px 0"></div>
+    </div>
+
+    <!-- RISK ALERT BANNER (shown when rules breached) -->
+    <div id="jnl-risk-alert" style="display:none;margin-bottom:10px;border-radius:10px;
+      border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.07);padding:12px 16px">
+      <div style="font-size:11px;font-weight:700;color:var(--red);font-family:var(--font-mono);margin-bottom:6px">
+        🚨 RISK RULES ALERT
+      </div>
+      <div id="jnl-risk-alert-content"></div>
+      <div id="jnl-lock-banner" style="display:none;margin-top:8px;padding:8px 12px;border-radius:6px;
+        background:rgba(239,68,68,.15);font-size:10px;font-family:var(--font-mono);color:var(--red);font-weight:700">
+        🔒 TRADING LOCKED — Daily/Weekly limit breached. Do not open new positions.
+      </div>
+    </div>
+
+    <!-- SETTINGS VIEW -->
+    <div id="jnl-view-settings-panel" style="display:none">
+      <div class="jnl-analytics-grid" style="grid-template-columns:1fr 1fr 1fr">
+
+        <!-- Capital & Risk Rules -->
+        <div class="jnl-analytics-card">
+          <div class="sc-panel-title">💰 Capital & Risk Rules</div>
+          <div class="jnl-slider-grid" style="grid-template-columns:1fr">
+            <div class="jnl-field" style="margin-bottom:10px">
+              <label>STARTING CAPITAL ₹</label>
+              <input type="number" id="jnl-setting-capital" placeholder="1000000" style="width:100%">
+            </div>
+            <div class="jnl-field" style="margin-bottom:10px">
+              <label>MAX RISK PER TRADE %</label>
+              <input type="number" step="0.1" id="jnl-setting-risk-pct" placeholder="1.0" style="width:100%">
+            </div>
+            <div class="jnl-field" style="margin-bottom:10px">
+              <label>MAX DAILY LOSS %</label>
+              <input type="number" step="0.1" id="jnl-setting-daily-loss" placeholder="2.0" style="width:100%">
+            </div>
+            <div class="jnl-field" style="margin-bottom:10px">
+              <label>MAX WEEKLY DRAWDOWN %</label>
+              <input type="number" step="0.1" id="jnl-setting-weekly-dd" placeholder="5.0" style="width:100%">
+            </div>
+            <div class="jnl-field" style="margin-bottom:10px">
+              <label>MAX TRADES PER DAY</label>
+              <input type="number" id="jnl-setting-max-trades" placeholder="5" style="width:100%">
+            </div>
+            <div class="jnl-field" style="margin-bottom:14px">
+              <label>MAX CONSECUTIVE LOSSES</label>
+              <input type="number" id="jnl-setting-max-losses" placeholder="3" style="width:100%">
+            </div>
+            <button class="jnl-btn primary" onclick="jnlSaveSettings()" style="width:100%">Save Settings</button>
+          </div>
+        </div>
+
+        <!-- Position Sizing Calculator -->
+        <div class="jnl-analytics-card">
+          <div class="sc-panel-title">📐 Position Sizing Calculator</div>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);margin-bottom:12px">
+            How many shares to buy based on your risk parameters
+          </div>
+          <div class="jnl-slider-grid" style="grid-template-columns:1fr">
+            <div class="jnl-field" style="margin-bottom:8px">
+              <label>ACCOUNT SIZE ₹</label>
+              <input type="number" id="jnl-calc-capital" placeholder="1000000" oninput="jnlCalcPosition()" style="width:100%">
+            </div>
+            <div class="jnl-field" style="margin-bottom:8px">
+              <label>RISK PER TRADE %</label>
+              <input type="number" step="0.1" id="jnl-calc-risk-pct" placeholder="1.0" oninput="jnlCalcPosition()" style="width:100%">
+            </div>
+            <div class="jnl-field" style="margin-bottom:8px">
+              <label>ENTRY PRICE ₹</label>
+              <input type="number" step="0.01" id="jnl-calc-entry" placeholder="500" oninput="jnlCalcPosition()" style="width:100%">
+            </div>
+            <div class="jnl-field" style="margin-bottom:12px">
+              <label>STOP LOSS ₹</label>
+              <input type="number" step="0.01" id="jnl-calc-stop" placeholder="490" oninput="jnlCalcPosition()" style="width:100%">
+            </div>
+            <div id="jnl-calc-result" style="background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.2);
+              border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:11px;line-height:2;min-height:60px">
+              Enter values above to calculate
+            </div>
+          </div>
+        </div>
+
+        <!-- CSV Import -->
+        <div class="jnl-analytics-card">
+          <div class="sc-panel-title">📥 Import Trades (CSV)</div>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);margin-bottom:12px;line-height:1.7">
+            Import from Zerodha, IBKR, MT5 or generic CSV.<br>
+            Download your trade history from your broker portal and paste the CSV content below.
+          </div>
+          <div class="jnl-field" style="margin-bottom:8px">
+            <label>BROKER FORMAT</label>
+            <select id="jnl-import-broker" style="width:100%">
+              <option value="generic">Generic CSV</option>
+              <option value="zerodha">Zerodha Console</option>
+              <option value="ibkr">IBKR Activity Statement</option>
+              <option value="mt5">MetaTrader 5</option>
+            </select>
+          </div>
+          <div class="jnl-field" style="margin-bottom:10px">
+            <label>CSV CONTENT (paste here)</label>
+            <textarea id="jnl-import-csv" rows="6" placeholder="Paste CSV content here..." style="width:100%;font-size:10px;font-family:var(--font-mono)"></textarea>
+          </div>
+          <button class="jnl-btn primary" onclick="jnlImportCSV()" style="width:100%">Import Trades</button>
+          <div id="jnl-import-result" style="margin-top:8px;font-size:11px;font-family:var(--font-mono)"></div>
+        </div>
+
+      </div>
     </div>
 
   </div><!-- /tab-journal -->
@@ -808,9 +930,10 @@
           <div class="jnl-form-row">
             <div class="jnl-field"><label>TICKER</label><input id="jnl-ticker" placeholder="RELIANCE" oninput="jnlUpdateRPreview()"></div>
             <div class="jnl-field"><label>DIRECTION</label><select id="jnl-direction"><option>Long</option><option>Short</option></select></div>
-            <div class="jnl-field"><label>SETUP</label>
+            <div class="jnl-field"><label>SETUP TYPE</label>
               <select id="jnl-setup"><option value="">Select...</option><option>VCP</option><option>Breakout</option><option>Pullback</option><option>SVRO</option><option>MeanReversion</option><option>PocketPivot</option><option>EarningsGap</option><option>Stage2Base</option><option>Other</option></select>
             </div>
+            <div class="jnl-field"><label>STRATEGY NAME</label><input id="jnl-strategy" placeholder="e.g. Minervini SEPA"></div>
             <div class="jnl-field"><label>TIMEFRAME</label><select id="jnl-timeframe"><option>Swing</option><option>Intraday</option><option>Positional</option></select></div>
           </div>
           <div class="jnl-form-row">

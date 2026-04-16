@@ -944,7 +944,7 @@ async def save_smart_money_note(request: Request):
 
 # ── Trading Journal API ──────────────────────────────────────────────────────
 
-from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings, get_tilt_score, get_drawdown_series, get_monthly_pnl, get_time_of_day_stats, get_ai_insights
+from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings, get_tilt_score, get_drawdown_series, get_monthly_pnl, get_time_of_day_stats, get_ai_insights, get_day_of_week_stats, check_risk_rules, get_gamification, parse_csv_import
 
 @app.get("/api/journal/trades")
 async def api_journal_trades(status: str = "all", limit: int = 200):
@@ -1002,6 +1002,38 @@ async def api_journal_ai_insights():
     analytics = get_analytics()
     trades = get_trades(status="all", limit=500)
     return {"insights": get_ai_insights(analytics, trades)}
+
+@app.get("/api/journal/day-of-week")
+async def api_journal_dow():
+    trades = get_trades(status="all", limit=500)
+    return {"days": get_day_of_week_stats(trades)}
+
+@app.get("/api/journal/risk-check")
+async def api_journal_risk_check():
+    trades  = get_trades(status="all", limit=200)
+    settings = get_settings()
+    return check_risk_rules(trades, settings)
+
+@app.get("/api/journal/gamification")
+async def api_journal_gamification():
+    trades = get_trades(status="all", limit=500)
+    return get_gamification(trades)
+
+@app.post("/api/journal/import-csv")
+async def api_journal_import_csv(request: Request):
+    body = await request.json()
+    csv_content = body.get("content","")
+    broker      = body.get("broker","generic")
+    if not csv_content:
+        return {"error":"No CSV content provided"}
+    parsed = parse_csv_import(csv_content, broker)
+    imported = 0
+    errors   = 0
+    for trade in parsed:
+        result = add_trade(trade)
+        if result.get("id"): imported += 1
+        else: errors += 1
+    return {"imported": imported, "errors": errors, "total": len(parsed)}
 
 
 @app.get("/api/breadth/{market}")
