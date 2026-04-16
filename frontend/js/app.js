@@ -30,6 +30,8 @@ const TIER_TABS = {
 
     _currentUser = data;
     if (data.refreshed_token) localStorage.setItem('qb360_token', data.refreshed_token);
+    // Keep localStorage user cache fresh
+    localStorage.setItem('qb360_user', JSON.stringify(data));
 
     // Use effective_tier (accounts for trial)
     const effectiveTier = data.effective_tier || data.tier;
@@ -51,8 +53,20 @@ const TIER_TABS = {
     _revealApp();
 
   } catch (e) {
-    console.warn('Auth check failed:', e);
-    // Network error — still reveal app with cached data
+    console.warn('Auth check failed (network error):', e);
+    // Only reveal app on genuine network failure (offline/server down)
+    // Use cached user if available so the UI isn't blank
+    const cached = localStorage.getItem('qb360_user');
+    if (cached) {
+      try {
+        _currentUser = JSON.parse(cached);
+        const effectiveTier = _currentUser.effective_tier || _currentUser.tier || 'explorer';
+        const tierTabs = TIER_TABS[effectiveTier];
+        _allowedTabs = tierTabs === '__all__' ? '__all__' : (tierTabs || TIER_TABS.explorer);
+        _applyTierRestrictions(effectiveTier);
+        _renderSidebarUser(_currentUser);
+      } catch {}
+    }
     _revealApp();
   }
 })();
@@ -138,6 +152,13 @@ function _applyTierRestrictions(effectiveTier) {
         if (tabs === '__all__' || tabs.includes(tab)) { requiredTier = t; break; }
       }
       btn.setAttribute('title', `Requires ${requiredTier.charAt(0).toUpperCase() + requiredTier.slice(1)} plan`);
+
+      // Intercept clicks — show upgrade modal instead of switching tab
+      btn.addEventListener('click', (e) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        showUpgradeModal(requiredTier);
+      }, true); // capture phase so it fires before switchTab
     }
   });
 }

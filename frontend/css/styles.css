@@ -3962,9 +3962,10 @@ select option:checked {
 .ov-row2 > * { min-height: 200px; }
 
 /* Locked tabs for free tier */
-.locked-tab { opacity: 0.4; position: relative; }
-.locked-tab:hover { opacity: 0.6; }
+.locked-tab { opacity: 0.45; position: relative; cursor: not-allowed !important; }
+.locked-tab:hover { opacity: 0.65; background: rgba(99,102,241,.06) !important; }
 .locked-tab .nav-label { color: var(--text3) !important; }
+.locked-tab * { pointer-events: none; }
 
 /* Scanner progress bar for long-running scans */
 .scn-progress-bar{width:200px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0;overflow:hidden}

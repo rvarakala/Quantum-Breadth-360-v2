@@ -70,6 +70,20 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .password-toggle input{padding-right:40px}
 .password-toggle button{position:absolute;right:10px;top:50%;transform:translateY(-50%);
   background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px}
+/* Password strength indicator */
+.pw-strength{margin-top:8px;display:none}
+.pw-strength.visible{display:block}
+.pw-strength-bar{display:flex;gap:4px;margin-bottom:5px}
+.pw-strength-bar span{flex:1;height:3px;border-radius:2px;background:var(--border);transition:background .25s}
+.pw-strength-label{font-size:11px;font-weight:600;letter-spacing:.03em;transition:color .25s}
+.pw-s0 .pw-strength-bar span{background:var(--border)}
+.pw-s1 .pw-strength-bar span:nth-child(1){background:var(--red)}
+.pw-s2 .pw-strength-bar span:nth-child(1),
+.pw-s2 .pw-strength-bar span:nth-child(2){background:var(--amber)}
+.pw-s3 .pw-strength-bar span{background:var(--green)}
+.pw-s1 .pw-strength-label{color:var(--red)}
+.pw-s2 .pw-strength-label{color:var(--amber)}
+.pw-s3 .pw-strength-label{color:var(--green)}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .auth-card{animation:fadeIn .4s ease-out}
 @media(max-width:480px){
@@ -123,8 +137,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
       <div class="field">
         <label>Password</label>
         <div class="password-toggle">
-          <input type="password" id="signup-password" placeholder="Min 6 characters" required minlength="6" autocomplete="new-password">
+          <input type="password" id="signup-password" placeholder="Min 6 characters" required minlength="6" autocomplete="new-password" oninput="checkPasswordStrength(this.value)">
           <button type="button" onclick="togglePw('signup-password',this)">👁</button>
+        </div>
+        <div class="pw-strength pw-s0" id="pw-strength">
+          <div class="pw-strength-bar">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="pw-strength-label" id="pw-strength-label">Weak</div>
         </div>
       </div>
       <div class="field">
@@ -174,6 +194,11 @@ function showAuthTab(tab) {
 function clearMessages() {
   document.getElementById('auth-error').className = 'auth-error';
   document.getElementById('auth-success').className = 'auth-success';
+  // Reset strength bar when switching tabs
+  const wrap = document.getElementById('pw-strength');
+  if (wrap) wrap.className = 'pw-strength pw-s0';
+  const inp = document.getElementById('signup-password');
+  if (inp) inp.value = '';
 }
 
 function showError(msg) {
@@ -192,6 +217,22 @@ function togglePw(id, btn) {
   const inp = document.getElementById(id);
   inp.type = inp.type === 'password' ? 'text' : 'password';
   btn.textContent = inp.type === 'password' ? '👁' : '🔒';
+}
+
+function checkPasswordStrength(val) {
+  const wrap  = document.getElementById('pw-strength');
+  const label = document.getElementById('pw-strength-label');
+  if (!val) { wrap.className = 'pw-strength pw-s0'; return; }
+  wrap.classList.add('visible');
+
+  let score = 0;
+  if (val.length >= 8)                          score++; // decent length
+  if (/[A-Z]/.test(val) && /[a-z]/.test(val))  score++; // mixed case
+  if (/\d/.test(val) || /[^A-Za-z0-9]/.test(val)) score++; // number or symbol
+
+  const levels = ['', 'Weak', 'Medium', 'Strong'];
+  wrap.className = `pw-strength pw-s${score} visible`;
+  label.textContent = score === 0 ? 'Too short' : levels[score];
 }
 
 async function handleLogin(e) {
@@ -257,14 +298,14 @@ function handleForgot(e) {
 }
 
 // If already logged in, redirect to app
+// Fast-path: if token exists, redirect immediately (avoids flash of auth page)
+// Then verify async in background — if invalid, the /app page will redirect back here
 (async () => {
   const token = localStorage.getItem('qb360_token');
   if (!token) return;
-  try {
-    const res = await fetch(`${API}/api/auth/me`, {headers: {'Authorization': `Bearer ${token}`}});
-    const data = await res.json();
-    if (!data.error) window.location.href = '/app';
-  } catch {}
+
+  // Optimistic redirect — /app will validate and redirect back if token is bad
+  window.location.replace('/app');
 })();
 </script>
 </body>
