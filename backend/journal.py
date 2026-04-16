@@ -96,7 +96,6 @@ def _ensure_journal_tables():
         CREATE INDEX IF NOT EXISTS idx_journal_ticker ON journal_trades(ticker);
         CREATE INDEX IF NOT EXISTS idx_journal_status ON journal_trades(status);
         CREATE INDEX IF NOT EXISTS idx_journal_entry_date ON journal_trades(entry_date);
-        CREATE INDEX IF NOT EXISTS idx_journal_account ON journal_trades(account_id);
     """)
     conn.commit()
 
@@ -131,6 +130,13 @@ def _ensure_journal_tables():
             conn.commit()
         except Exception:
             pass
+
+    # Create account_id index AFTER the column is guaranteed to exist
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_journal_account ON journal_trades(account_id)")
+        conn.commit()
+    except Exception:
+        pass
 
     # Seed default Account 1 if no accounts exist
     count = conn.execute("SELECT COUNT(*) FROM journal_accounts").fetchone()[0]
