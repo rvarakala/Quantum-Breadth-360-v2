@@ -16,3 +16,4 @@ requests>=2.31.0
 xlrd
 bcrypt
 PyJWT
+razorpay>=1.4.1

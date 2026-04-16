@@ -68,6 +68,14 @@ from auth import (
     check_tab_access, admin_list_users, admin_update_user, admin_delete_user,
     admin_add_user, admin_stats, TIERS,
 )
+from billing import (
+    ensure_billing_tables, create_order, verify_payment,
+    get_subscription, cancel_subscription, reactivate_subscription, get_plan_prices,
+)
+from email_service import (
+    ensure_email_tables, run_trial_expiry_check, send_email,
+    payment_confirmation_email,
+)
 from nse_data_adapter import (
     sync_insider_with_fallback,
     sync_fundamentals_indian_api,
@@ -228,6 +236,87 @@ def api_auth_me(request: Request):
 def api_auth_tiers():
     return {k: {"name": v["name"], "tabs": v["tabs"], "price_monthly": v["price_monthly"],
                 "price_annual": v["price_annual"]} for k, v in TIERS.items() if k != "admin"}
+
+
+# ── Billing API ───────────────────────────────────────────────────────────────
+
+class BillingOrderBody(BaseModel):
+    tier: str
+    cycle: str = "monthly"
+
+class BillingVerifyBody(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+@app.get("/api/billing/subscription")
+def api_billing_subscription(request: Request):
+    """Get current user's subscription + payment history."""
+    user = _get_current_user(request)
+    if not user:
+        return {"error": "Not authenticated"}
+    return get_subscription(user["id"])
+
+@app.get("/api/billing/prices")
+def api_billing_prices():
+    """Public — return plan pricing."""
+    return get_plan_prices()
+
+@app.post("/api/billing/create-order")
+def api_billing_create_order(body: BillingOrderBody, request: Request):
+    """Create a Razorpay order for a tier upgrade."""
+    user = _get_current_user(request)
+    if not user:
+        return {"error": "Not authenticated"}
+    return create_order(user["id"], body.tier, body.cycle)
+
+@app.post("/api/billing/verify-payment")
+def api_billing_verify_payment(body: BillingVerifyBody, request: Request):
+    """Verify Razorpay payment signature and activate subscription."""
+    user = _get_current_user(request)
+    if not user:
+        return {"error": "Not authenticated"}
+    result = verify_payment(
+        body.razorpay_order_id, body.razorpay_payment_id,
+        body.razorpay_signature, user["id"]
+    )
+    if result.get("status") == "ok":
+        # Send confirmation email
+        try:
+            db_user = get_user_by_id(user["id"])
+            if db_user:
+                subj, html, text = payment_confirmation_email(
+                    db_user.get("name", ""), result["tier"],
+                    result["billing_cycle"], 0, result["subscription_end"]
+                )
+                send_email(db_user["email"], subj, html, text)
+        except Exception as e:
+            logger.warning(f"Payment confirmation email failed: {e}")
+    return result
+
+@app.post("/api/billing/cancel")
+def api_billing_cancel(request: Request):
+    """Cancel subscription at period end."""
+    user = _get_current_user(request)
+    if not user:
+        return {"error": "Not authenticated"}
+    return cancel_subscription(user["id"])
+
+@app.post("/api/billing/reactivate")
+def api_billing_reactivate(request: Request):
+    """Undo a pending cancellation."""
+    user = _get_current_user(request)
+    if not user:
+        return {"error": "Not authenticated"}
+    return reactivate_subscription(user["id"])
+
+@app.post("/api/billing/trial-expiry-check")
+def api_billing_trial_check(request: Request):
+    """Admin-only: manually trigger trial expiry email check."""
+    user = _require_admin(request)
+    if not user:
+        return {"error": "Admin only"}
+    return run_trial_expiry_check()
 
 
 # ── Admin API ─────────────────────────────────────────────────────────────────
@@ -2268,6 +2357,8 @@ async def startup_event():
     # 3b. Auth tables
     try:
         ensure_auth_tables()
+        ensure_billing_tables()
+        ensure_email_tables()
         logger.info("✅ Auth tables ready")
     except Exception as e:
         logger.warning(f"Auth table init failed: {e}")
@@ -2282,6 +2373,9 @@ async def startup_event():
 
     # 4. Start daily insider sync scheduler (runs at ~6:30 PM IST / 1 PM UTC)
     asyncio.create_task(_insider_daily_scheduler())
+
+    # 4c. Start daily trial expiry email scheduler (runs at 9 AM IST)
+    asyncio.create_task(_trial_expiry_scheduler())
 
     # 4b. STAGGERED background syncs to avoid DB lock contention
     # Order: breadth (critical) → OHLCV → TV fundamentals → insider → FII/DII → RS prewarm
@@ -2536,6 +2630,39 @@ async def _insider_daily_scheduler():
 
         # Sleep for INTERVAL_HOURS
         await asyncio.sleep(INTERVAL_HOURS * 3600)
+
+async def _trial_expiry_scheduler():
+    """
+    Background scheduler: check trial expiry daily at ~9 AM IST.
+    Sends warning emails to users 3 days and 1 day before trial ends.
+    """
+    import pytz
+    await asyncio.sleep(120)  # 2-min startup delay
+
+    while True:
+        try:
+            try:
+                ist = pytz.timezone("Asia/Kolkata")
+                now_ist = datetime.now(ist)
+                hour = now_ist.hour
+                # Run once daily in the 9 AM IST window
+                if 9 <= hour <= 10:
+                    logger.info("⏰ Trial expiry scheduler: checking users...")
+                    loop = asyncio.get_event_loop()
+                    result = await loop.run_in_executor(
+                        executor, run_trial_expiry_check
+                    )
+                    logger.info(f"✅ Trial check done: {result.get('checked', 0)} checked, "
+                                f"{result.get('sent', 0)} emails sent")
+            except ImportError:
+                # pytz not available — run every 24h regardless
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(executor, run_trial_expiry_check)
+        except Exception as e:
+            logger.warning(f"Trial expiry scheduler error: {e}")
+
+        await asyncio.sleep(3600)  # check every hour, logic gates by time window
+
 
 
 @app.post("/api/cache/clear-breadth")

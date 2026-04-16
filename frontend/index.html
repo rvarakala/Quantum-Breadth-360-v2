@@ -201,6 +201,11 @@
       </div>
     </nav>
     <div class="sidebar-footer">
+      <!-- Subscription / Billing -->
+      <button class="nav-item sidebar-footer-btn" data-tab="billing" onclick="switchTab('billing')" id="sidebar-billing-btn" style="display:none">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        <span class="nav-label">My Plan</span>
+      </button>
       <!-- User info -->
       <div id="sidebar-user-info" style="padding:6px 12px;font-size:10px;color:var(--text3);font-family:var(--font-mono);border-bottom:1px solid var(--border);margin-bottom:4px"></div>
       <!-- Admin link (hidden for non-admins) -->
@@ -2028,6 +2033,15 @@
       </div>
       <div class="summary-modal-body" id="summary-modal-body">
         <div style="text-align:center;padding:40px;color:var(--text3)">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ BILLING / SUBSCRIPTION TAB ══════════════════════════════════════ -->
+  <div class="tab-content" id="tab-billing" style="padding:20px 24px;max-width:860px;margin:0 auto">
+    <div id="billing-root">
+      <div style="text-align:center;padding:60px;color:var(--text3);font-family:var(--font-mono)">
+        Loading subscription info…
       </div>
     </div>
   </div>

@@ -5,10 +5,10 @@ let _allowedTabs = [];
 
 // Tier → allowed tabs (synced with backend auth.py TIERS)
 const TIER_TABS = {
-  explorer: ['overview', 'breadth', 'compare', 'sectors'],
-  trader:   ['overview', 'breadth', 'compare', 'sectors', 'smart-money', 'leaders', 'screeners', 'charts', 'scanner', 'stockbee'],
+  explorer: ['overview', 'breadth', 'compare', 'sectors', 'billing'],
+  trader:   ['overview', 'breadth', 'compare', 'sectors', 'smart-money', 'leaders', 'screeners', 'charts', 'scanner', 'stockbee', 'billing'],
   pro:      ['overview', 'breadth', 'compare', 'sectors', 'smart-money', 'leaders', 'screeners', 'charts', 'scanner', 'stockbee',
-             'fvalue', 'smart-screener', 'smart-metrics', 'insider', 'fiidii', 'journal', 'watchlist'],
+             'fvalue', 'smart-screener', 'smart-metrics', 'insider', 'fiidii', 'journal', 'watchlist', 'billing'],
   elite:    '__all__',
   admin:    '__all__',
 };
@@ -327,6 +327,10 @@ function _renderSidebarUser(user) {
   const adminLink = document.getElementById('sidebar-admin-link');
   if (adminLink) adminLink.style.display = eff === 'admin' ? '' : 'none';
 
+  // Show billing/plan link for all non-admin users
+  const billingBtn = document.getElementById('sidebar-billing-btn');
+  if (billingBtn) billingBtn.style.display = eff !== 'admin' ? '' : 'none';
+
   // Show logout button
   const logoutEl = document.getElementById('sidebar-logout');
   if (logoutEl) logoutEl.style.display = '';
@@ -511,6 +515,7 @@ const _TAB_SCRIPTS = {
   'smart-money':    ['smart-money.js'],
   'journal':        ['journal.js'],
   'scanner':        ['screeners.js'],   // scanner reuses screeners init
+  'billing':        ['billing.js'],
 };
 
 const _loadedScripts = new Set();
@@ -786,6 +791,11 @@ function switchTab(tab, { pushHistory = true } = {}) {
       const g = document.getElementById('scn-gainers');
       if (g && g.innerHTML.includes('Loading')) initScannerTab();
       else updateScannerMarketBar();
+    });
+  }
+  if (tab === 'billing') {
+    _loadTabScript('billing', () => {
+      if (typeof initBillingTab === 'function') initBillingTab();
     });
   }
 }
