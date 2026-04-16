@@ -160,6 +160,20 @@ def serve_index():
     """Dashboard via legacy URL — same as /app."""
     return _serve_index_html()
 
+@app.get("/sw.js")
+def serve_sw():
+    """Service worker — must be served from root scope for full-app caching."""
+    from fastapi.responses import FileResponse
+    sw_path = FRONTEND_DIR / "sw.js"
+    return FileResponse(
+        str(sw_path),
+        media_type="application/javascript",
+        headers={
+            "Service-Worker-Allowed": "/",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        }
+    )
+
 
 # ── Auth API ──────────────────────────────────────────────────────────────────
 

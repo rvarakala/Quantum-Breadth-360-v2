@@ -233,17 +233,49 @@ function dismissOnboarding() {
 // ─── HASH-BASED ROUTING ──────────────────────────────────────────────────
 // Supports: /app#smart-money, /app#charts, /app#overview, etc.
 function _initRouting() {
-  const hash = window.location.hash.replace('#', '').trim();
+  const { tab, ticker } = _parseHash(window.location.hash);
   const validTabs = [...document.querySelectorAll('.tab-content')].map(el => el.id.replace('tab-', ''));
-  if (hash && validTabs.includes(hash)) {
-    switchTab(hash);
+  if (tab && validTabs.includes(tab)) {
+    switchTab(tab);
+    // Deep-link: #charts/RELIANCE — open chart for that ticker
+    if (ticker && tab === 'charts') {
+      setTimeout(() => {
+        const input = document.getElementById('chart-ticker-input') || document.getElementById('charts-search');
+        if (input) { input.value = ticker; input.dispatchEvent(new Event('input')); }
+        if (typeof loadChartForTicker === 'function') loadChartForTicker(ticker);
+        else if (typeof initChartsTab === 'function') initChartsTab(ticker);
+      }, 300);
+    }
+  }
+}
+
+/** Parse hash — supports #tab and #tab/TICKER formats */
+function _parseHash(hash) {
+  const raw = hash.replace('#', '').trim();
+  const [tab, ticker] = raw.split('/');
+  return { tab: tab || '', ticker: ticker ? ticker.toUpperCase() : '' };
+}
+
+/** Navigate to tab with proper history entry (enables back button) */
+function _pushTabHash(tab, ticker) {
+  const newHash = ticker ? `#${tab}/${ticker}` : `#${tab}`;
+  if (window.location.hash !== newHash) {
+    history.pushState({ tab, ticker: ticker || '' }, '', newHash);
   }
 }
 
 // Handle browser back/forward
+window.addEventListener('popstate', (e) => {
+  const { tab, ticker } = e.state
+    ? { tab: e.state.tab, ticker: e.state.ticker }
+    : _parseHash(window.location.hash);
+  if (tab) switchTab(tab, { pushHistory: false });
+});
+
+// Legacy hashchange fallback (for browsers that don't fire popstate on hash)
 window.addEventListener('hashchange', () => {
-  const hash = window.location.hash.replace('#', '').trim();
-  if (hash) switchTab(hash);
+  const { tab } = _parseHash(window.location.hash);
+  if (tab) switchTab(tab, { pushHistory: false });
 });
 
 function _applyTierRestrictions(effectiveTier) {
@@ -459,6 +491,62 @@ window.fetch = function(url, options = {}) {
   return _originalFetch.call(this, url, options);
 };
 
+// ─── LAZY SCRIPT LOADER ─────────────────────────────────────────────────────
+// Tab → JS files needed. Loaded once on first open, cached in _loadedScripts.
+const _TAB_SCRIPTS = {
+  'importer':       ['importer.js'],
+  'screeners':      ['screeners.js'],
+  'leaders':        ['leaders.js'],
+  'stockbee':       ['stockbee.js', 'stockbee-monitor.js'],
+  'charts':         ['charts-tab.js', 'chart-drawing.js', 'smart-chart.js'],
+  'sectors':        ['heatmap.js'],
+  'watchlist':      ['watchlist.js'],
+  'smart-metrics':  ['smart-metrics.js'],
+  'peep-into-past': ['peep-into-past.js'],
+  'insider':        ['insider.js'],
+  'fvalue':         ['fvalue.js'],
+  'fiidii':         ['fiidii-tab.js'],
+  'smart-screener': ['smart-screener.js'],
+  'ai':             ['ai-insights.js'],
+  'smart-money':    ['smart-money.js'],
+  'journal':        ['journal.js'],
+  'scanner':        ['screeners.js'],   // scanner reuses screeners init
+};
+
+const _loadedScripts = new Set();
+
+/**
+ * Dynamically inject a <script> tag and return a Promise that resolves
+ * when the script has loaded. Subsequent calls for the same file resolve
+ * immediately (no double-load).
+ */
+function _loadScript(file) {
+  if (_loadedScripts.has(file)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const v = document.querySelector('script[src*="app.js"]')
+      ?.src.match(/v=([^&]+)/)?.[1] || Date.now();
+    const s = document.createElement('script');
+    s.src = `/static/js/${file}?v=${v}`;
+    s.onload  = () => { _loadedScripts.add(file); resolve(); };
+    s.onerror = () => reject(new Error(`Failed to load ${file}`));
+    document.head.appendChild(s);
+  });
+}
+
+/**
+ * Load all scripts required for a tab (in order), then call the callback.
+ * If scripts are already loaded, callback fires synchronously next tick.
+ */
+async function _loadTabScript(tab, callback) {
+  const files = _TAB_SCRIPTS[tab] || [];
+  try {
+    for (const f of files) await _loadScript(f);
+  } catch (e) {
+    console.warn(`Lazy load failed for tab "${tab}":`, e);
+  }
+  if (typeof callback === 'function') callback();
+}
+
 // ─── SKELETON LOADER HELPERS ────────────────────────────────────────────────
 // Shared utilities — used by insider.js, fvalue.js, smart-money.js, etc.
 
@@ -600,17 +688,15 @@ function toggleSidebarCollapse() {
   }
 })();
 
-function switchTab(tab) {
+function switchTab(tab, { pushHistory = true } = {}) {
   // Tier gate: check if tab is allowed for current user
   if (_currentUser && _allowedTabs !== '__all__' && !_allowedTabs.includes(tab)) {
     showUpgradeModal();
     return;
   }
 
-  // Update URL hash (enables bookmarking / back button)
-  if (window.location.hash !== `#${tab}`) {
-    history.replaceState(null, '', `#${tab}`);
-  }
+  // Update URL hash with pushState (enables back button)
+  if (pushHistory) _pushTabHash(tab);
 
   // Update sidebar nav items
   document.querySelectorAll('.sidebar .nav-item[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -621,7 +707,8 @@ function switchTab(tab) {
   // Close sidebar on mobile after selection
   if (window.innerWidth <= 768) closeSidebar();
 
-  // Render charts when tab becomes visible
+  // ── Tab dispatch — lazy-load JS then init ──────────────────────────────
+  // Boot tabs (scripts already loaded): breadth, overview, compare, sectors(render)
   if (tab === 'breadth' && currentData[currentMarket]) {
     setTimeout(() => renderCharts(currentData[currentMarket]), 50);
   }
@@ -632,32 +719,75 @@ function switchTab(tab) {
   if (tab === 'compare') {
     setTimeout(() => loadCompare(), 50);
   }
-  if (tab === 'screeners') {
-    const list = document.getElementById('scr-list');
-    if (list && !list.children.length) initScrList();
-  }
+
+  // Lazy-loaded tabs — scripts fetched once on first open
   if (tab === 'importer') {
-    impCheckStored();
-    if (typeof loadNseIndicesStatus === 'function') loadNseIndicesStatus();
+    _loadTabScript('importer', () => {
+      impCheckStored();
+      if (typeof loadNseIndicesStatus === 'function') loadNseIndicesStatus();
+    });
   }
-  if (tab === 'leaders') { if(!_leadersData) initLeadersTab(); }
-  if (tab === 'smart-screener') { /* ready on demand — user clicks Run */ }
-  if (tab === 'stockbee') { if(!_sbmData) loadStockbeeMonitor(); }
-  if (tab === 'smart-money') { if(!_smMoneyData) loadSmartMoney(); }
-  if (tab === 'journal') { jnlLoadTrades(); }
-  if (tab === 'smart-metrics') { /* ready on demand */ }
-  if (tab === 'peep-into-past') { _initPeepChips(); }
-  if (tab === 'charts') { setTimeout(() => initChartsTab(), 50); }
-  if (tab === 'sectors') { setTimeout(() => loadHeatmap(), 200); }
-  if (tab === 'watchlist') { initWatchlistTab(); }
+  if (tab === 'screeners') {
+    _loadTabScript('screeners', () => {
+      const list = document.getElementById('scr-list');
+      if (list && !list.children.length) initScrList();
+    });
+  }
+  if (tab === 'leaders') {
+    _loadTabScript('leaders', () => { if (!_leadersData) initLeadersTab(); });
+  }
+  if (tab === 'stockbee') {
+    _loadTabScript('stockbee', () => { if (!_sbmData) loadStockbeeMonitor(); });
+  }
+  if (tab === 'charts') {
+    _loadTabScript('charts', () => { setTimeout(() => initChartsTab(), 50); });
+  }
+  if (tab === 'sectors') {
+    _loadTabScript('sectors', () => { setTimeout(() => loadHeatmap(), 200); });
+  }
+  if (tab === 'watchlist') {
+    _loadTabScript('watchlist', () => { initWatchlistTab(); });
+  }
+  if (tab === 'smart-metrics') {
+    _loadTabScript('smart-metrics', () => { /* ready on demand — user clicks ticker */ });
+  }
+  if (tab === 'peep-into-past') {
+    _loadTabScript('peep-into-past', () => { _initPeepChips(); });
+  }
+  if (tab === 'insider') {
+    _loadTabScript('insider', () => {
+      if (typeof onInsiderTabLoad === 'function') onInsiderTabLoad();
+    });
+  }
+  if (tab === 'fvalue') {
+    _loadTabScript('fvalue', () => {
+      if (typeof onFValueTabLoad === 'function') onFValueTabLoad();
+    });
+  }
+  if (tab === 'fiidii') {
+    _loadTabScript('fiidii', () => {
+      if (typeof onFiiDiiTabLoad === 'function') onFiiDiiTabLoad();
+    });
+  }
+  if (tab === 'smart-screener') {
+    _loadTabScript('smart-screener', () => { /* ready on demand — user clicks Run */ });
+  }
+  if (tab === 'ai') {
+    _loadTabScript('ai', () => { /* ready on demand */ });
+  }
+  if (tab === 'smart-money') {
+    _loadTabScript('smart-money', () => { if (!_smMoneyData) loadSmartMoney(); });
+  }
+  if (tab === 'journal') {
+    _loadTabScript('journal', () => { jnlLoadTrades(); });
+  }
   if (tab === 'scanner') {
-    const g=document.getElementById('scn-gainers');
-    if(g&&g.innerHTML.includes('Loading')) initScannerTab();
-    else updateScannerMarketBar();
+    _loadTabScript('scanner', () => {
+      const g = document.getElementById('scn-gainers');
+      if (g && g.innerHTML.includes('Loading')) initScannerTab();
+      else updateScannerMarketBar();
+    });
   }
-  if (tab === 'insider') { if(typeof onInsiderTabLoad==='function') onInsiderTabLoad(); }
-  if (tab === 'fvalue') { if(typeof onFValueTabLoad==='function') onFValueTabLoad(); }
-  if (tab === 'fiidii') { if(typeof onFiiDiiTabLoad==='function') onFiiDiiTabLoad(); }
 }
 
 // ── Sector Drill-Down → Smart Money Tab ─────────────────────────────────────

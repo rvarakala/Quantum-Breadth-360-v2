@@ -2036,30 +2036,13 @@
   </main>
 </div><!-- /app-layout -->
 
+<!-- Boot scripts: globals, breadth engine, overview rendering, app shell -->
 <script src="/static/js/charts.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/overview.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/data.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/importer.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/screeners.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/leaders.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/stockbee.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/stockbee-monitor.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/charts-tab.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/chart-drawing.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/heatmap.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/watchlist.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/smart-metrics.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/autocomplete.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/peep-into-past.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/insider.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/fvalue.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/fiidii-tab.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/smart-screener.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/ai-insights.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/smart-chart.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/smart-money.js?v=__ASSET_VERSION__"></script>
-<script src="/static/js/journal.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/app.js?v=__ASSET_VERSION__"></script>
+<!-- Tab scripts loaded lazily by app.js _loadTabScript() on first open -->
 
 
   <!-- AI Settings Modal -->
@@ -2092,6 +2075,19 @@
   const token = localStorage.getItem('qb360_token');
   if (!token) { window.location.href = '/'; return; }
 })();
+
+// ── Service worker registration ──────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(reg => {
+        console.log('[SW] Registered, scope:', reg.scope);
+        // Check for updates every 60min
+        setInterval(() => reg.update(), 60 * 60 * 1000);
+      })
+      .catch(err => console.warn('[SW] Registration failed:', err));
+  });
+}
 
 function qb360Logout() {
   localStorage.removeItem('qb360_token');
