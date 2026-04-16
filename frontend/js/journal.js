@@ -3,15 +3,30 @@
 // Tilt Meter™, Psychology sliders, Equity/Drawdown/Monthly charts, AI Coach
 // ════════════════════════════════════════════════════════════════════════════
 
-let _jnlTrades    = [];
-let _jnlAnalytics = null;
-let _jnlCharts    = {};
-let _jnlView      = 'table';
+let _jnlTrades       = [];
+let _jnlAnalytics    = null;
+let _jnlCharts       = {};
+let _jnlView         = 'table';
+let _jnlAccounts     = [];            // all accounts from API
+let _jnlActiveAcct   = null;         // null = All Accounts, int = specific account id
 
 async function jnlLoadTrades() {
+  // Init accounts on first load
+  if (_jnlAccounts.length === 0) await jnlInitAccounts();
+
+  // All Accounts view: show summary cards instead of trade table
+  if (_jnlActiveAcct === null) {
+    _jnlRenderStats();
+    await _jnlRenderAllAccountsSummary();
+    _jnlLoadTilt();
+    _jnlLoadRiskCheck();
+    return;
+  }
+
   const status = document.getElementById('jnl-filter-status')?.value || 'all';
+  const acctParam = _jnlActiveAcct ? `&account_id=${_jnlActiveAcct}` : '';
   try {
-    const res = await fetch(`${API}/api/journal/trades?status=${status}`);
+    const res = await fetch(`${API}/api/journal/trades?status=${status}${acctParam}`);
     _jnlTrades = await res.json();
     _jnlRenderStats();
     _jnlRenderTable();
@@ -38,7 +53,7 @@ function jnlToggleView(view) {
 
 async function _jnlLoadTilt() {
   try {
-    const res  = await fetch(`${API}/api/journal/tilt`);
+    const res  = await fetch(`${API}/api/journal/tilt${_jnlAcctParam()}`);
     const data = await res.json();
     _jnlRenderTilt(data);
   } catch {}
@@ -147,9 +162,9 @@ function _jnlRenderTable() {
 async function _jnlLoadAnalytics() {
   try {
     const [analRes,ddRes,monthRes] = await Promise.all([
-      fetch(`${API}/api/journal/analytics`),
-      fetch(`${API}/api/journal/drawdown`),
-      fetch(`${API}/api/journal/monthly`),
+      fetch(`${API}/api/journal/analytics${_jnlAcctParam()}`),
+      fetch(`${API}/api/journal/drawdown${_jnlAcctParam()}`),
+      fetch(`${API}/api/journal/monthly${_jnlAcctParam()}`),
     ]);
     _jnlAnalytics    = await analRes.json();
     const dd         = await ddRes.json();
@@ -171,8 +186,8 @@ async function _jnlLoadAnalytics() {
     // TOD + DOW charts
     try {
       const [todRes, dowRes] = await Promise.all([
-        fetch(`${API}/api/journal/time-of-day`),
-        fetch(`${API}/api/journal/day-of-week`),
+        fetch(`${API}/api/journal/time-of-day${_jnlAcctParam()}`),
+        fetch(`${API}/api/journal/day-of-week${_jnlAcctParam()}`),
       ]);
       _jnlRenderTOD((await todRes.json()).hours || []);
       _jnlRenderDOW((await dowRes.json()).days  || []);
@@ -305,7 +320,7 @@ async function _jnlLoadAICoach() {
   if (!el) return;
   el.innerHTML = _skeletonCards(4, 'Analysing your journal…');
   try {
-    const res  = await fetch(`${API}/api/journal/ai-insights`);
+    const res  = await fetch(`${API}/api/journal/ai-insights${_jnlAcctParam()}`);
     const data = await res.json();
     const insights = data.insights || [];
     const header = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
@@ -323,7 +338,10 @@ async function _jnlLoadAICoach() {
 // ── Modal ─────────────────────────────────────────────────────────────────────
 function jnlShowAddModal() {
   document.getElementById('jnl-edit-id').value='';
-  document.getElementById('jnl-modal-title').textContent='New Trade';
+  const acctName = _jnlActiveAcct
+    ? (_jnlAccounts.find(a=>a.id===_jnlActiveAcct)?.name || 'Account')
+    : 'Account 1';
+  document.getElementById('jnl-modal-title').textContent = `New Trade — ${acctName}`;
   ['jnl-ticker','jnl-entry-price','jnl-stop','jnl-target','jnl-qty','jnl-exit-price',
    'jnl-notes','jnl-fees','jnl-risk-amount','jnl-mae','jnl-mfe','jnl-broker','jnl-post-notes','jnl-strategy'
   ].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
@@ -414,6 +432,7 @@ async function jnlSaveTrade() {
   const editId=document.getElementById('jnl-edit-id').value;
   const g=(id)=>document.getElementById(id);
   const trade={
+    account_id:  _jnlActiveAcct || 1,
     ticker:      g('jnl-ticker').value.trim().toUpperCase(),
     direction:   g('jnl-direction').value, setup_type: g('jnl-setup').value,
     timeframe:   g('jnl-timeframe').value, market_type:g('jnl-market').value,
@@ -658,7 +677,7 @@ async function jnlSaveSettings() {
 // ── Risk Rules Engine ─────────────────────────────────────────────────────────
 async function _jnlLoadRiskCheck() {
   try {
-    const res  = await fetch(`${API}/api/journal/risk-check`);
+    const res  = await fetch(`${API}/api/journal/risk-check${_jnlAcctParam()}`);
     const data = await res.json();
     _jnlRenderRiskAlert(data);
   } catch {}
@@ -716,7 +735,7 @@ function jnlCalcPosition() {
 // ── Gamification Badges ───────────────────────────────────────────────────────
 async function _jnlLoadGamification() {
   try {
-    const res  = await fetch(`${API}/api/journal/gamification`);
+    const res  = await fetch(`${API}/api/journal/gamification${_jnlAcctParam()}`);
     const data = await res.json();
     _jnlRenderBadges(data);
   } catch {}
@@ -798,4 +817,253 @@ async function jnlImportCSV() {
       await jnlLoadTrades();
     }
   } catch(e) { if(result) result.innerHTML=`<span style="color:var(--red)">Failed: ${e.message}</span>`; }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ACCOUNT MANAGEMENT
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Query-string helper — appends ?account_id=N or '' for All Accounts */
+function _jnlAcctParam() {
+  return _jnlActiveAcct ? `?account_id=${_jnlActiveAcct}` : '';
+}
+
+/** Load accounts from API and render the strip. Called once on tab init. */
+async function jnlInitAccounts() {
+  try {
+    const res  = await fetch(`${API}/api/journal/accounts`);
+    const data = await res.json();
+    _jnlAccounts = data.accounts || [];
+    _jnlRenderAccountStrip();
+    // Default to Account 1 on first load
+    if (_jnlActiveAcct === null && _jnlAccounts.length > 0) {
+      jnlSelectAccount(_jnlAccounts[0].id, false);
+    }
+  } catch (e) { console.warn('Account load failed:', e); }
+}
+
+/** Render the account tab strip */
+function _jnlRenderAccountStrip() {
+  const container = document.getElementById('jnl-account-tabs');
+  if (!container) return;
+
+  const allTab = `
+    <button class="jnl-acct-tab all-tab ${_jnlActiveAcct === null ? 'active' : ''}"
+      onclick="jnlSelectAccount(null)"
+      style="${_jnlActiveAcct === null ? '--acct-color:#94a3b8;background:#94a3b820;border-color:#94a3b8;color:#0a0e17' : ''}">
+      <span class="jnl-acct-dot" style="background:#94a3b8"></span>
+      All Accounts
+    </button>`;
+
+  const accountTabs = _jnlAccounts.map(a => {
+    const isActive = _jnlActiveAcct === a.id;
+    return `
+      <button class="jnl-acct-tab ${isActive ? 'active' : ''}"
+        onclick="jnlSelectAccount(${a.id})"
+        style="--acct-color:${a.color}">
+        <span class="jnl-acct-dot" style="background:${a.color}"></span>
+        ${a.name}
+        <span class="jnl-acct-edit" onclick="event.stopPropagation();jnlShowEditAccountModal(${a.id})">✏</span>
+      </button>`;
+  }).join('');
+
+  container.innerHTML = allTab + accountTabs;
+}
+
+/** Switch active account and reload all data */
+function jnlSelectAccount(accountId, reload = true) {
+  _jnlActiveAcct = accountId;
+  _jnlRenderAccountStrip();
+
+  // Update badge in header
+  const badge = document.getElementById('jnl-active-account-badge');
+  if (badge) {
+    if (accountId === null) {
+      badge.textContent = 'All Accounts';
+      badge.style.background = 'rgba(148,163,184,.12)';
+      badge.style.color = '#94a3b8';
+    } else {
+      const acct = _jnlAccounts.find(a => a.id === accountId);
+      if (acct) {
+        badge.textContent = acct.name;
+        badge.style.background = acct.color + '22';
+        badge.style.color = acct.color;
+      }
+    }
+  }
+
+  if (reload) jnlLoadTrades();
+}
+
+// ── All Accounts summary view ─────────────────────────────────────────────────
+async function _jnlRenderAllAccountsSummary() {
+  const wrap = document.getElementById('jnl-table-wrap');
+  if (!wrap) return;
+  try {
+    const res  = await fetch(`${API}/api/journal/accounts/summary`);
+    const data = await res.json();
+    const accounts = data.accounts || [];
+
+    if (!accounts.length) {
+      wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-family:var(--font-mono)">No accounts yet. Click <b>＋ New Account</b> to create one.</div>';
+      return;
+    }
+
+    const cards = accounts.map(a => {
+      const pnlColor = a.total_pnl >= 0 ? 'var(--green)' : 'var(--red)';
+      const cur = a.currency === 'USD' ? '$' : '₹';
+      return `
+        <div class="jnl-acct-summary-card" style="--acct-color:${a.color}"
+          onclick="jnlSelectAccount(${a.id})">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="width:10px;height:10px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
+            <div style="font-family:var(--font-mono);font-size:13px;font-weight:800;color:var(--text)">${a.name}</div>
+          </div>
+          ${a.broker ? `<div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);margin-bottom:8px">${a.broker}</div>` : ''}
+          <div class="sc-fund-grid">
+            <div class="sc-fund-row">
+              <span class="sc-fund-label">Trades</span>
+              <span class="sc-fund-value">${a.total_trades}</span>
+            </div>
+            <div class="sc-fund-row">
+              <span class="sc-fund-label">Open</span>
+              <span class="sc-fund-value" style="color:var(--cyan)">${a.open_trades}</span>
+            </div>
+            <div class="sc-fund-row">
+              <span class="sc-fund-label">Win Rate</span>
+              <span class="sc-fund-value" style="color:${a.win_rate>=50?'var(--green)':'var(--red)'}">${a.win_rate}%</span>
+            </div>
+            <div class="sc-fund-row">
+              <span class="sc-fund-label">Realized P&L</span>
+              <span class="sc-fund-value" style="color:${pnlColor}">${cur}${Math.round(a.total_pnl).toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          <div style="margin-top:10px;font-size:9px;color:var(--cyan);font-family:var(--font-mono);font-weight:700">
+            Click to open →
+          </div>
+        </div>`;
+    }).join('');
+
+    // Total combined P&L
+    const totalPnl = accounts.reduce((s, a) => s + a.total_pnl, 0);
+    const totalTrades = accounts.reduce((s, a) => s + a.total_trades, 0);
+    const totalOpen   = accounts.reduce((s, a) => s + a.open_trades, 0);
+
+    wrap.innerHTML = `
+      <div style="padding:12px 0 6px">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text3);margin-bottom:12px">
+          Combined — ${totalTrades} trades &nbsp;·&nbsp; ${totalOpen} open
+          &nbsp;·&nbsp; <b style="color:${totalPnl>=0?'var(--green)':'var(--red)'}">
+          ₹${Math.round(totalPnl).toLocaleString('en-IN')} total P&L</b>
+        </div>
+        <div class="jnl-acct-summary-grid">${cards}</div>
+      </div>`;
+  } catch (e) {
+    wrap.innerHTML = `<div style="color:var(--red);padding:20px">Failed to load summary: ${e.message}</div>`;
+  }
+}
+
+// ── Account Modal ─────────────────────────────────────────────────────────────
+function jnlShowNewAccountModal() {
+  document.getElementById('jnl-acct-edit-id').value = '';
+  document.getElementById('jnl-account-modal-title').textContent = 'New Account';
+  document.getElementById('jnl-acct-name').value    = '';
+  document.getElementById('jnl-acct-broker').value  = '';
+  document.getElementById('jnl-acct-capital').value = '1000000';
+  document.getElementById('jnl-acct-currency').value= 'INR';
+  document.getElementById('jnl-acct-notes').value   = '';
+  document.getElementById('jnl-acct-color').value   = '#06b6d4';
+  document.getElementById('jnl-acct-delete-btn').style.display = 'none';
+  // Reset swatches
+  document.querySelectorAll('.jnl-color-swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.color === '#06b6d4');
+  });
+  document.getElementById('jnl-account-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('jnl-acct-name').focus(), 60);
+}
+
+function jnlShowEditAccountModal(id) {
+  const acct = _jnlAccounts.find(a => a.id === id);
+  if (!acct) return;
+  document.getElementById('jnl-acct-edit-id').value   = id;
+  document.getElementById('jnl-account-modal-title').textContent = `Edit — ${acct.name}`;
+  document.getElementById('jnl-acct-name').value    = acct.name    || '';
+  document.getElementById('jnl-acct-broker').value  = acct.broker  || '';
+  document.getElementById('jnl-acct-capital').value = acct.starting_capital || 1000000;
+  document.getElementById('jnl-acct-currency').value= acct.currency || 'INR';
+  document.getElementById('jnl-acct-notes').value   = acct.notes   || '';
+  document.getElementById('jnl-acct-color').value   = acct.color   || '#06b6d4';
+  // Show delete btn (but not for Account 1)
+  document.getElementById('jnl-acct-delete-btn').style.display = id === 1 ? 'none' : '';
+  // Set swatch
+  document.querySelectorAll('.jnl-color-swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.color === acct.color);
+  });
+  document.getElementById('jnl-account-modal').style.display = 'flex';
+}
+
+function jnlCloseAccountModal() {
+  document.getElementById('jnl-account-modal').style.display = 'none';
+}
+
+function jnlPickColor(el) {
+  document.querySelectorAll('.jnl-color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('jnl-acct-color').value = el.dataset.color;
+}
+
+async function jnlSaveAccount() {
+  const editId  = document.getElementById('jnl-acct-edit-id').value;
+  const payload = {
+    name:             document.getElementById('jnl-acct-name').value.trim(),
+    broker:           document.getElementById('jnl-acct-broker').value.trim(),
+    starting_capital: parseFloat(document.getElementById('jnl-acct-capital').value) || 1000000,
+    currency:         document.getElementById('jnl-acct-currency').value,
+    notes:            document.getElementById('jnl-acct-notes').value.trim(),
+    color:            document.getElementById('jnl-acct-color').value,
+  };
+  if (!payload.name) {
+    document.getElementById('jnl-acct-name').style.borderColor = 'var(--red)';
+    document.getElementById('jnl-acct-name').focus();
+    return;
+  }
+  try {
+    let res;
+    if (editId) {
+      res = await fetch(`${API}/api/journal/accounts/${editId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      res = await fetch(`${API}/api/journal/accounts`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    jnlCloseAccountModal();
+    await jnlInitAccounts();             // refresh strip
+    if (!editId && data.id) {
+      jnlSelectAccount(data.id);         // auto-switch to new account
+    } else {
+      jnlLoadTrades();
+    }
+  } catch (e) { alert('Save failed: ' + e.message); }
+}
+
+async function jnlDeleteAccount() {
+  const editId = document.getElementById('jnl-acct-edit-id').value;
+  const acct   = _jnlAccounts.find(a => a.id === parseInt(editId));
+  if (!acct) return;
+  if (!confirm(`Delete account "${acct.name}"?\n\nOnly possible if it has 0 trades.`)) return;
+  try {
+    const res  = await fetch(`${API}/api/journal/accounts/${editId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    jnlCloseAccountModal();
+    if (_jnlActiveAcct === parseInt(editId)) _jnlActiveAcct = null;
+    await jnlInitAccounts();
+    jnlLoadTrades();
+  } catch (e) { alert('Delete failed: ' + e.message); }
 }

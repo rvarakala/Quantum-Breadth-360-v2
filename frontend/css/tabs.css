@@ -3489,3 +3489,114 @@ select option:checked {
   border-color: var(--cyan) !important;
   box-shadow: 0 0 0 3px rgba(6,182,212,.12);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TRADING JOURNAL — Account Selector Strip
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.jnl-account-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--card-border);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.jnl-account-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+/* Each account tab button */
+.jnl-acct-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--card-border);
+  background: transparent;
+  color: var(--text2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .18s;
+  position: relative;
+}
+.jnl-acct-tab:hover { border-color: var(--text3); color: var(--text); }
+.jnl-acct-tab.active {
+  background: var(--acct-color, var(--cyan));
+  border-color: var(--acct-color, var(--cyan));
+  color: #0a0e17;
+}
+/* Coloured dot */
+.jnl-acct-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+/* Edit pencil — shown on hover */
+.jnl-acct-edit {
+  opacity: 0;
+  margin-left: 2px;
+  font-size: 10px;
+  transition: opacity .15s;
+}
+.jnl-acct-tab:hover .jnl-acct-edit { opacity: 0.6; }
+
+/* All Accounts tab */
+.jnl-acct-tab.all-tab { font-style: italic; }
+
+/* Add account button */
+.jnl-account-add-btn {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1.5px dashed var(--card-border);
+  background: transparent;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .18s;
+  white-space: nowrap;
+}
+.jnl-account-add-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* Colour swatches in account modal */
+.jnl-color-swatch {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.jnl-color-swatch:hover { transform: scale(1.15); }
+.jnl-color-swatch.active { border-color: var(--text); transform: scale(1.1); }
+
+/* Account summary cards in All-accounts view */
+.jnl-acct-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 8px 0;
+}
+.jnl-acct-summary-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color .18s, box-shadow .18s;
+  border-left: 3px solid var(--acct-color, var(--cyan));
+}
+.jnl-acct-summary-card:hover {
+  border-color: var(--acct-color, var(--cyan));
+  box-shadow: 0 0 14px var(--acct-color, rgba(6,182,212,.15));
+}

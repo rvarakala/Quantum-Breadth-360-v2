@@ -671,9 +671,21 @@
   <!-- TRADING JOURNAL TAB -->
   <div class="tab-content" id="tab-journal">
 
+    <!-- Account selector strip -->
+    <div id="jnl-account-strip" class="jnl-account-strip">
+      <div id="jnl-account-tabs" class="jnl-account-tabs">
+        <!-- Populated by JS -->
+      </div>
+      <button class="jnl-account-add-btn" onclick="jnlShowNewAccountModal()" title="New Account">＋ New Account</button>
+    </div>
+
     <!-- Header row -->
     <div class="jnl-header">
-      <div class="jnl-title">📖 TRADE JOURNAL</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="jnl-title">📖 TRADE JOURNAL</div>
+        <div id="jnl-active-account-badge" style="font-size:10px;font-family:var(--font-mono);font-weight:700;
+          padding:3px 10px;border-radius:12px;background:rgba(6,182,212,.12);color:var(--cyan)"></div>
+      </div>
       <div class="jnl-controls">
         <button class="jnl-btn primary" onclick="jnlShowAddModal()">+ New Trade</button>
         <select id="jnl-filter-status" onchange="jnlLoadTrades()" class="sm-select">
@@ -1039,7 +1051,123 @@
     </div>
   </div>
 
-  <!-- CHARTS TAB -->  <!-- CHARTS TAB -->
+  <!-- JOURNAL: New/Edit Account Modal -->
+  <div id="jnl-account-modal" class="jnl-modal-overlay" style="display:none">
+    <div class="jnl-modal" style="max-width:440px">
+      <div class="jnl-modal-hdr">
+        <span id="jnl-account-modal-title">New Account</span>
+        <button onclick="jnlCloseAccountModal()" class="jnl-modal-close">&times;</button>
+      </div>
+      <div class="jnl-modal-body">
+        <input type="hidden" id="jnl-acct-edit-id">
+        <div class="jnl-form-row">
+          <div class="jnl-field"><label>ACCOUNT NAME</label>
+            <input id="jnl-acct-name" placeholder="e.g. Zerodha Main, ICICI Options"></div>
+          <div class="jnl-field"><label>BROKER</label>
+            <input id="jnl-acct-broker" placeholder="e.g. Zerodha"></div>
+        </div>
+        <div class="jnl-form-row">
+          <div class="jnl-field"><label>CURRENCY</label>
+            <select id="jnl-acct-currency">
+              <option value="INR">INR ₹</option>
+              <option value="USD">USD $</option>
+              <option value="EUR">EUR €</option>
+            </select>
+          </div>
+          <div class="jnl-field"><label>STARTING CAPITAL</label>
+            <input type="number" id="jnl-acct-capital" placeholder="1000000"></div>
+        </div>
+        <div class="jnl-form-row">
+          <div class="jnl-field">
+            <label>ACCOUNT COLOUR</label>
+            <div id="jnl-acct-color-picker" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+              <div class="jnl-color-swatch active" data-color="#06b6d4" style="background:#06b6d4" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#a855f7" style="background:#a855f7" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#22c55e" style="background:#22c55e" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#f59e0b" style="background:#f59e0b" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#ef4444" style="background:#ef4444" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#3b82f6" style="background:#3b82f6" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#ec4899" style="background:#ec4899" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#14b8a6" style="background:#14b8a6" onclick="jnlPickColor(this)"></div>
+            </div>
+            <input type="hidden" id="jnl-acct-color" value="#06b6d4">
+          </div>
+        </div>
+        <div class="jnl-field" style="width:100%;margin-top:4px">
+          <label>NOTES (optional)</label>
+          <input id="jnl-acct-notes" placeholder="Any notes about this account...">
+        </div>
+      </div>
+      <div class="jnl-modal-footer">
+        <button class="jnl-btn" onclick="jnlCloseAccountModal()">Cancel</button>
+        <div style="display:flex;gap:6px">
+          <button id="jnl-acct-delete-btn" class="jnl-btn" style="color:var(--red);display:none"
+            onclick="jnlDeleteAccount()">Delete</button>
+          <button class="jnl-btn primary" onclick="jnlSaveAccount()">Save Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS TAB -->  <!-- JOURNAL: New/Edit Account Modal -->
+  <div id="jnl-account-modal" class="jnl-modal-overlay" style="display:none">
+    <div class="jnl-modal" style="max-width:440px">
+      <div class="jnl-modal-hdr">
+        <span id="jnl-account-modal-title">New Account</span>
+        <button onclick="jnlCloseAccountModal()" class="jnl-modal-close">&times;</button>
+      </div>
+      <div class="jnl-modal-body">
+        <input type="hidden" id="jnl-acct-edit-id">
+        <div class="jnl-form-row">
+          <div class="jnl-field"><label>ACCOUNT NAME</label>
+            <input id="jnl-acct-name" placeholder="e.g. Zerodha Main, ICICI Options"></div>
+          <div class="jnl-field"><label>BROKER</label>
+            <input id="jnl-acct-broker" placeholder="e.g. Zerodha"></div>
+        </div>
+        <div class="jnl-form-row">
+          <div class="jnl-field"><label>CURRENCY</label>
+            <select id="jnl-acct-currency">
+              <option value="INR">INR ₹</option>
+              <option value="USD">USD $</option>
+              <option value="EUR">EUR €</option>
+            </select>
+          </div>
+          <div class="jnl-field"><label>STARTING CAPITAL</label>
+            <input type="number" id="jnl-acct-capital" placeholder="1000000"></div>
+        </div>
+        <div class="jnl-form-row">
+          <div class="jnl-field">
+            <label>ACCOUNT COLOUR</label>
+            <div id="jnl-acct-color-picker" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+              <div class="jnl-color-swatch active" data-color="#06b6d4" style="background:#06b6d4" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#a855f7" style="background:#a855f7" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#22c55e" style="background:#22c55e" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#f59e0b" style="background:#f59e0b" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#ef4444" style="background:#ef4444" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#3b82f6" style="background:#3b82f6" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#ec4899" style="background:#ec4899" onclick="jnlPickColor(this)"></div>
+              <div class="jnl-color-swatch" data-color="#14b8a6" style="background:#14b8a6" onclick="jnlPickColor(this)"></div>
+            </div>
+            <input type="hidden" id="jnl-acct-color" value="#06b6d4">
+          </div>
+        </div>
+        <div class="jnl-field" style="width:100%;margin-top:4px">
+          <label>NOTES (optional)</label>
+          <input id="jnl-acct-notes" placeholder="Any notes about this account...">
+        </div>
+      </div>
+      <div class="jnl-modal-footer">
+        <button class="jnl-btn" onclick="jnlCloseAccountModal()">Cancel</button>
+        <div style="display:flex;gap:6px">
+          <button id="jnl-acct-delete-btn" class="jnl-btn" style="color:var(--red);display:none"
+            onclick="jnlDeleteAccount()">Delete</button>
+          <button class="jnl-btn primary" onclick="jnlSaveAccount()">Save Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS TAB -->
   <div class="tab-content" id="tab-charts">
     <div class="chart-controls">
       <div class="chart-search">

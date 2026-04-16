@@ -82,14 +82,27 @@ def _ensure_journal_tables():
             value TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS journal_accounts (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            broker TEXT DEFAULT '',
+            currency TEXT DEFAULT 'INR',
+            starting_capital REAL DEFAULT 1000000,
+            color TEXT DEFAULT '#06b6d4',
+            notes TEXT DEFAULT '',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_journal_ticker ON journal_trades(ticker);
         CREATE INDEX IF NOT EXISTS idx_journal_status ON journal_trades(status);
         CREATE INDEX IF NOT EXISTS idx_journal_entry_date ON journal_trades(entry_date);
+        CREATE INDEX IF NOT EXISTS idx_journal_account ON journal_trades(account_id);
     """)
     conn.commit()
 
     # Add new columns to existing DBs (ALTER TABLE is idempotent via try/except)
     new_cols = [
+        ("account_id", "INTEGER DEFAULT 1"),
         ("strategy_name", "TEXT DEFAULT ''"),
         ("broker", "TEXT DEFAULT ''"),
         ("market_type", "TEXT DEFAULT 'Stocks'"),
@@ -118,6 +131,19 @@ def _ensure_journal_tables():
             conn.commit()
         except Exception:
             pass
+
+    # Seed default Account 1 if no accounts exist
+    count = conn.execute("SELECT COUNT(*) FROM journal_accounts").fetchone()[0]
+    if count == 0:
+        conn.execute("""
+            INSERT INTO journal_accounts (id, name, broker, currency, starting_capital, color)
+            VALUES (1, 'Account 1', '', 'INR', 1000000, '#06b6d4')
+        """)
+        conn.commit()
+
+    # Migrate existing trades to account_id=1 if they have NULL
+    conn.execute("UPDATE journal_trades SET account_id=1 WHERE account_id IS NULL")
+    conn.commit()
 
     conn.close()
 
@@ -318,15 +344,23 @@ def delete_trade(trade_id: int) -> dict:
     return {"status": "ok"}
 
 
-def get_trades(status: str = "all", limit: int = 200) -> list:
-    """Get trades, newest first."""
+def get_trades(status: str = "all", limit: int = 200, account_id: int = None) -> list:
+    """Get trades, newest first. Optionally filtered by account_id (None = all accounts)."""
     _ensure_journal_tables()
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
-    if status == "all":
-        rows = conn.execute("SELECT * FROM journal_trades ORDER BY entry_date DESC LIMIT ?", (limit,)).fetchall()
+
+    if account_id is None:
+        # All accounts
+        if status == "all":
+            rows = conn.execute("SELECT * FROM journal_trades ORDER BY entry_date DESC LIMIT ?", (limit,)).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM journal_trades WHERE status=? ORDER BY entry_date DESC LIMIT ?", (status, limit)).fetchall()
     else:
-        rows = conn.execute("SELECT * FROM journal_trades WHERE status=? ORDER BY entry_date DESC LIMIT ?", (status, limit)).fetchall()
+        if status == "all":
+            rows = conn.execute("SELECT * FROM journal_trades WHERE account_id=? ORDER BY entry_date DESC LIMIT ?", (account_id, limit)).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM journal_trades WHERE account_id=? AND status=? ORDER BY entry_date DESC LIMIT ?", (account_id, status, limit)).fetchall()
     conn.close()
 
     trades = [dict(r) for r in rows]
@@ -371,12 +405,15 @@ def _enrich_live_prices(trades: list):
                     t["live_r_multiple"] = round(reward / risk, 2)
 
 
-def get_analytics() -> dict:
-    """Compute journal performance analytics."""
+def get_analytics(account_id: int = None) -> dict:
+    """Compute journal performance analytics, optionally scoped to an account."""
     _ensure_journal_tables()
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
-    all_trades = conn.execute("SELECT * FROM journal_trades ORDER BY entry_date").fetchall()
+    if account_id is None:
+        all_trades = conn.execute("SELECT * FROM journal_trades ORDER BY entry_date").fetchall()
+    else:
+        all_trades = conn.execute("SELECT * FROM journal_trades WHERE account_id=? ORDER BY entry_date", (account_id,)).fetchall()
     conn.close()
 
     trades = [dict(r) for r in all_trades]
@@ -1014,3 +1051,106 @@ def parse_csv_import(content: str, broker: str = "generic") -> list:
             continue
 
     return trades
+
+
+# ── Account Management ────────────────────────────────────────────────────────
+
+ACCOUNT_COLORS = ['#06b6d4','#a855f7','#22c55e','#f59e0b','#ef4444','#3b82f6','#ec4899','#14b8a6']
+
+def list_accounts() -> list:
+    """Return all trading accounts ordered by id."""
+    _ensure_journal_tables()
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("SELECT * FROM journal_accounts ORDER BY id").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def create_account(name: str, broker: str = "", currency: str = "INR",
+                   starting_capital: float = 1000000, color: str = "") -> dict:
+    _ensure_journal_tables()
+    if not name or not name.strip():
+        return {"error": "Account name is required"}
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    # Auto-pick color if not provided
+    if not color:
+        count = conn.execute("SELECT COUNT(*) FROM journal_accounts").fetchone()[0]
+        color = ACCOUNT_COLORS[count % len(ACCOUNT_COLORS)]
+    from datetime import datetime, timezone
+    cur = conn.execute(
+        "INSERT INTO journal_accounts (name, broker, currency, starting_capital, color, created_at) VALUES (?,?,?,?,?,?)",
+        (name.strip(), broker.strip(), currency, starting_capital, color,
+         datetime.now(timezone.utc).isoformat())
+    )
+    acct_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "id": acct_id, "name": name.strip(), "color": color}
+
+
+def update_account(acct_id: int, updates: dict) -> dict:
+    _ensure_journal_tables()
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    acct = conn.execute("SELECT id FROM journal_accounts WHERE id=?", (acct_id,)).fetchone()
+    if not acct:
+        conn.close()
+        return {"error": "Account not found"}
+    allowed = {"name", "broker", "currency", "starting_capital", "color", "notes"}
+    parts, params = [], []
+    for k, v in updates.items():
+        if k in allowed:
+            parts.append(f"{k}=?")
+            params.append(v)
+    if parts:
+        params.append(acct_id)
+        conn.execute(f"UPDATE journal_accounts SET {', '.join(parts)} WHERE id=?", params)
+        conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+
+def delete_account(acct_id: int) -> dict:
+    _ensure_journal_tables()
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    # Protect Account 1
+    if acct_id == 1:
+        conn.close()
+        return {"error": "Cannot delete the default account"}
+    trade_count = conn.execute(
+        "SELECT COUNT(*) FROM journal_trades WHERE account_id=?", (acct_id,)
+    ).fetchone()[0]
+    if trade_count > 0:
+        conn.close()
+        return {"error": f"Account has {trade_count} trade(s). Move or delete them first."}
+    conn.execute("DELETE FROM journal_accounts WHERE id=?", (acct_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+
+def get_account_summary() -> list:
+    """Return each account with its aggregate stats."""
+    _ensure_journal_tables()
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    accounts = conn.execute("SELECT * FROM journal_accounts ORDER BY id").fetchall()
+    result = []
+    for a in accounts:
+        aid = a["id"]
+        trades = conn.execute(
+            "SELECT status, pnl_amount, pnl_pct FROM journal_trades WHERE account_id=?", (aid,)
+        ).fetchall()
+        total      = len(trades)
+        closed     = [t for t in trades if t["status"] in ("Closed","StoppedOut")]
+        open_count = sum(1 for t in trades if t["status"] == "Open")
+        winners    = [t for t in closed if t["pnl_pct"] > 0]
+        win_rate   = round(len(winners)/len(closed)*100, 1) if closed else 0
+        total_pnl  = round(sum(t["pnl_amount"] for t in closed), 2)
+        row = dict(a)
+        row.update({"total_trades": total, "open_trades": open_count,
+                    "closed_trades": len(closed), "win_rate": win_rate,
+                    "total_pnl": total_pnl})
+        result.append(row)
+    conn.close()
+    return result

@@ -944,11 +944,11 @@ async def save_smart_money_note(request: Request):
 
 # ── Trading Journal API ──────────────────────────────────────────────────────
 
-from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings, get_tilt_score, get_drawdown_series, get_monthly_pnl, get_time_of_day_stats, get_ai_insights, get_day_of_week_stats, check_risk_rules, get_gamification, parse_csv_import
+from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings, get_tilt_score, get_drawdown_series, get_monthly_pnl, get_time_of_day_stats, get_ai_insights, get_day_of_week_stats, check_risk_rules, get_gamification, parse_csv_import, list_accounts, create_account, update_account, delete_account, get_account_summary
 
 @app.get("/api/journal/trades")
-async def api_journal_trades(status: str = "all", limit: int = 200):
-    return get_trades(status, limit)
+async def api_journal_trades(status: str = "all", limit: int = 200, account_id: int = None):
+    return get_trades(status, limit, account_id)
 
 @app.post("/api/journal/trades")
 async def api_journal_add(request: Request):
@@ -965,8 +965,8 @@ async def api_journal_delete(trade_id: int):
     return delete_trade(trade_id)
 
 @app.get("/api/journal/analytics")
-async def api_journal_analytics():
-    return get_analytics()
+async def api_journal_analytics(account_id: int = None):
+    return get_analytics(account_id)
 
 @app.get("/api/journal/settings")
 async def api_journal_settings_get():
@@ -978,46 +978,76 @@ async def api_journal_settings_save(request: Request):
     return save_settings(body)
 
 @app.get("/api/journal/tilt")
-async def api_journal_tilt():
-    trades = get_trades(status="all", limit=20)
+async def api_journal_tilt(account_id: int = None):
+    trades = get_trades(status="all", limit=20, account_id=account_id)
     return get_tilt_score(trades)
 
 @app.get("/api/journal/drawdown")
-async def api_journal_drawdown():
-    trades = get_trades(status="all", limit=500)
+async def api_journal_drawdown(account_id: int = None):
+    trades = get_trades(status="all", limit=500, account_id=account_id)
     return get_drawdown_series(trades)
 
 @app.get("/api/journal/monthly")
-async def api_journal_monthly():
-    trades = get_trades(status="all", limit=500)
+async def api_journal_monthly(account_id: int = None):
+    trades = get_trades(status="all", limit=500, account_id=account_id)
     return {"monthly": get_monthly_pnl(trades)}
 
 @app.get("/api/journal/time-of-day")
-async def api_journal_time_of_day():
-    trades = get_trades(status="all", limit=500)
+async def api_journal_time_of_day(account_id: int = None):
+    trades = get_trades(status="all", limit=500, account_id=account_id)
     return {"hours": get_time_of_day_stats(trades)}
 
 @app.get("/api/journal/ai-insights")
-async def api_journal_ai_insights():
-    analytics = get_analytics()
-    trades = get_trades(status="all", limit=500)
+async def api_journal_ai_insights(account_id: int = None):
+    analytics = get_analytics(account_id)
+    trades    = get_trades(status="all", limit=500, account_id=account_id)
     return {"insights": get_ai_insights(analytics, trades)}
 
 @app.get("/api/journal/day-of-week")
-async def api_journal_dow():
-    trades = get_trades(status="all", limit=500)
+async def api_journal_dow(account_id: int = None):
+    trades = get_trades(status="all", limit=500, account_id=account_id)
     return {"days": get_day_of_week_stats(trades)}
 
 @app.get("/api/journal/risk-check")
-async def api_journal_risk_check():
-    trades  = get_trades(status="all", limit=200)
+async def api_journal_risk_check(account_id: int = None):
+    trades   = get_trades(status="all", limit=200, account_id=account_id)
     settings = get_settings()
     return check_risk_rules(trades, settings)
 
 @app.get("/api/journal/gamification")
-async def api_journal_gamification():
-    trades = get_trades(status="all", limit=500)
+async def api_journal_gamification(account_id: int = None):
+    trades = get_trades(status="all", limit=500, account_id=account_id)
     return get_gamification(trades)
+
+# ── Account Management Routes ─────────────────────────────────────────────────
+
+@app.get("/api/journal/accounts")
+async def api_journal_list_accounts():
+    return {"accounts": list_accounts()}
+
+@app.get("/api/journal/accounts/summary")
+async def api_journal_accounts_summary():
+    return {"accounts": get_account_summary()}
+
+@app.post("/api/journal/accounts")
+async def api_journal_create_account(request: Request):
+    body = await request.json()
+    return create_account(
+        name             = body.get("name",""),
+        broker           = body.get("broker",""),
+        currency         = body.get("currency","INR"),
+        starting_capital = float(body.get("starting_capital", 1000000)),
+        color            = body.get("color",""),
+    )
+
+@app.put("/api/journal/accounts/{acct_id}")
+async def api_journal_update_account(acct_id: int, request: Request):
+    body = await request.json()
+    return update_account(acct_id, body)
+
+@app.delete("/api/journal/accounts/{acct_id}")
+async def api_journal_delete_account(acct_id: int):
+    return delete_account(acct_id)
 
 @app.post("/api/journal/import-csv")
 async def api_journal_import_csv(request: Request):
