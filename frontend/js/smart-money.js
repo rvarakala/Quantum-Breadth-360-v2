@@ -28,7 +28,7 @@ const SM_COLUMNS = [
 async function loadSmartMoney() {
   const days = document.getElementById('sm-days')?.value || 10;
   const wrap = document.getElementById('sm-table-wrap');
-  wrap.innerHTML = '<div style="text-align:center;padding:40px"><div class="ai-spinner"></div><br><span style="color:var(--text3);font-size:11px;font-family:var(--font-mono)">Scanning ' + days + ' days for Smart Money signals...<br><span style="font-size:10px">First load analyzes 2500+ stocks — may take 30-60 seconds</span></span></div>';
+  wrap.innerHTML = _skeletonTable(8, 12, 'Scanning Smart Money signals across 2500+ stocks…');
 
   try {
     console.log('Smart Money: fetching signals for', days, 'days...');

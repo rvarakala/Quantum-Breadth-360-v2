@@ -1,0 +1,219 @@
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — Quantum Breadth 360
+   Part of modular CSS split from styles.css (Sprint 2)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SPRINT 2 — RESPONSIVE FIXES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Smart Money / Leaders tables — horizontal scroll on mobile ─────────── */
+@media (max-width: 1024px) {
+  .sm-table-container, #sm-table-wrap, #leaders-wrap {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .sm-table, #leaders-table {
+    min-width: 900px; /* force horizontal scroll rather than squish */
+  }
+}
+
+/* ── Stat cards — 3 columns on tablet, 2 on mobile ─────────────────────── */
+@media (max-width: 1024px) {
+  .sm-stat-cards, .sm-stats { grid-template-columns: repeat(3, 1fr) !important; }
+}
+@media (max-width: 600px) {
+  .sm-stat-cards, .sm-stats { grid-template-columns: repeat(2, 1fr) !important; }
+  .sm-stat-card { padding: 10px !important; }
+  .sm-stat-num { font-size: 20px !important; }
+}
+
+/* ── Sector drill-down banner — stack on mobile ─────────────────────────── */
+@media (max-width: 768px) {
+  #sm-sector-drill-banner [style*="grid-template-columns: repeat(7"] {
+    grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important;
+  }
+}
+@media (max-width: 480px) {
+  #sm-sector-drill-banner [style*="grid-template-columns: repeat(7"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ── Chart controls — wrap on smaller screens ───────────────────────────── */
+@media (max-width: 1024px) {
+  .chart-controls { flex-wrap: wrap; gap: 8px; }
+  .chart-overlay-toggles { flex-wrap: wrap; gap: 4px; }
+  .chart-overlay-toggles label { font-size: 10px; }
+}
+
+/* ── Sector grid — 2 cols on tablet, 1 on mobile ───────────────────────── */
+@media (max-width: 900px) {
+  .sector-grid, #sector-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 500px) {
+  .sector-grid, #sector-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── Overview hero cards — stack on small screens ───────────────────────── */
+@media (max-width: 900px) {
+  .hero-row { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 600px) {
+  .hero-row { grid-template-columns: 1fr !important; }
+}
+
+/* ── Filter dropdowns row — wrap on mobile ──────────────────────────────── */
+@media (max-width: 768px) {
+  .sm-filters, .smart-scr-filters { flex-wrap: wrap !important; gap: 6px !important; }
+  .sm-filters select, .smart-scr-filters select { font-size: 11px !important; min-width: auto !important; }
+}
+
+/* ── Trial banner — stack on mobile ─────────────────────────────────────── */
+@media (max-width: 600px) {
+  #trial-banner > div { flex-direction: column !important; gap: 8px !important; text-align: center; }
+}
+
+/* ── Drawing toolbar — compact on mobile ────────────────────────────────── */
+@media (max-width: 600px) {
+  .draw-toolbar { flex-wrap: wrap; padding: 3px 4px; }
+  .draw-tool-btn { width: 26px; height: 24px; font-size: 12px; }
+  .draw-color-btn { width: 14px; height: 14px; }
+}
+
+/* ── Upgrade modal — responsive ─────────────────────────────────────────── */
+@media (max-width: 520px) {
+  #upgrade-modal > div { padding: 20px !important; }
+  #upgrade-modal [style*="grid-template-columns: 1fr 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Data import cards — 2 cols on tablet, 1 on mobile ──────────────────── */
+@media (max-width: 900px) {
+  .data-sources-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 500px) {
+  .data-sources-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── Breadth charts grid — 2 cols on tablet, 1 on mobile ────────────────── */
+@media (max-width: 900px) {
+  .charts-row { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 500px) {
+  .charts-row { grid-template-columns: 1fr !important; }
+}
+
+/* ── Stockbee monitor grid — responsive ─────────────────────────────────── */
+@media (max-width: 900px) {
+  .sbm-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 500px) {
+  .sbm-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── General table responsiveness ───────────────────────────────────────── */
+@media (max-width: 768px) {
+  table { font-size: 11px; }
+  th, td { padding: 6px 8px !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOADING SKELETONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes skeleton-pulse {
+  0% { opacity: .06; }
+  50% { opacity: .12; }
+  100% { opacity: .06; }
+}
+.skeleton {
+  background: var(--text, #e2e8f0);
+  border-radius: 6px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+.skeleton-line { height: 12px; margin-bottom: 8px; }
+.skeleton-line.short { width: 60%; }
+.skeleton-line.medium { width: 80%; }
+.skeleton-card {
+  height: 100px; border-radius: var(--radius, 10px);
+  background: var(--card-bg, #0f1628);
+  border: 1px solid var(--card-border, #1a2744);
+  position: relative; overflow: hidden;
+}
+.skeleton-card::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.03) 50%, transparent 100%);
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── Onboarding animation ───────────────────────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+#onboarding-tip > div { transition: opacity .3s ease; }
+
+/* ── Task 4: Mobile table responsiveness — Insider / F-Value / Leaders / FII-DII ── */
+
+/* Insider table — horizontal scroll on mobile */
+@media (max-width: 1024px) {
+  .ins-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ins-table { min-width: 860px; }
+}
+
+/* F-Value table — horizontal scroll on mobile */
+@media (max-width: 1024px) {
+  .fv-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .fv-table { min-width: 980px; }
+}
+
+/* Leaders full-view modal table */
+@media (max-width: 1024px) {
+  .ldr-fv-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ldr-fv-table { min-width: 900px; }
+}
+
+/* FII/DII tab — matrix cards stack on tablet */
+@media (max-width: 900px) {
+  .fd-matrix-row   { grid-template-columns: 1fr !important; }
+  .fd-metrics-row  { grid-template-columns: repeat(2, 1fr) !important; }
+  .fd-row-1        { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 600px) {
+  .fd-metrics-row  { grid-template-columns: 1fr !important; }
+  .fd-bal-label    { min-width: unset; }
+}
+
+/* Journal table — horizontal scroll */
+@media (max-width: 768px) {
+  .jnl-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .jnl-table { min-width: 700px; }
+}
+
+/* Smart Screener results table */
+@media (max-width: 1024px) {
+  .smart-scr-tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* Generic: any .table-wrap not already covered */
+@media (max-width: 768px) {
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ── Task 6: Onboarding tour highlight ─────────────────────────────────────── */
+.tour-highlight {
+  position: relative;
+  z-index: 9101 !important;
+  box-shadow: 0 0 0 3px var(--cyan, #06b6d4),
+              0 0 20px rgba(6, 182, 212, 0.4) !important;
+  border-radius: 8px;
+  animation: tour-pulse 1.8s ease-in-out infinite;
+}
+@keyframes tour-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--cyan,#06b6d4), 0 0 20px rgba(6,182,212,.4); }
+  50%       { box-shadow: 0 0 0 5px var(--cyan,#06b6d4), 0 0 32px rgba(6,182,212,.6); }
+}

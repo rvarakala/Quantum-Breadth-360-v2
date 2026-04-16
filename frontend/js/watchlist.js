@@ -63,7 +63,7 @@ async function selectWatchlist(id) {
 async function loadWatchlistData(id) {
   const body = document.getElementById('wl-main-body');
   if (!body) return;
-  body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)">Loading...</div>';
+  body.innerHTML = _skeletonTable(5, 6, 'Loading watchlist…');
 
   try {
     const res = await fetch(`${API}/api/watchlist/${id}/data`);

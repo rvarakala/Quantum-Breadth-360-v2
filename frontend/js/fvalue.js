@@ -10,7 +10,7 @@ let _fvLoaded = false;
 
 async function loadFValueData() {
   const tbody = document.getElementById('fv-tbody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="13" class="fv-empty">Loading F-Value data...</td></tr>';
+  if (tbody) tbody.innerHTML = _skeletonRows(10, 13);
 
   try {
     const res = await fetch(`${API}/api/fvalue?limit=1000&market=${currentMarket}`);

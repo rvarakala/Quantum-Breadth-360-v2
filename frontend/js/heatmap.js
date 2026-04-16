@@ -33,7 +33,7 @@ async function loadHeatmap(period) {
 
   const container = document.getElementById('heatmap-container');
   if (!container) return;
-  container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)">Loading heatmap...</div>';
+  container.innerHTML = _skeletonCards(12, 'Loading sector heatmap…');
 
   try {
     const market = typeof currentMarket !== 'undefined' ? currentMarket : 'India';

@@ -12,7 +12,7 @@ let _insSortDir = -1; // -1 = desc, 1 = asc
 async function loadInsiderData() {
   const days = document.getElementById('ins-period')?.value || 90;
   const tbody = document.getElementById('ins-tbody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="ins-empty">Loading insider data...</td></tr>';
+  if (tbody) tbody.innerHTML = _skeletonRows(8, 11);
 
   try {
     // Load trades

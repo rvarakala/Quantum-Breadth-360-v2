@@ -86,34 +86,148 @@ function _revealApp() {
   _initRouting();
 }
 
+// ─── 3-STEP GUIDED ONBOARDING TOUR ──────────────────────────────────────────
+const _TOUR_STEPS = [
+  {
+    tab:     'overview',
+    target:  '[data-tab="overview"]',
+    title:   '👋 Welcome to Quantum Breadth 360',
+    body:    'Start here — <b>Overview</b> gives you the full market pulse at a glance: Q-BRAM regime score, breadth metrics, VIX, and sector rotation. This is your daily command center.',
+    btnNext: 'Next: Sync Data →',
+    pos:     'right',
+  },
+  {
+    tab:     'importer',
+    target:  '[data-tab="importer"]',
+    title:   '📥 Step 2 — Import Market Data',
+    body:    'Before running any analysis, sync your data. Go to <b>Data Import</b> and run <b>Sync EOD</b> to pull OHLCV for all NSE stocks. First sync takes 5–10 min. Do this daily before market analysis.',
+    btnNext: 'Next: Smart Money →',
+    pos:     'right',
+  },
+  {
+    tab:     'smart-money',
+    target:  '[data-tab="smart-money"]',
+    title:   '🧠 Step 3 — Find Smart Money Signals',
+    body:    'The <b>Smart Money</b> tab shows IV spikes, PPV patterns, and Bull Snort signals across 2500+ stocks — the Alpha Composite Score ranks them. Start with 10-day lookback for fresh setups.',
+    btnNext: 'Got it — Let\'s Go! 🚀',
+    pos:     'right',
+  },
+];
+
+let _tourStep = 0;
+let _tourHighlight = null;
+
 function _showOnboardingTip() {
+  _tourStep = 0;
+  _renderTourStep();
+}
+
+function _renderTourStep() {
+  // Remove previous overlay
+  _clearTourOverlay();
+
+  const step = _TOUR_STEPS[_tourStep];
+  const target = document.querySelector(step.target);
+
+  // Highlight the target sidebar element
+  if (target) {
+    target.classList.add('tour-highlight');
+    _tourHighlight = target;
+    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Build tooltip
   const tip = document.createElement('div');
   tip.id = 'onboarding-tip';
+
+  const isLast = _tourStep === _TOUR_STEPS.length - 1;
+  const dots = _TOUR_STEPS.map((_, i) =>
+    `<span style="width:6px;height:6px;border-radius:50%;display:inline-block;margin:0 2px;
+      background:${i === _tourStep ? 'var(--cyan,#06b6d4)' : 'var(--text3,#64748b)'}"></span>`
+  ).join('');
+
+  // Position tooltip — right of sidebar on desktop, bottom-center on mobile
+  const isMobile = window.innerWidth <= 768;
+  const posStyle = isMobile
+    ? 'bottom:80px;left:50%;transform:translateX(-50%);width:calc(100vw - 32px)'
+    : 'top:50%;left:72px;transform:translateY(-50%);max-width:320px';
+
   tip.innerHTML = `
-    <div style="position:fixed;bottom:24px;right:24px;z-index:9000;max-width:340px;
+    <div style="position:fixed;${posStyle};z-index:9100;
       background:var(--card-bg,#0f1628);border:1px solid var(--cyan,#06b6d4);border-radius:14px;
-      padding:18px 20px;box-shadow:0 8px 32px rgba(6,182,212,.15);font-family:var(--font-mono,'Space Mono',monospace);
-      animation:fadeSlideUp .4s ease-out">
-      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
-        <span style="font-size:14px;font-weight:700;color:var(--cyan,#06b6d4)">👋 Welcome to Quantum Breadth 360</span>
-        <button onclick="dismissOnboarding()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+      padding:20px;box-shadow:0 8px 40px rgba(6,182,212,.2);
+      font-family:var(--font-mono,'JetBrains Mono',monospace);animation:fadeSlideUp .35s ease-out">
+
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:700;color:var(--cyan,#06b6d4);line-height:1.4">${step.title}</span>
+        <button onclick="dismissOnboarding()" title="Skip tour"
+          style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;
+          margin-left:10px;flex-shrink:0;line-height:1">✕</button>
       </div>
-      <div style="font-size:11px;color:var(--text2,#94a3b8);line-height:1.7">
-        Start with <b style="color:var(--text,#e2e8f0)">Overview</b> for the market dashboard.<br>
-        Use the <b style="color:var(--text,#e2e8f0)">sidebar</b> to navigate between tabs.<br>
-        Go to <b style="color:var(--text,#e2e8f0)">Data Import</b> to sync market data first.
+
+      <!-- Body -->
+      <div style="font-size:11px;color:var(--text2,#94a3b8);line-height:1.8;margin-bottom:16px">
+        ${step.body}
       </div>
-      <button onclick="dismissOnboarding()" style="margin-top:12px;padding:6px 16px;border-radius:6px;
-        border:1px solid var(--cyan,#06b6d4);background:transparent;color:var(--cyan,#06b6d4);
-        font-family:var(--font-mono);font-size:10px;cursor:pointer;font-weight:600">Got it</button>
-    </div>`;
+
+      <!-- Step indicator + CTA -->
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:4px">${dots}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${_tourStep > 0 ? `<button onclick="_tourPrev()"
+            style="padding:5px 12px;border-radius:6px;border:1px solid var(--border,#1e293b);
+            background:transparent;color:var(--text3);font-family:var(--font-mono);
+            font-size:10px;cursor:pointer">← Back</button>` : ''}
+          <button onclick="${isLast ? 'dismissOnboarding()' : '_tourNext()'}"
+            style="padding:6px 16px;border-radius:6px;border:none;
+            background:var(--cyan,#06b6d4);color:#0f1628;
+            font-family:var(--font-mono);font-size:10px;cursor:pointer;font-weight:700">
+            ${step.btnNext}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dimmed backdrop (click to dismiss) -->
+    <div onclick="dismissOnboarding()"
+      style="position:fixed;inset:0;z-index:9099;background:rgba(0,0,0,0.35)"></div>`;
+
   document.body.appendChild(tip);
+
+  // Navigate to the relevant tab
+  if (step.tab) switchTab(step.tab);
+}
+
+function _tourNext() {
+  if (_tourStep < _TOUR_STEPS.length - 1) {
+    _tourStep++;
+    _renderTourStep();
+  } else {
+    dismissOnboarding();
+  }
+}
+
+function _tourPrev() {
+  if (_tourStep > 0) {
+    _tourStep--;
+    _renderTourStep();
+  }
+}
+
+function _clearTourOverlay() {
+  // Remove highlight from previous target
+  if (_tourHighlight) {
+    _tourHighlight.classList.remove('tour-highlight');
+    _tourHighlight = null;
+  }
+  const existing = document.getElementById('onboarding-tip');
+  if (existing) existing.remove();
 }
 
 function dismissOnboarding() {
   localStorage.setItem('qb360_onboarded', '1');
-  const tip = document.getElementById('onboarding-tip');
-  if (tip) { tip.style.opacity = '0'; setTimeout(() => tip.remove(), 300); }
+  _clearTourOverlay();
 }
 
 // ─── HASH-BASED ROUTING ──────────────────────────────────────────────────
@@ -344,6 +458,63 @@ window.fetch = function(url, options = {}) {
   }
   return _originalFetch.call(this, url, options);
 };
+
+// ─── SKELETON LOADER HELPERS ────────────────────────────────────────────────
+// Shared utilities — used by insider.js, fvalue.js, smart-money.js, etc.
+
+/** Full table skeleton: header bar + N shimmer rows × C columns */
+function _skeletonTable(rows = 6, cols = 8, label = 'Loading…') {
+  const headerCells = Array.from({length: cols}, () =>
+    `<div class="skeleton" style="height:10px;border-radius:4px;width:${40 + Math.random()*40|0}%"></div>`
+  ).join('');
+
+  const dataRows = Array.from({length: rows}, () => {
+    const cells = Array.from({length: cols}, () =>
+      `<td style="padding:8px 10px"><div class="skeleton" style="height:11px;border-radius:4px;width:${30 + Math.random()*55|0}%"></div></td>`
+    ).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+
+  return `
+    <div style="padding:12px 16px 8px;display:flex;align-items:center;gap:10px">
+      <div class="skeleton" style="height:10px;width:180px;border-radius:4px"></div>
+      <div style="flex:1"></div>
+      <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);animation:skeleton-pulse 1.5s ease-in-out infinite">${label}</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:600px">
+        <thead><tr>${Array.from({length: cols}, (_,i) =>
+          `<th style="padding:8px 10px;border-bottom:1px solid var(--table-border)">${headerCells.split('</div>')[i]||''}</div></th>`
+        ).join('')}</tr></thead>
+        <tbody>${dataRows}</tbody>
+      </table>
+    </div>`;
+}
+
+/** Inline tbody rows for tables that already have a <thead> (insider, fvalue) */
+function _skeletonRows(rows = 6, cols = 8) {
+  return Array.from({length: rows}, () => {
+    const cells = Array.from({length: cols}, () =>
+      `<td style="padding:9px 10px"><div class="skeleton" style="height:11px;border-radius:4px;width:${30 + Math.random()*55|0}%"></div></td>`
+    ).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+}
+
+/** Grid of shimmer cards — for heatmap / sector views */
+function _skeletonCards(count = 12, label = 'Loading…') {
+  const cards = Array.from({length: count}, (_, i) => {
+    const w = 60 + (i * 37) % 40; // varied widths
+    const h = 60 + (i * 23) % 80;
+    return `<div class="skeleton-card" style="height:${h}px;border-radius:8px"></div>`;
+  }).join('');
+  return `
+    <div style="padding:16px 0 8px;text-align:center;font-size:10px;color:var(--text3);
+      font-family:var(--font-mono);animation:skeleton-pulse 1.5s ease-in-out infinite">${label}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;padding:8px 16px">
+      ${cards}
+    </div>`;
+}
 
 // ─── CLEAR CACHE ───────────────────────────────────────────────────────────
 async function clearBreadthCache() {

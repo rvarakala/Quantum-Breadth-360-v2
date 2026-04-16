@@ -1,0 +1,162 @@
+/* ═══════════════════════════════════════════════════════════════
+   TOKENS — Quantum Breadth 360
+   Part of modular CSS split from styles.css (Sprint 2)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── RESET & BASE ─────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ─── DARK THEME (default) ─────────────────────────────────────────────────── */
+:root {
+  --bg: #0f0c29;
+  --bg-gradient: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  --surface: rgba(255,255,255,0.05);
+  --surface-border: rgba(255,255,255,0.1);
+  --surface-blur: blur(16px);
+  --surface-radius: 16px;
+  --surface-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --accent1: #06b6d4;
+  --accent2: #a855f7;
+  --accent-gradient: linear-gradient(135deg, #06b6d4, #a855f7);
+  --green: #22c55e; --green-dim: rgba(34,197,94,.12);
+  --red: #ef4444;   --red-dim: rgba(239,68,68,.12);
+  --amber: #f59e0b; --amber-dim: rgba(245,158,11,.12);
+  --blue: #3b82f6;  --blue-dim: rgba(59,130,246,.12);
+  --cyan: #06b6d4;  --cyan-dim: rgba(6,182,212,.12);
+  --purple: #a855f7;
+  --card-bg: rgba(255,255,255,0.06);
+  --card-border: rgba(255,255,255,0.1);
+  --card-glow: 0 0 20px rgba(6,182,212,0.05);
+  --nav-bg: rgba(15,12,41,0.8);
+  --nav-border: rgba(255,255,255,0.08);
+  --tab-active-bg: rgba(6,182,212,0.15);
+  --tab-active-text: #06b6d4;
+  --tab-hover-bg: rgba(255,255,255,0.05);
+  --input-bg: rgba(255,255,255,0.06);
+  --input-border: rgba(255,255,255,0.1);
+  --table-header-bg: rgba(255,255,255,0.05);
+  --table-row-hover: rgba(255,255,255,0.03);
+  --table-border: rgba(255,255,255,0.06);
+  --modal-bg: rgba(15,12,41,0.95);
+  --overlay-bg: rgba(0,0,0,0.75);
+  --scrollbar-thumb: rgba(255,255,255,0.15);
+  --grid-line: rgba(255,255,255,0.03);
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 10px;
+  --radius-lg: 16px;
+  /* Backward-compat aliases for inline styles */
+  --bg1: var(--card-bg);
+  --bg2: var(--card-bg);
+  --bg3: var(--surface);
+  --border: var(--card-border);
+  --border2: var(--surface-border);
+  --font-head: var(--font-body);
+}
+
+/* ─── LIGHT THEME ──────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #F7F6F2;
+  --bg-gradient: none;
+  --surface: #FFFFFF;
+  --surface-border: #D4D1CA;
+  --surface-blur: none;
+  --surface-radius: 8px;
+  --surface-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --text: #28251D;
+  --text2: #7A7974;
+  --text3: #BAB9B4;
+  --accent1: #01696F;
+  --accent2: #0C4E54;
+  --accent-gradient: none;
+  --green: #437A22; --green-dim: rgba(67,122,34,.1);
+  --red: #A12C7B;   --red-dim: rgba(161,44,123,.1);
+  --amber: #964219; --amber-dim: rgba(150,66,25,.1);
+  --blue: #01696F;  --blue-dim: rgba(1,105,111,.1);
+  --cyan: #01696F;  --cyan-dim: rgba(1,105,111,.1);
+  --purple: #7C3AED;
+  --card-bg: #FFFFFF;
+  --card-border: #D4D1CA;
+  --card-glow: none;
+  --nav-bg: #FFFFFF;
+  --nav-border: #D4D1CA;
+  --tab-active-bg: rgba(1,105,111,0.1);
+  --tab-active-text: #01696F;
+  --tab-hover-bg: rgba(0,0,0,0.03);
+  --input-bg: #FFFFFF;
+  --input-border: #D4D1CA;
+  --table-header-bg: #F0EFEB;
+  --table-row-hover: #F7F6F2;
+  --table-border: #E5E4E0;
+  --modal-bg: #FFFFFF;
+  --overlay-bg: rgba(0,0,0,0.4);
+  --scrollbar-thumb: rgba(0,0,0,0.15);
+  --grid-line: transparent;
+  /* Backward-compat aliases for inline styles */
+  --bg1: var(--card-bg);
+  --bg2: var(--card-bg);
+  --bg3: var(--surface);
+  --border: var(--card-border);
+  --border2: var(--surface-border);
+  --font-head: var(--font-body);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  background-image: var(--bg-gradient);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+/* ─── BACKGROUND GRID ──────────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── GLOW ACCENTS ─────────────────────────────────────────────────────────── */
+.glow-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: .35;
+}
+.glow-orb.tl { width:500px;height:500px;top:-200px;left:-200px;background:radial-gradient(circle,#1d4ed880,transparent) }
+.glow-orb.br { width:400px;height:400px;bottom:-150px;right:-150px;background:radial-gradient(circle,#7e22ce50,transparent) }
+
+[data-theme="light"] .glow-orb { display: none; }
+
+/* ─── THEME TOGGLE BUTTON ──────────────────────────────────────────────────── */
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  color: var(--text2);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  margin-right: 12px;
+}
+.theme-toggle:hover { border-color: var(--accent1); color: var(--accent1); }

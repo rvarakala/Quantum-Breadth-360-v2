@@ -18,7 +18,7 @@ function sbmSwitchView(view) {
 async function loadStockbeeMonitor() {
   const universe = document.getElementById('sbm-universe')?.value || 'nifty500';
   const wrap = document.getElementById('sbm-table-wrap');
-  if (wrap) wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);font-family:var(--font-mono);font-size:11px">Loading market monitor... (first load may take 30-60s)</div>';
+  if (wrap) wrap.innerHTML = _skeletonTable(6, 8, 'Loading market monitor…');
 
   try {
     const res = await fetch(`${API}/api/stockbee-monitor?universe=${universe}&days=400`);
