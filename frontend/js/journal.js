@@ -106,7 +106,7 @@ function _jnlRenderTable() {
       : t.status==='StoppedOut' ? '<span class="jnl-badge stopped">STOPPED</span>'
       : pnl>=0 ? '<span class="jnl-badge win">WIN</span>' : '<span class="jnl-badge loss">LOSS</span>';
     const gradeBadge = t.trade_grade ? `<span class="jnl-grade-tag ${t.trade_grade}">${t.trade_grade}</span>` : '';
-    const planIcon   = t.followed_plan===0 ? '❌' : t.followed_plan===1 ? '✅' : '';
+    const planIcon   = t.followed_plan===0 ? '<span style="color:var(--red);font-size:10px">✗ broke</span>' : t.followed_plan===1 ? '<span style="color:var(--green);font-size:10px">✓ plan</span>' : '';
     const setupBadge = t.setup_type ? `<span class="jnl-setup-tag">${t.setup_type}</span>` : '';
     const pos = ((t.psych_confidence||0)+(t.psych_focus||0)+(t.psych_patience||0))/3;
     const psychColor = pos>=7?'var(--green)':pos>=4?'var(--amber)':'var(--red)';
@@ -129,7 +129,7 @@ function _jnlRenderTable() {
       <td class="sm-td" style="font-size:10px;color:var(--text3);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.notes||''}</td>
       <td class="sm-td">
         <button class="sm-export-btn" onclick="jnlEditTrade(${t.id})">✏</button>
-        ${isOpen?`<button class="sm-export-btn" onclick="jnlCloseTrade(${t.id})">✅</button>`:''}
+        ${isOpen?`<button class="sm-export-btn" onclick="jnlCloseTrade(${t.id})" title="Close this trade" style="color:var(--cyan);font-weight:700">Close</button>`:''}
         <button class="sm-export-btn" onclick="jnlDeleteTrade(${t.id})" style="color:var(--red)">✗</button>
       </td>
     </tr>`;
@@ -497,10 +497,10 @@ function jnlCloseTrade(id) {
           background:transparent;color:var(--text3);font-family:var(--font-mono);font-size:11px;cursor:pointer">
           Cancel
         </button>
-        <button onclick="jnlConfirmClose(${id})"
+        <button id="jnl-confirm-close-btn" onclick="jnlConfirmClose(${id})"
           style="padding:8px 20px;border-radius:8px;border:none;background:var(--cyan,#06b6d4);
           color:#0a0e17;font-family:var(--font-mono);font-size:11px;font-weight:700;cursor:pointer">
-          Close Trade ✅
+          Close Trade ✓
         </button>
       </div>
     </div>`;
@@ -557,7 +557,7 @@ async function jnlConfirmClose(id) {
     return;
   }
 
-  const btn = document.querySelector('#jnl-close-dialog button:last-child');
+  const btn = document.getElementById('jnl-confirm-close-btn');
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
 
   try {
@@ -576,7 +576,7 @@ async function jnlConfirmClose(id) {
     await jnlLoadTrades();
   } catch (e) {
     alert('Failed to close trade: ' + e.message);
-    if (btn) { btn.textContent = 'Close Trade ✅'; btn.disabled = false; }
+    if (btn) { btn.textContent = 'Close Trade ✓'; btn.disabled = false; }
   }
 }
 
