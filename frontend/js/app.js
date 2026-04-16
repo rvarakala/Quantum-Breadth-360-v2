@@ -62,6 +62,41 @@ function _revealApp() {
   const layout = document.getElementById('app-layout');
   if (loading) loading.remove();
   if (layout) layout.style.opacity = '1';
+
+  // First-time onboarding hint
+  if (_currentUser && !localStorage.getItem('qb360_onboarded')) {
+    setTimeout(_showOnboardingTip, 1500);
+  }
+}
+
+function _showOnboardingTip() {
+  const tip = document.createElement('div');
+  tip.id = 'onboarding-tip';
+  tip.innerHTML = `
+    <div style="position:fixed;bottom:24px;right:24px;z-index:9000;max-width:340px;
+      background:var(--card-bg,#0f1628);border:1px solid var(--cyan,#06b6d4);border-radius:14px;
+      padding:18px 20px;box-shadow:0 8px 32px rgba(6,182,212,.15);font-family:var(--font-mono,'Space Mono',monospace);
+      animation:fadeSlideUp .4s ease-out">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+        <span style="font-size:14px;font-weight:700;color:var(--cyan,#06b6d4)">👋 Welcome to Quantum Breadth 360</span>
+        <button onclick="dismissOnboarding()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--text2,#94a3b8);line-height:1.7">
+        Start with <b style="color:var(--text,#e2e8f0)">Overview</b> for the market dashboard.<br>
+        Use the <b style="color:var(--text,#e2e8f0)">sidebar</b> to navigate between tabs.<br>
+        Go to <b style="color:var(--text,#e2e8f0)">Data Import</b> to sync market data first.
+      </div>
+      <button onclick="dismissOnboarding()" style="margin-top:12px;padding:6px 16px;border-radius:6px;
+        border:1px solid var(--cyan,#06b6d4);background:transparent;color:var(--cyan,#06b6d4);
+        font-family:var(--font-mono);font-size:10px;cursor:pointer;font-weight:600">Got it</button>
+    </div>`;
+  document.body.appendChild(tip);
+}
+
+function dismissOnboarding() {
+  localStorage.setItem('qb360_onboarded', '1');
+  const tip = document.getElementById('onboarding-tip');
+  if (tip) { tip.style.opacity = '0'; setTimeout(() => tip.remove(), 300); }
 }
 
 function _applyTierRestrictions(effectiveTier) {
