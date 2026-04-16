@@ -9,7 +9,11 @@ let _wlInited = false;
 let _wlAlertCount = 0;
 
 async function initWatchlistTab() {
-  if (_wlInited) { if (_wlActiveId) loadWatchlistData(_wlActiveId); return; }
+  if (_wlInited) {
+    // Already initialised — just refresh the list so any external changes show
+    await refreshWatchlists();
+    return;
+  }
   _wlInited = true;
   await refreshWatchlists();
   checkAlertsBadge();

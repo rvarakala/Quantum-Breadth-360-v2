@@ -178,6 +178,9 @@ function _createCharts() {
 
   _sc.priceChart.timeScale().fitContent();
   _sc.volChart.timeScale().fitContent();
+
+  // Ensure width matches container after initial render
+  requestAnimationFrame(() => _scResizeCharts());
 }
 
 // ── Toggle Overlay ───────────────────────────────────────────────────────────
@@ -240,6 +243,20 @@ function _updateLeftPanelVisibility() {
   );
   leftPanels.style.display = anyVisible ? '' : 'none';
   layout.classList.toggle('has-panels', anyVisible);
+
+  // Charts must be resized after the grid layout changes — give the DOM one
+  // frame to reflow, then read the new container width and apply it.
+  requestAnimationFrame(() => _scResizeCharts());
+}
+
+/** Resize both LWC chart instances to match the current container width. */
+function _scResizeCharts() {
+  const wrap = document.getElementById('sc-chart-wrap');
+  if (!wrap || !_sc.priceChart) return;
+  const w = wrap.clientWidth - 16; // subtract .sc-chart-wrap padding (8px × 2)
+  if (w <= 0) return;
+  try { _sc.priceChart.applyOptions({ width: w }); } catch (e) {}
+  try { _sc.volChart.applyOptions({ width: w });   } catch (e) {}
 }
 
 // ── MA Overlay ───────────────────────────────────────────────────────────────
@@ -493,9 +510,24 @@ function _renderPeers(peers) {
   `).join('');
 }
 
-// ── Init: Enter key support ──────────────────────────────────────────────────
+// ── Init: Enter key support + resize handling ────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
   const inp = document.getElementById('sc-ticker-input');
   if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') loadSmartChart(); });
+
+  // ResizeObserver on the chart wrap — fires whenever its width changes
+  // (panel open/close, window resize, sidebar collapse)
+  const wrap = document.getElementById('sc-chart-wrap');
+  if (wrap && window.ResizeObserver) {
+    const ro = new ResizeObserver(() => {
+      if (_sc.priceChart) requestAnimationFrame(() => _scResizeCharts());
+    });
+    ro.observe(wrap);
+  }
+});
+
+// Fallback for browsers without ResizeObserver
+window.addEventListener('resize', () => {
+  if (_sc.priceChart) requestAnimationFrame(() => _scResizeCharts());
 });

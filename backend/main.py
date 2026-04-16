@@ -3215,21 +3215,28 @@ def api_list_watchlists():
     return {"watchlists": list_watchlists()}
 
 @app.post("/api/watchlist")
-async def api_create_watchlist(req: dict = None):
-    from fastapi import Request
-    if not req or "name" not in req:
+async def api_create_watchlist(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return {"error": "Invalid JSON body"}
+    if not body or "name" not in body:
         return {"error": "name required"}
-    return create_watchlist(req["name"])
+    return create_watchlist(body["name"])
 
 @app.delete("/api/watchlist/{wid}")
 def api_delete_watchlist(wid: int):
     return delete_watchlist(wid)
 
 @app.post("/api/watchlist/{wid}/add")
-async def api_add_ticker(wid: int, req: dict = None):
-    if not req or "ticker" not in req:
+async def api_add_ticker(wid: int, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return {"error": "Invalid JSON body"}
+    if not body or "ticker" not in body:
         return {"error": "ticker required"}
-    return wl_add_ticker(wid, req["ticker"], req.get("notes", ""))
+    return wl_add_ticker(wid, body["ticker"], body.get("notes", ""))
 
 @app.delete("/api/watchlist/{wid}/remove/{ticker}")
 def api_remove_ticker(wid: int, ticker: str):
