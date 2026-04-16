@@ -67,6 +67,9 @@ function _revealApp() {
   if (_currentUser && !localStorage.getItem('qb360_onboarded')) {
     setTimeout(_showOnboardingTip, 1500);
   }
+
+  // Initialize hash-based routing (load tab from URL hash)
+  _initRouting();
 }
 
 function _showOnboardingTip() {
@@ -98,6 +101,22 @@ function dismissOnboarding() {
   const tip = document.getElementById('onboarding-tip');
   if (tip) { tip.style.opacity = '0'; setTimeout(() => tip.remove(), 300); }
 }
+
+// ─── HASH-BASED ROUTING ──────────────────────────────────────────────────
+// Supports: /app#smart-money, /app#charts, /app#overview, etc.
+function _initRouting() {
+  const hash = window.location.hash.replace('#', '').trim();
+  const validTabs = [...document.querySelectorAll('.tab-content')].map(el => el.id.replace('tab-', ''));
+  if (hash && validTabs.includes(hash)) {
+    switchTab(hash);
+  }
+}
+
+// Handle browser back/forward
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash.replace('#', '').trim();
+  if (hash) switchTab(hash);
+});
 
 function _applyTierRestrictions(effectiveTier) {
   if (effectiveTier === 'admin' || effectiveTier === 'elite') return; // Full access
@@ -394,6 +413,11 @@ function switchTab(tab) {
   if (_currentUser && _allowedTabs !== '__all__' && !_allowedTabs.includes(tab)) {
     showUpgradeModal();
     return;
+  }
+
+  // Update URL hash (enables bookmarking / back button)
+  if (window.location.hash !== `#${tab}`) {
+    history.replaceState(null, '', `#${tab}`);
   }
 
   // Update sidebar nav items
