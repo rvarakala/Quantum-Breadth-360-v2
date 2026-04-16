@@ -22,35 +22,57 @@ def _ensure_journal_tables():
         CREATE TABLE IF NOT EXISTS journal_trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ticker TEXT NOT NULL,
-            direction TEXT DEFAULT 'Long',       -- Long / Short
-            setup_type TEXT DEFAULT '',           -- VCP, Breakout, Pullback, SVRO, MeanRev, PocketPivot, Other
-            timeframe TEXT DEFAULT 'Swing',       -- Intraday, Swing, Positional
-            regime TEXT DEFAULT '',               -- Bullish, Neutral, Distribution, Bearish (Q-BRAM at entry)
+            direction TEXT DEFAULT 'Long',
+            setup_type TEXT DEFAULT '',
+            timeframe TEXT DEFAULT 'Swing',
+            regime TEXT DEFAULT '',
+            broker TEXT DEFAULT '',
+            market_type TEXT DEFAULT 'Stocks',
 
             entry_date TEXT NOT NULL,
+            entry_time TEXT DEFAULT '',
             entry_price REAL NOT NULL,
             stop_loss REAL,
             target REAL,
             quantity REAL DEFAULT 0,
-            position_size_pct REAL DEFAULT 0,     -- % of capital
+            position_size_pct REAL DEFAULT 0,
+            fees REAL DEFAULT 0,
+            risk_amount REAL DEFAULT 0,
 
             exit_date TEXT,
+            exit_time TEXT DEFAULT '',
             exit_price REAL,
-            status TEXT DEFAULT 'Open',           -- Open, Closed, StoppedOut
+            status TEXT DEFAULT 'Open',
 
-            -- Computed fields (updated on save)
             pnl_amount REAL DEFAULT 0,
             pnl_pct REAL DEFAULT 0,
             r_multiple REAL DEFAULT 0,
             holding_days INTEGER DEFAULT 0,
+            mae REAL DEFAULT 0,
+            mfe REAL DEFAULT 0,
 
-            -- Psychology
-            pre_emotion TEXT DEFAULT '',          -- Confident, FOMO, Revenge, Bored, Patient, Fearful
-            post_review TEXT DEFAULT '',           -- FollowedPlan, ExitedEarly, EnteredEarly, MovedStop, Oversized, Chased, NoSetup
-            discipline_score INTEGER DEFAULT 0,   -- 1-10
+            -- Psychology sliders (1-10)
+            psych_confidence INTEGER DEFAULT 0,
+            psych_focus INTEGER DEFAULT 0,
+            psych_stress INTEGER DEFAULT 0,
+            psych_patience INTEGER DEFAULT 0,
+            psych_fomo INTEGER DEFAULT 0,
+            psych_revenge INTEGER DEFAULT 0,
+            psych_sleep INTEGER DEFAULT 0,
+            psych_energy INTEGER DEFAULT 0,
+
+            -- Legacy single field kept for compat
+            pre_emotion TEXT DEFAULT '',
+            discipline_score INTEGER DEFAULT 0,
+
+            -- Post-trade
+            post_review TEXT DEFAULT '',
+            followed_plan INTEGER DEFAULT 1,
+            trade_grade TEXT DEFAULT '',
+            would_repeat INTEGER DEFAULT 1,
+            post_notes TEXT DEFAULT '',
             notes TEXT DEFAULT '',
 
-            -- Metadata
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
@@ -65,6 +87,37 @@ def _ensure_journal_tables():
         CREATE INDEX IF NOT EXISTS idx_journal_entry_date ON journal_trades(entry_date);
     """)
     conn.commit()
+
+    # Add new columns to existing DBs (ALTER TABLE is idempotent via try/except)
+    new_cols = [
+        ("broker", "TEXT DEFAULT ''"),
+        ("market_type", "TEXT DEFAULT 'Stocks'"),
+        ("entry_time", "TEXT DEFAULT ''"),
+        ("exit_time", "TEXT DEFAULT ''"),
+        ("fees", "REAL DEFAULT 0"),
+        ("risk_amount", "REAL DEFAULT 0"),
+        ("mae", "REAL DEFAULT 0"),
+        ("mfe", "REAL DEFAULT 0"),
+        ("psych_confidence", "INTEGER DEFAULT 0"),
+        ("psych_focus", "INTEGER DEFAULT 0"),
+        ("psych_stress", "INTEGER DEFAULT 0"),
+        ("psych_patience", "INTEGER DEFAULT 0"),
+        ("psych_fomo", "INTEGER DEFAULT 0"),
+        ("psych_revenge", "INTEGER DEFAULT 0"),
+        ("psych_sleep", "INTEGER DEFAULT 0"),
+        ("psych_energy", "INTEGER DEFAULT 0"),
+        ("followed_plan", "INTEGER DEFAULT 1"),
+        ("trade_grade", "TEXT DEFAULT ''"),
+        ("would_repeat", "INTEGER DEFAULT 1"),
+        ("post_notes", "TEXT DEFAULT ''"),
+    ]
+    for col, defn in new_cols:
+        try:
+            conn.execute(f"ALTER TABLE journal_trades ADD COLUMN {col} {defn}")
+            conn.commit()
+        except Exception:
+            pass
+
     conn.close()
 
 
@@ -435,6 +488,10 @@ def get_settings() -> dict:
     settings.setdefault("starting_capital", 1000000)
     settings.setdefault("max_risk_per_trade", 1.0)
     settings.setdefault("default_setup", "VCP")
+    settings.setdefault("max_daily_loss_pct", 2.0)
+    settings.setdefault("max_weekly_drawdown_pct", 5.0)
+    settings.setdefault("max_trades_per_day", 5)
+    settings.setdefault("max_consecutive_losses", 3)
     return settings
 
 
@@ -447,3 +504,239 @@ def save_settings(settings: dict) -> dict:
     conn.commit()
     conn.close()
     return {"status": "ok"}
+
+
+def get_tilt_score(trades: list) -> dict:
+    """
+    Compute Tilt Meter™ score (0-100) from recent trade patterns + psychology.
+    0-30: Calm | 31-60: Warning | 61-80: Tilted | 81-100: Dangerous
+    """
+    score = 0
+    factors = []
+
+    # Look at last 10 trades
+    recent = sorted(trades, key=lambda t: t.get("entry_date",""), reverse=True)[:10]
+    closed_recent = [t for t in recent if t["status"] in ("Closed","StoppedOut")]
+
+    if not recent:
+        return {"score": 0, "level": "Calm", "color": "#22c55e", "factors": []}
+
+    # Factor 1: consecutive losses (max 30 pts)
+    streak = 0
+    for t in closed_recent:
+        if t.get("pnl_pct", 0) < 0:
+            streak += 1
+        else:
+            break
+    if streak >= 2:
+        pts = min(30, streak * 12)
+        score += pts
+        factors.append(f"{streak} consecutive losses (+{pts})")
+
+    # Factor 2: revenge emotion flag (max 20 pts)
+    revenge_trades = [t for t in recent if t.get("pre_emotion") == "Revenge" or t.get("psych_revenge", 0) >= 7]
+    if revenge_trades:
+        pts = min(20, len(revenge_trades) * 10)
+        score += pts
+        factors.append(f"Revenge emotion detected (+{pts})")
+
+    # Factor 3: FOMO trades (max 15 pts)
+    fomo_trades = [t for t in recent if t.get("pre_emotion") == "FOMO" or t.get("psych_fomo", 0) >= 7]
+    if fomo_trades:
+        pts = min(15, len(fomo_trades) * 8)
+        score += pts
+        factors.append(f"FOMO entries detected (+{pts})")
+
+    # Factor 4: overtrading (more than 3 trades same day, max 15 pts)
+    from collections import Counter
+    date_counts = Counter(t.get("entry_date","")[:10] for t in recent)
+    overtrade_days = {d: c for d, c in date_counts.items() if c > 3}
+    if overtrade_days:
+        pts = min(15, len(overtrade_days) * 8)
+        score += pts
+        factors.append(f"Overtrading detected ({max(overtrade_days.values())} trades/day) (+{pts})")
+
+    # Factor 5: low discipline score (max 10 pts)
+    disc_scores = [t.get("discipline_score", 0) for t in recent if t.get("discipline_score")]
+    if disc_scores:
+        avg_disc = sum(disc_scores) / len(disc_scores)
+        if avg_disc < 5:
+            pts = min(10, int((5 - avg_disc) * 3))
+            score += pts
+            factors.append(f"Low discipline avg ({avg_disc:.1f}/10) (+{pts})")
+
+    # Factor 6: low stress/focus from psych sliders (max 10 pts)
+    stress_vals = [t.get("psych_stress", 0) for t in recent if t.get("psych_stress", 0) > 0]
+    if stress_vals and sum(stress_vals)/len(stress_vals) >= 7:
+        pts = 10
+        score += pts
+        factors.append(f"High stress detected (+{pts})")
+
+    score = min(100, score)
+
+    if score <= 30:
+        level, color = "Calm", "#22c55e"
+    elif score <= 60:
+        level, color = "Warning", "#f59e0b"
+    elif score <= 80:
+        level, color = "Tilted", "#ef4444"
+    else:
+        level, color = "Dangerous", "#dc2626"
+
+    return {"score": score, "level": level, "color": color, "factors": factors}
+
+
+def get_drawdown_series(trades: list) -> dict:
+    """Compute max drawdown and drawdown curve from closed trades."""
+    closed = sorted(
+        [t for t in trades if t["status"] in ("Closed","StoppedOut")],
+        key=lambda t: t.get("exit_date") or t.get("entry_date") or ""
+    )
+    if not closed:
+        return {"max_drawdown_pct": 0, "current_drawdown_pct": 0, "curve": []}
+
+    peak = 0
+    cum = 0
+    max_dd = 0
+    curve = []
+    for t in closed:
+        cum += t.get("pnl_amount", 0)
+        if cum > peak:
+            peak = cum
+        dd = (cum - peak) / peak * 100 if peak > 0 else 0
+        max_dd = min(max_dd, dd)
+        curve.append({"date": t.get("exit_date") or t.get("entry_date"), "drawdown": round(dd, 2)})
+
+    current_dd = curve[-1]["drawdown"] if curve else 0
+    return {
+        "max_drawdown_pct": round(max_dd, 2),
+        "current_drawdown_pct": round(current_dd, 2),
+        "curve": curve
+    }
+
+
+def get_monthly_pnl(trades: list) -> list:
+    """Group closed trades P&L by YYYY-MM."""
+    from collections import defaultdict
+    closed = [t for t in trades if t["status"] in ("Closed","StoppedOut")]
+    monthly: dict = defaultdict(float)
+    for t in closed:
+        d = (t.get("exit_date") or t.get("entry_date") or "")[:7]
+        if d:
+            monthly[d] += t.get("pnl_amount", 0)
+    return [{"month": k, "pnl": round(v, 2)} for k, v in sorted(monthly.items())]
+
+
+def get_time_of_day_stats(trades: list) -> list:
+    """Group closed trades by entry hour (0-23)."""
+    from collections import defaultdict
+    closed = [t for t in trades if t["status"] in ("Closed","StoppedOut")]
+    hourly: dict = defaultdict(lambda: {"trades": 0, "wins": 0, "total_pnl": 0.0})
+    for t in closed:
+        et = t.get("entry_time","") or ""
+        try:
+            hour = int(et[:2]) if len(et) >= 2 else -1
+        except:
+            hour = -1
+        if hour >= 0:
+            hourly[hour]["trades"] += 1
+            if t.get("pnl_pct", 0) > 0:
+                hourly[hour]["wins"] += 1
+            hourly[hour]["total_pnl"] += t.get("pnl_amount", 0)
+    result = []
+    for h in sorted(hourly.keys()):
+        d = hourly[h]
+        result.append({
+            "hour": h,
+            "label": f"{h:02d}:00",
+            "trades": d["trades"],
+            "win_rate": round(d["wins"]/d["trades"]*100, 1) if d["trades"] else 0,
+            "total_pnl": round(d["total_pnl"], 2),
+        })
+    return result
+
+
+def get_ai_insights(analytics: dict, trades: list) -> list:
+    """Rule-based AI coaching insights from trade patterns."""
+    insights = []
+    if analytics.get("total", 0) < 5:
+        return [{"type": "info", "icon": "💡", "text": "Log at least 5 trades to unlock AI coaching insights."}]
+
+    by_emotion = analytics.get("by_emotion", {})
+    by_setup = analytics.get("by_setup", {})
+    mistakes = analytics.get("mistakes", {})
+    win_rate = analytics.get("win_rate", 0)
+    avg_r = analytics.get("avg_r", 0)
+    profit_factor = analytics.get("profit_factor", 0)
+    max_loss_streak = analytics.get("max_loss_streak", 0)
+    closed = [t for t in trades if t["status"] in ("Closed","StoppedOut")]
+
+    # Emotion → performance
+    for emo, d in by_emotion.items():
+        if emo in ("FOMO","Revenge") and d.get("trades", 0) >= 2 and d.get("win_rate", 50) < 40:
+            insights.append({"type": "danger", "icon": "🚨",
+                "text": f"Your {emo} trades win only {d['win_rate']}% of the time. Avoid trading when feeling {emo.lower()}."})
+        if emo == "Patient" and d.get("trades", 0) >= 2 and d.get("win_rate", 0) > 60:
+            insights.append({"type": "positive", "icon": "✅",
+                "text": f"You win {d['win_rate']}% when feeling Patient. Prioritise patience before entry."})
+
+    # Best/worst setup
+    if by_setup:
+        best = max(by_setup.items(), key=lambda x: x[1].get("avg_r", 0))
+        worst = min(by_setup.items(), key=lambda x: x[1].get("avg_r", 99))
+        if best[1].get("trades", 0) >= 3:
+            insights.append({"type": "positive", "icon": "⚡",
+                "text": f"Your best setup is {best[0]} with {best[1]['avg_r']}R avg. Focus here."})
+        if worst[1].get("trades", 0) >= 3 and worst[1].get("avg_r", 0) < 0:
+            insights.append({"type": "warning", "icon": "⚠",
+                "text": f"{worst[0]} setups are losing you {abs(worst[1]['avg_r'])}R on average. Consider dropping this setup."})
+
+    # Overtrading detection
+    from collections import Counter
+    date_counts = Counter(t.get("entry_date","")[:10] for t in closed)
+    overtrade_days = {d: c for d, c in date_counts.items() if c > 3}
+    if len(overtrade_days) >= 2:
+        insights.append({"type": "warning", "icon": "📊",
+            "text": f"You overtrade on {len(overtrade_days)} days (4+ trades). Overtrading often reduces profitability."})
+
+    # Mistake patterns
+    if mistakes.get("MovedStop", 0) >= 3:
+        insights.append({"type": "danger", "icon": "🛑",
+            "text": f"You've moved your stop loss {mistakes['MovedStop']} times. This is your biggest risk leak."})
+    if mistakes.get("ExitedEarly", 0) >= 3:
+        insights.append({"type": "warning", "icon": "✂",
+            "text": f"Early exits detected {mistakes['ExitedEarly']} times. You may be leaving significant R on the table."})
+    if mistakes.get("Oversized", 0) >= 2:
+        insights.append({"type": "danger", "icon": "📦",
+            "text": f"Oversizing detected {mistakes['Oversized']} times — this is a direct drawdown risk."})
+
+    # Loss streak warning
+    if max_loss_streak >= 4:
+        insights.append({"type": "danger", "icon": "🔴",
+            "text": f"Max losing streak: {max_loss_streak}. After 3 losses, consider reducing size or taking a break."})
+
+    # Profit factor
+    if profit_factor < 1.0 and analytics.get("closed", 0) >= 10:
+        insights.append({"type": "danger", "icon": "📉",
+            "text": f"Profit factor is {profit_factor} (below 1.0). Losses exceed gains. Review your exit strategy."})
+    elif profit_factor >= 2.0:
+        insights.append({"type": "positive", "icon": "🏆",
+            "text": f"Excellent profit factor of {profit_factor}. Your winners are significantly larger than losers."})
+
+    # Sleep impact on performance
+    sleep_trades = [(t.get("psych_sleep", 0), t.get("pnl_pct", 0)) for t in closed if t.get("psych_sleep", 0) > 0]
+    if len(sleep_trades) >= 5:
+        poor_sleep = [(s, p) for s, p in sleep_trades if s <= 4]
+        good_sleep = [(s, p) for s, p in sleep_trades if s >= 7]
+        if poor_sleep and good_sleep:
+            poor_wr = sum(1 for _, p in poor_sleep if p > 0) / len(poor_sleep) * 100
+            good_wr = sum(1 for _, p in good_sleep if p > 0) / len(good_sleep) * 100
+            if good_wr - poor_wr > 15:
+                insights.append({"type": "warning", "icon": "😴",
+                    "text": f"Poor sleep reduces your win rate by {good_wr-poor_wr:.0f}%. Prioritise sleep before trading days."})
+
+    if not insights:
+        insights.append({"type": "info", "icon": "💡",
+            "text": "No major issues detected. Keep logging trades consistently for deeper pattern detection."})
+
+    return insights[:8]  # cap at 8 insights

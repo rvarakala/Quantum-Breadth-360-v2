@@ -670,6 +670,8 @@
 
   <!-- TRADING JOURNAL TAB -->
   <div class="tab-content" id="tab-journal">
+
+    <!-- Header row -->
     <div class="jnl-header">
       <div class="jnl-title">📖 TRADE JOURNAL</div>
       <div class="jnl-controls">
@@ -680,24 +682,105 @@
           <option value="Closed">Closed</option>
           <option value="StoppedOut">Stopped Out</option>
         </select>
-        <button class="jnl-btn" onclick="jnlShowAnalytics()">📊 Analytics</button>
+        <button class="jnl-btn" onclick="jnlToggleView('table')" id="jnl-view-table">📋 Table</button>
+        <button class="jnl-btn" onclick="jnlToggleView('analytics')" id="jnl-view-analytics">📊 Analytics</button>
+        <button class="jnl-btn" onclick="jnlToggleView('ai')" id="jnl-view-ai">🤖 AI Coach</button>
         <button class="jnl-btn" onclick="jnlExportCSV()">📄 Export</button>
       </div>
     </div>
 
-    <!-- Stats row -->
-    <div class="jnl-stats" id="jnl-stats"></div>
+    <!-- Tilt Meter + Stats row -->
+    <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;padding:6px 0 10px">
+      <!-- Tilt Meter widget -->
+      <div id="jnl-tilt-widget" style="background:var(--card-bg);border:1px solid var(--card-border);
+        border-radius:10px;padding:12px 16px;min-width:200px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--text3);font-family:var(--font-mono)">TILT METER™</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div id="jnl-tilt-score" style="font-size:28px;font-weight:800;font-family:var(--font-mono);color:var(--green)">0</div>
+          <div>
+            <div id="jnl-tilt-level" style="font-size:11px;font-weight:700;color:var(--green);font-family:var(--font-mono)">CALM</div>
+            <div style="width:100px;height:4px;background:var(--card-border);border-radius:2px;margin-top:4px;overflow:hidden">
+              <div id="jnl-tilt-bar" style="height:100%;width:0%;background:var(--green);border-radius:2px;transition:width .5s,background .5s"></div>
+            </div>
+          </div>
+        </div>
+        <div id="jnl-tilt-factors" style="font-size:9px;color:var(--text3);font-family:var(--font-mono);line-height:1.6"></div>
+      </div>
+      <!-- Stat cards -->
+      <div class="jnl-stats" id="jnl-stats" style="flex:1"></div>
+    </div>
 
-    <!-- Trade table -->
-    <div class="jnl-table-wrap" id="jnl-table-wrap">
-      <div style="text-align:center;padding:40px;color:var(--text3)">
-        <div style="font-size:36px;margin-bottom:8px">📖</div>
-        <div style="font-family:var(--font-mono);font-size:12px">Your trade journal is empty.<br>Click <b>+ New Trade</b> to get started.</div>
+    <!-- TABLE VIEW -->
+    <div id="jnl-view-table-panel">
+      <div class="jnl-table-wrap" id="jnl-table-wrap">
+        <div style="text-align:center;padding:40px;color:var(--text3)">
+          <div style="font-size:36px;margin-bottom:8px">📖</div>
+          <div style="font-family:var(--font-mono);font-size:12px">Your trade journal is empty.<br>Click <b>+ New Trade</b> to get started.</div>
+        </div>
       </div>
     </div>
 
-    <!-- Analytics panel (hidden by default) -->
-    <div id="jnl-analytics-panel" style="display:none"></div>
+    <!-- ANALYTICS VIEW -->
+    <div id="jnl-view-analytics-panel" style="display:none">
+      <div class="jnl-analytics-grid">
+        <!-- Performance summary -->
+        <div class="jnl-analytics-card" id="jnl-perf-card">
+          <div class="sc-panel-title">📊 Performance Summary</div>
+          <div id="jnl-perf-content" style="color:var(--text3);font-size:11px">Load trades to see analytics</div>
+        </div>
+        <!-- Equity Curve -->
+        <div class="jnl-analytics-card" style="grid-column:span 2">
+          <div class="sc-panel-title">📈 Equity Curve</div>
+          <canvas id="jnl-equity-canvas" height="120" style="width:100%"></canvas>
+        </div>
+        <!-- Drawdown -->
+        <div class="jnl-analytics-card">
+          <div class="sc-panel-title">📉 Drawdown</div>
+          <canvas id="jnl-dd-canvas" height="100" style="width:100%"></canvas>
+        </div>
+        <!-- R Distribution -->
+        <div class="jnl-analytics-card" id="jnl-rdist-card">
+          <div class="sc-panel-title">🎯 R-Multiple Distribution</div>
+          <canvas id="jnl-rdist-canvas" height="120" style="width:100%"></canvas>
+        </div>
+        <!-- Monthly P&L -->
+        <div class="jnl-analytics-card" style="grid-column:span 2">
+          <div class="sc-panel-title">📅 Monthly P&L</div>
+          <canvas id="jnl-monthly-canvas" height="100" style="width:100%"></canvas>
+        </div>
+        <!-- By Setup -->
+        <div class="jnl-analytics-card" id="jnl-setup-card">
+          <div class="sc-panel-title">⚡ By Setup Type</div>
+          <div id="jnl-setup-content"></div>
+        </div>
+        <!-- By Regime -->
+        <div class="jnl-analytics-card" id="jnl-regime-card">
+          <div class="sc-panel-title">📈 By Q-BRAM Regime</div>
+          <div id="jnl-regime-content"></div>
+        </div>
+        <!-- By Emotion -->
+        <div class="jnl-analytics-card" id="jnl-emotion-card">
+          <div class="sc-panel-title">🧠 By Pre-Trade Emotion</div>
+          <div id="jnl-emotion-content"></div>
+        </div>
+        <!-- Psychology trend -->
+        <div class="jnl-analytics-card">
+          <div class="sc-panel-title">🧘 Psychology Score Trend</div>
+          <canvas id="jnl-psych-canvas" height="100" style="width:100%"></canvas>
+        </div>
+        <!-- Mistakes -->
+        <div class="jnl-analytics-card" id="jnl-mistake-card">
+          <div class="sc-panel-title">⚠ Mistake Frequency</div>
+          <div id="jnl-mistake-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI COACH VIEW -->
+    <div id="jnl-view-ai-panel" style="display:none">
+      <div id="jnl-ai-content" style="padding:8px 0"></div>
+    </div>
+
   </div><!-- /tab-journal -->
 
   <!-- JOURNAL: Add/Edit Trade Modal -->
@@ -705,35 +788,126 @@
     <div class="jnl-modal">
       <div class="jnl-modal-hdr">
         <span id="jnl-modal-title">New Trade</span>
+        <!-- Live R preview -->
+        <span id="jnl-r-preview" style="font-size:11px;font-family:var(--font-mono);color:var(--text3)"></span>
         <button onclick="jnlCloseModal()" class="jnl-modal-close">&times;</button>
       </div>
+
+      <!-- Modal tabs -->
+      <div style="display:flex;border-bottom:1px solid var(--border);padding:0 20px">
+        <button class="jnl-modal-tab active" onclick="jnlSwitchModalTab('trade',this)">📋 Trade</button>
+        <button class="jnl-modal-tab" onclick="jnlSwitchModalTab('psychology',this)">🧠 Psychology</button>
+        <button class="jnl-modal-tab" onclick="jnlSwitchModalTab('review',this)">✏ Review</button>
+      </div>
+
       <div class="jnl-modal-body">
         <input type="hidden" id="jnl-edit-id">
-        <div class="jnl-form-row">
-          <div class="jnl-field"><label>TICKER</label><input id="jnl-ticker" placeholder="RELIANCE"></div>
-          <div class="jnl-field"><label>DIRECTION</label><select id="jnl-direction"><option>Long</option><option>Short</option></select></div>
-          <div class="jnl-field"><label>SETUP</label><select id="jnl-setup"><option value="">Select...</option><option>VCP</option><option>Breakout</option><option>Pullback</option><option>SVRO</option><option>MeanReversion</option><option>PocketPivot</option><option>EarningsGap</option><option>Other</option></select></div>
-          <div class="jnl-field"><label>TIMEFRAME</label><select id="jnl-timeframe"><option>Swing</option><option>Intraday</option><option>Positional</option></select></div>
+
+        <!-- TAB: TRADE -->
+        <div id="jnl-tab-trade">
+          <div class="jnl-form-row">
+            <div class="jnl-field"><label>TICKER</label><input id="jnl-ticker" placeholder="RELIANCE" oninput="jnlUpdateRPreview()"></div>
+            <div class="jnl-field"><label>DIRECTION</label><select id="jnl-direction"><option>Long</option><option>Short</option></select></div>
+            <div class="jnl-field"><label>SETUP</label>
+              <select id="jnl-setup"><option value="">Select...</option><option>VCP</option><option>Breakout</option><option>Pullback</option><option>SVRO</option><option>MeanReversion</option><option>PocketPivot</option><option>EarningsGap</option><option>Stage2Base</option><option>Other</option></select>
+            </div>
+            <div class="jnl-field"><label>TIMEFRAME</label><select id="jnl-timeframe"><option>Swing</option><option>Intraday</option><option>Positional</option></select></div>
+          </div>
+          <div class="jnl-form-row">
+            <div class="jnl-field"><label>MARKET</label>
+              <select id="jnl-market"><option>Stocks</option><option>Futures</option><option>Options</option><option>Forex</option><option>Crypto</option></select>
+            </div>
+            <div class="jnl-field"><label>BROKER</label><input id="jnl-broker" placeholder="Zerodha"></div>
+            <div class="jnl-field"><label>Q-BRAM REGIME</label>
+              <select id="jnl-regime"><option value="">At entry...</option><option>Bullish</option><option>Neutral</option><option>Distribution</option><option>Bearish</option></select>
+            </div>
+            <div class="jnl-field"><label>STATUS</label><select id="jnl-status"><option>Open</option><option>Closed</option><option>StoppedOut</option></select></div>
+          </div>
+          <div class="jnl-form-row">
+            <div class="jnl-field"><label>ENTRY DATE</label><input type="date" id="jnl-entry-date"></div>
+            <div class="jnl-field"><label>ENTRY TIME</label><input type="time" id="jnl-entry-time"></div>
+            <div class="jnl-field"><label>ENTRY PRICE ₹</label><input type="number" step="0.01" id="jnl-entry-price" placeholder="0.00" oninput="jnlUpdateRPreview()"></div>
+            <div class="jnl-field"><label>QUANTITY</label><input type="number" id="jnl-qty" placeholder="0" oninput="jnlUpdateRPreview()"></div>
+          </div>
+          <div class="jnl-form-row">
+            <div class="jnl-field"><label>STOP LOSS ₹</label><input type="number" step="0.01" id="jnl-stop" placeholder="0.00" oninput="jnlUpdateRPreview()"></div>
+            <div class="jnl-field"><label>TARGET ₹</label><input type="number" step="0.01" id="jnl-target" placeholder="0.00" oninput="jnlUpdateRPreview()"></div>
+            <div class="jnl-field"><label>RISK AMOUNT ₹</label><input type="number" step="0.01" id="jnl-risk-amount" placeholder="Auto" readonly style="opacity:.6"></div>
+            <div class="jnl-field"><label>FEES / SLIPPAGE ₹</label><input type="number" step="0.01" id="jnl-fees" placeholder="0.00"></div>
+          </div>
+          <div class="jnl-form-row">
+            <div class="jnl-field"><label>EXIT DATE</label><input type="date" id="jnl-exit-date"></div>
+            <div class="jnl-field"><label>EXIT TIME</label><input type="time" id="jnl-exit-time"></div>
+            <div class="jnl-field"><label>EXIT PRICE ₹</label><input type="number" step="0.01" id="jnl-exit-price" placeholder="0.00" oninput="jnlUpdateRPreview()"></div>
+            <div class="jnl-field"><label>NOTES / THESIS</label><input id="jnl-notes" placeholder="Why did you take this?"></div>
+          </div>
         </div>
-        <div class="jnl-form-row">
-          <div class="jnl-field"><label>ENTRY DATE</label><input type="date" id="jnl-entry-date"></div>
-          <div class="jnl-field"><label>ENTRY PRICE</label><input type="number" step="0.01" id="jnl-entry-price" placeholder="0.00"></div>
-          <div class="jnl-field"><label>STOP LOSS</label><input type="number" step="0.01" id="jnl-stop" placeholder="0.00"></div>
-          <div class="jnl-field"><label>TARGET</label><input type="number" step="0.01" id="jnl-target" placeholder="0.00"></div>
+
+        <!-- TAB: PSYCHOLOGY -->
+        <div id="jnl-tab-psychology" style="display:none">
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);margin-bottom:14px">
+            Rate your mental state BEFORE entering this trade (1 = very low, 10 = very high)
+          </div>
+          <div class="jnl-slider-grid">
+            <div class="jnl-slider-row"><label>😎 Confidence</label><input type="range" min="1" max="10" value="5" id="jnl-psych-confidence" oninput="jnlUpdateSliderVal(this)"><span id="jnl-psych-confidence-val">5</span></div>
+            <div class="jnl-slider-row"><label>🎯 Focus</label><input type="range" min="1" max="10" value="5" id="jnl-psych-focus" oninput="jnlUpdateSliderVal(this)"><span id="jnl-psych-focus-val">5</span></div>
+            <div class="jnl-slider-row"><label>😰 Stress</label><input type="range" min="1" max="10" value="5" id="jnl-psych-stress" oninput="jnlUpdateSliderVal(this)"><span id="jnl-psych-stress-val">5</span></div>
+            <div class="jnl-slider-row"><label>🧘 Patience</label><input type="range" min="1" max="10" value="5" id="jnl-psych-patience" oninput="jnlUpdateSliderVal(this)"><span id="jnl-psych-patience-val">5</span></div>
+            <div class="jnl-slider-row"><label>📡 FOMO</label><input type="range" min="1" max="10" value="1" id="jnl-psych-fomo" oninput="jnlUpdateSliderVal(this)"><span id="jnl-psych-fomo-val">1</span></div>
+            <div class="jnl-slider-row"><label>😡 Revenge</label><input type="range" min="1" max="10" value="1" id="jnl-psych-revenge" oninput="jnlUpdateSliderVal(this)"><span id="jnl-psych-revenge-val">1</span></div>
+            <div class="jnl-slider-row"><label>😴 Sleep Quality</label><input type="range" min="1" max="10" value="7" id="jnl-psych-sleep" oninput="jnlUpdateSliderVal(this)"><span id="jnl-psych-sleep-val">7</span></div>
+            <div class="jnl-slider-row"><label>⚡ Energy</label><input type="range" min="1" max="10" value="7" id="jnl-psych-energy" oninput="jnlUpdateSliderVal(this)"><span id="jnl-psych-energy-val">7</span></div>
+          </div>
+          <div class="jnl-form-row" style="margin-top:14px">
+            <div class="jnl-field"><label>DISCIPLINE SCORE (1-10)</label><input type="number" min="1" max="10" id="jnl-discipline" placeholder="7"></div>
+            <div class="jnl-field"><label>DOMINANT EMOTION</label>
+              <select id="jnl-emotion"><option value="">How did you feel?</option><option>Confident</option><option>Patient</option><option>FOMO</option><option>Revenge</option><option>Bored</option><option>Fearful</option><option>Calm</option><option>Anxious</option></select>
+            </div>
+          </div>
         </div>
-        <div class="jnl-form-row">
-          <div class="jnl-field"><label>QUANTITY</label><input type="number" id="jnl-qty" placeholder="0"></div>
-          <div class="jnl-field"><label>EXIT DATE</label><input type="date" id="jnl-exit-date"></div>
-          <div class="jnl-field"><label>EXIT PRICE</label><input type="number" step="0.01" id="jnl-exit-price" placeholder="0.00"></div>
-          <div class="jnl-field"><label>STATUS</label><select id="jnl-status"><option>Open</option><option>Closed</option><option>StoppedOut</option></select></div>
+
+        <!-- TAB: REVIEW -->
+        <div id="jnl-tab-review" style="display:none">
+          <div class="jnl-form-row">
+            <div class="jnl-field">
+              <label>TRADE GRADE</label>
+              <div style="display:flex;gap:6px;margin-top:4px">
+                <button type="button" class="jnl-grade-btn" data-grade="A" onclick="jnlSetGrade('A',this)">A</button>
+                <button type="button" class="jnl-grade-btn" data-grade="B" onclick="jnlSetGrade('B',this)">B</button>
+                <button type="button" class="jnl-grade-btn" data-grade="C" onclick="jnlSetGrade('C',this)">C</button>
+              </div>
+              <input type="hidden" id="jnl-grade">
+            </div>
+            <div class="jnl-field">
+              <label>FOLLOWED PLAN?</label>
+              <div style="display:flex;gap:8px;margin-top:6px;font-family:var(--font-mono);font-size:11px">
+                <label style="display:flex;gap:4px;align-items:center;cursor:pointer"><input type="radio" name="jnl-plan" value="1" id="jnl-plan-yes" checked> Yes</label>
+                <label style="display:flex;gap:4px;align-items:center;cursor:pointer"><input type="radio" name="jnl-plan" value="0" id="jnl-plan-no"> No</label>
+              </div>
+            </div>
+            <div class="jnl-field">
+              <label>WOULD REPEAT?</label>
+              <div style="display:flex;gap:8px;margin-top:6px;font-family:var(--font-mono);font-size:11px">
+                <label style="display:flex;gap:4px;align-items:center;cursor:pointer"><input type="radio" name="jnl-repeat" value="1" id="jnl-repeat-yes" checked> Yes</label>
+                <label style="display:flex;gap:4px;align-items:center;cursor:pointer"><input type="radio" name="jnl-repeat" value="0" id="jnl-repeat-no"> No</label>
+              </div>
+            </div>
+            <div class="jnl-field">
+              <label>MISTAKE TYPE</label>
+              <select id="jnl-review"><option value="">None / Followed Plan</option><option>FollowedPlan</option><option>ExitedEarly</option><option>EnteredEarly</option><option>MovedStop</option><option>Oversized</option><option>Chased</option><option>NoSetup</option><option>LateEntry</option><option>FOMOEntry</option><option>RevengeEntry</option></select>
+            </div>
+          </div>
+          <div class="jnl-field" style="width:100%;margin-top:4px">
+            <label>POST-TRADE REFLECTION</label>
+            <textarea id="jnl-post-notes" rows="3" placeholder="What happened? What did you learn? Would you do anything differently?"></textarea>
+          </div>
+          <!-- MAE / MFE -->
+          <div class="jnl-form-row" style="margin-top:8px">
+            <div class="jnl-field"><label>MAE ₹ (Max Adverse Excursion)</label><input type="number" step="0.01" id="jnl-mae" placeholder="Worst price against you"></div>
+            <div class="jnl-field"><label>MFE ₹ (Max Favorable Excursion)</label><input type="number" step="0.01" id="jnl-mfe" placeholder="Best price in your favor"></div>
+          </div>
         </div>
-        <div class="jnl-form-row">
-          <div class="jnl-field"><label>Q-BRAM REGIME</label><select id="jnl-regime"><option value="">At entry...</option><option>Bullish</option><option>Neutral</option><option>Distribution</option><option>Bearish</option></select></div>
-          <div class="jnl-field"><label>PRE-TRADE EMOTION</label><select id="jnl-emotion"><option value="">How did you feel?</option><option>Confident</option><option>Patient</option><option>FOMO</option><option>Revenge</option><option>Bored</option><option>Fearful</option></select></div>
-          <div class="jnl-field"><label>DISCIPLINE (1-10)</label><input type="number" min="1" max="10" id="jnl-discipline" placeholder="7"></div>
-          <div class="jnl-field"><label>POST-TRADE REVIEW</label><select id="jnl-review"><option value="">Honest review...</option><option>FollowedPlan</option><option>ExitedEarly</option><option>EnteredEarly</option><option>MovedStop</option><option>Oversized</option><option>Chased</option><option>NoSetup</option></select></div>
-        </div>
-        <div class="jnl-field" style="width:100%"><label>NOTES / THESIS</label><textarea id="jnl-notes" rows="3" placeholder="Why did you take this trade? What was the thesis?"></textarea></div>
+
       </div>
       <div class="jnl-modal-footer">
         <button class="jnl-btn" onclick="jnlCloseModal()">Cancel</button>
@@ -742,7 +916,7 @@
     </div>
   </div>
 
-  <!-- CHARTS TAB -->
+  <!-- CHARTS TAB -->  <!-- CHARTS TAB -->
   <div class="tab-content" id="tab-charts">
     <div class="chart-controls">
       <div class="chart-search">

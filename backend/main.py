@@ -944,7 +944,7 @@ async def save_smart_money_note(request: Request):
 
 # ── Trading Journal API ──────────────────────────────────────────────────────
 
-from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings
+from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings, get_tilt_score, get_drawdown_series, get_monthly_pnl, get_time_of_day_stats, get_ai_insights
 
 @app.get("/api/journal/trades")
 async def api_journal_trades(status: str = "all", limit: int = 200):
@@ -976,6 +976,32 @@ async def api_journal_settings_get():
 async def api_journal_settings_save(request: Request):
     body = await request.json()
     return save_settings(body)
+
+@app.get("/api/journal/tilt")
+async def api_journal_tilt():
+    trades = get_trades(status="all", limit=20)
+    return get_tilt_score(trades)
+
+@app.get("/api/journal/drawdown")
+async def api_journal_drawdown():
+    trades = get_trades(status="all", limit=500)
+    return get_drawdown_series(trades)
+
+@app.get("/api/journal/monthly")
+async def api_journal_monthly():
+    trades = get_trades(status="all", limit=500)
+    return {"monthly": get_monthly_pnl(trades)}
+
+@app.get("/api/journal/time-of-day")
+async def api_journal_time_of_day():
+    trades = get_trades(status="all", limit=500)
+    return {"hours": get_time_of_day_stats(trades)}
+
+@app.get("/api/journal/ai-insights")
+async def api_journal_ai_insights():
+    analytics = get_analytics()
+    trades = get_trades(status="all", limit=500)
+    return {"insights": get_ai_insights(analytics, trades)}
 
 
 @app.get("/api/breadth/{market}")
