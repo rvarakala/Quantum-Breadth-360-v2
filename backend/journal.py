@@ -275,8 +275,8 @@ def update_trade(trade_id: int, updates: dict) -> dict:
         conn.close()
         return {"error": "Trade not found"}
 
-    # Get live column list from DB (handles any new columns added via ALTER TABLE)
-    all_cols = [d[0] for d in conn.execute("PRAGMA table_info(journal_trades)").fetchall()]
+    # Get live column list from DB — PRAGMA table_info columns: (cid, name, type, notnull, dflt, pk)
+    all_cols = [d[1] for d in conn.execute("PRAGMA table_info(journal_trades)").fetchall()]
 
     # Build trade dict from named row (avoids zip misalignment on old rows with fewer columns)
     trade = {col: existing[col] if col in existing.keys() else None for col in all_cols}
