@@ -187,34 +187,74 @@ def add_trade(trade: dict) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     cur = conn.execute("""
         INSERT INTO journal_trades (
-            ticker, direction, setup_type, timeframe, regime,
-            entry_date, entry_price, stop_loss, target, quantity, position_size_pct,
-            exit_date, exit_price, status,
+            ticker, direction, setup_type, strategy_name, timeframe, regime,
+            broker, market_type,
+            entry_date, entry_time, entry_price, stop_loss, target,
+            quantity, position_size_pct, fees, risk_amount,
+            exit_date, exit_time, exit_price, status,
             pnl_amount, pnl_pct, r_multiple, holding_days,
-            pre_emotion, post_review, discipline_score, notes,
+            mae, mfe,
+            pre_emotion, post_review, discipline_score, notes, post_notes,
+            followed_plan, trade_grade, would_repeat,
+            psych_confidence, psych_focus, psych_stress, psych_patience,
+            psych_fomo, psych_revenge, psych_sleep, psych_energy,
             created_at, updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ) VALUES (
+            ?,?,?,?,?,?,
+            ?,?,
+            ?,?,?,?,?,
+            ?,?,?,?,
+            ?,?,?,?,
+            ?,?,?,?,
+            ?,?,
+            ?,?,?,?,?,
+            ?,?,?,
+            ?,?,?,?,
+            ?,?,?,?,
+            ?,?
+        )
     """, (
         trade.get("ticker", "").upper().strip(),
         trade.get("direction", "Long"),
         trade.get("setup_type", ""),
+        trade.get("strategy_name", ""),
         trade.get("timeframe", "Swing"),
         trade.get("regime", ""),
+        trade.get("broker", ""),
+        trade.get("market_type", "Stocks"),
         trade.get("entry_date", ""),
+        trade.get("entry_time", ""),
         trade.get("entry_price", 0),
         trade.get("stop_loss"),
         trade.get("target"),
         trade.get("quantity", 0),
         trade.get("position_size_pct", 0),
+        trade.get("fees", 0),
+        trade.get("risk_amount", 0),
         trade.get("exit_date"),
+        trade.get("exit_time", ""),
         trade.get("exit_price"),
         trade.get("status", "Open"),
         computed["pnl_amount"], computed["pnl_pct"],
         computed["r_multiple"], computed["holding_days"],
+        trade.get("mae", 0),
+        trade.get("mfe", 0),
         trade.get("pre_emotion", ""),
         trade.get("post_review", ""),
         trade.get("discipline_score", 0),
         trade.get("notes", ""),
+        trade.get("post_notes", ""),
+        trade.get("followed_plan", 1),
+        trade.get("trade_grade", ""),
+        trade.get("would_repeat", 1),
+        trade.get("psych_confidence", 0),
+        trade.get("psych_focus", 0),
+        trade.get("psych_stress", 0),
+        trade.get("psych_patience", 0),
+        trade.get("psych_fomo", 0),
+        trade.get("psych_revenge", 0),
+        trade.get("psych_sleep", 0),
+        trade.get("psych_energy", 0),
         now, now,
     ))
     conn.commit()
@@ -228,6 +268,7 @@ def update_trade(trade_id: int, updates: dict) -> dict:
     """Update an existing trade — writes ALL columns dynamically via PRAGMA."""
     _ensure_journal_tables()
     conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row  # named access — safe regardless of column order/count
 
     existing = conn.execute("SELECT * FROM journal_trades WHERE id=?", (trade_id,)).fetchone()
     if not existing:
@@ -237,8 +278,10 @@ def update_trade(trade_id: int, updates: dict) -> dict:
     # Get live column list from DB (handles any new columns added via ALTER TABLE)
     all_cols = [d[0] for d in conn.execute("PRAGMA table_info(journal_trades)").fetchall()]
 
-    # Merge existing row with incoming updates
-    trade = dict(zip(all_cols, existing))
+    # Build trade dict from named row (avoids zip misalignment on old rows with fewer columns)
+    trade = {col: existing[col] if col in existing.keys() else None for col in all_cols}
+
+    # Apply incoming updates (only valid column names, never overwrite id/created_at)
     for k, v in updates.items():
         if k in all_cols and k not in ("id", "created_at"):
             trade[k] = v
