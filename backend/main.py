@@ -157,6 +157,7 @@ def serve_control_center():
 
 @app.get("/index.html")
 def serve_index():
+    """Dashboard via legacy URL — same as /app."""
     return _serve_index_html()
 
 

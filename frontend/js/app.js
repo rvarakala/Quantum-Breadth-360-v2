@@ -47,11 +47,22 @@ const TIER_TABS = {
       _showTrialBanner(data.trial_days_left);
     }
 
+    // Reveal the app (remove loading screen)
+    _revealApp();
+
   } catch (e) {
     console.warn('Auth check failed:', e);
-    // Don't redirect on network error — let app work with cached data
+    // Network error — still reveal app with cached data
+    _revealApp();
   }
 })();
+
+function _revealApp() {
+  const loading = document.getElementById('auth-loading');
+  const layout = document.getElementById('app-layout');
+  if (loading) loading.remove();
+  if (layout) layout.style.opacity = '1';
+}
 
 function _applyTierRestrictions(effectiveTier) {
   if (effectiveTier === 'admin' || effectiveTier === 'elite') return; // Full access

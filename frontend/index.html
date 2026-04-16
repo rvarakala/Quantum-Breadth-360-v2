@@ -83,8 +83,17 @@
   </button>
 </nav>
 
-<!-- SIDEBAR + MAIN LAYOUT -->
-<div class="app-layout" id="app-layout">
+<!-- Auth loading screen (removed after auth validates) -->
+<div id="auth-loading" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg0,#060a14);z-index:9999">
+  <div style="text-align:center;font-family:'Space Mono',monospace">
+    <div style="font-size:24px;margin-bottom:12px;opacity:.6">⚛</div>
+    <div style="color:#94a3b8;font-size:12px;letter-spacing:.1em">QUANTUM BREADTH 360</div>
+    <div style="color:#475569;font-size:10px;margin-top:6px">Authenticating...</div>
+  </div>
+</div>
+
+<!-- SIDEBAR + MAIN LAYOUT (hidden until auth validates) -->
+<div class="app-layout" id="app-layout" style="opacity:0;transition:opacity .3s ease">
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
