@@ -204,9 +204,16 @@ function _jnlDestroyChart(id) {
 }
 
 function _jnlChartOpts(isDark) {
-  return { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-    scales:{ x:{ticks:{color:isDark?'#64748b':'#94a3b8',maxTicksLimit:8,font:{size:9}}},
-             y:{ticks:{color:isDark?'#64748b':'#94a3b8',font:{size:9}}} } };
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 400 },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: isDark ? '#64748b' : '#94a3b8', maxTicksLimit: 8, font: { size: 9 } }, grid: { color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' } },
+      y: { ticks: { color: isDark ? '#64748b' : '#94a3b8', font: { size: 9 } },        grid: { color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' } },
+    },
+  };
 }
 
 function _jnlRenderEquityChart(curve) {

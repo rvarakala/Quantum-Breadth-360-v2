@@ -3312,7 +3312,7 @@ select option:checked {
 .jnl-field textarea { resize:vertical; }
 
 /* Analytics grid */
-.jnl-analytics-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; padding:12px 0; }
+/* (jnl-analytics-grid defined in Sprint 5 section below) */
 .jnl-analytics-card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; padding:14px; }
 
 @media (max-width:768px) {
@@ -3452,10 +3452,10 @@ select option:checked {
 .jnl-grade-btn.active[data-grade="B"] { background:rgba(6,182,212,.15);border-color:var(--cyan);color:var(--cyan); }
 .jnl-grade-btn.active[data-grade="C"] { background:rgba(245,158,11,.15);border-color:var(--amber);color:var(--amber); }
 
-/* Analytics grid — allow 2-col span cards */
+/* Analytics grid — fixed 3-col, cards with overflow protection */
 .jnl-analytics-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:8px 0; }
 .jnl-analytics-card { background:var(--card-bg);border:1px solid var(--card-border);
-  border-radius:10px;padding:14px; }
+  border-radius:10px;padding:14px;min-width:0;overflow:hidden; }
 
 /* AI Coach cards */
 .jnl-ai-card {
