@@ -3483,3 +3483,9 @@ select option:checked {
 @media (max-width:600px) {
   .jnl-analytics-grid { grid-template-columns:1fr; }
 }
+
+/* ── Close Trade dialog input focus ─────────────────────────────────────────── */
+#jnl-close-dialog input[type=number]:focus {
+  border-color: var(--cyan) !important;
+  box-shadow: 0 0 0 3px rgba(6,182,212,.12);
+}

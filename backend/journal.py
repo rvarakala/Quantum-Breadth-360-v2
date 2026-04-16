@@ -225,7 +225,7 @@ def add_trade(trade: dict) -> dict:
 
 
 def update_trade(trade_id: int, updates: dict) -> dict:
-    """Update an existing trade."""
+    """Update an existing trade — writes ALL columns dynamically via PRAGMA."""
     _ensure_journal_tables()
     conn = sqlite3.connect(DB_PATH, timeout=10)
 
@@ -234,26 +234,27 @@ def update_trade(trade_id: int, updates: dict) -> dict:
         conn.close()
         return {"error": "Trade not found"}
 
-    # Merge existing + updates
-    cols = [d[0] for d in conn.execute("PRAGMA table_info(journal_trades)").fetchall()]
-    trade = dict(zip(cols, existing))
+    # Get live column list from DB (handles any new columns added via ALTER TABLE)
+    all_cols = [d[0] for d in conn.execute("PRAGMA table_info(journal_trades)").fetchall()]
+
+    # Merge existing row with incoming updates
+    trade = dict(zip(all_cols, existing))
     for k, v in updates.items():
-        if k in trade and k not in ("id", "created_at"):
+        if k in all_cols and k not in ("id", "created_at"):
             trade[k] = v
 
-    # Recompute
+    # Recompute derived fields (P&L, R-Multiple, holding days)
     computed = _compute_trade_fields(trade)
     trade.update(computed)
     trade["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-    # Update DB
+    # Build SET clause from ALL writable columns (skip id + created_at)
+    skip = {"id", "created_at"}
     set_parts = []
     params = []
-    for k in ("ticker", "direction", "setup_type", "timeframe", "regime",
-              "entry_date", "entry_price", "stop_loss", "target", "quantity", "position_size_pct",
-              "exit_date", "exit_price", "status",
-              "pnl_amount", "pnl_pct", "r_multiple", "holding_days",
-              "pre_emotion", "post_review", "discipline_score", "notes", "updated_at"):
+    for k in all_cols:
+        if k in skip:
+            continue
         set_parts.append(f"{k}=?")
         params.append(trade.get(k))
     params.append(trade_id)
@@ -261,6 +262,7 @@ def update_trade(trade_id: int, updates: dict) -> dict:
     conn.execute(f"UPDATE journal_trades SET {', '.join(set_parts)} WHERE id=?", params)
     conn.commit()
     conn.close()
+    logger.info(f"Journal: updated trade #{trade_id}")
     return {"status": "ok", "id": trade_id}
 
 

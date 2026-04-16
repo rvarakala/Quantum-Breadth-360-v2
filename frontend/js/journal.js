@@ -444,11 +444,140 @@ async function jnlSaveTrade() {
   } catch(e){alert('Save failed: '+e.message);}
 }
 
-async function jnlCloseTrade(id) {
-  const price=prompt('Enter exit price:'); if(!price) return;
-  await fetch(`${API}/api/journal/trades/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({exit_price:parseFloat(price),exit_date:new Date().toISOString().slice(0,10),status:'Closed'})});
-  jnlLoadTrades();
+function jnlCloseTrade(id) {
+  // Find the trade to pre-fill stop as default exit
+  const trade = _jnlTrades.find(t => t.id === id);
+  const stopSuggestion = trade?.stop_loss ? ` (stop: ${trade.stop_loss})` : '';
+  const entrySuggestion = trade ? ` Entry: ₹${trade.entry_price}` : '';
+
+  // Remove any existing close dialog
+  const existing = document.getElementById('jnl-close-dialog');
+  if (existing) existing.remove();
+
+  const dialog = document.createElement('div');
+  dialog.id = 'jnl-close-dialog';
+  dialog.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center';
+  dialog.innerHTML = `
+    <div style="background:var(--card-bg,#0f1628);border:1px solid var(--card-border,#1e293b);
+      border-radius:14px;padding:24px 28px;min-width:320px;max-width:400px;width:90%;
+      font-family:var(--font-mono,'JetBrains Mono',monospace);box-shadow:0 8px 40px rgba(0,0,0,.4)">
+
+      <div style="font-size:13px;font-weight:800;color:var(--text,#e2e8f0);margin-bottom:4px">
+        Close Trade — <span style="color:var(--cyan)">${trade?.ticker || '#'+id}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:16px">${entrySuggestion}${stopSuggestion}</div>
+
+      <div style="margin-bottom:12px">
+        <label style="font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--text3);display:block;margin-bottom:4px">EXIT PRICE ₹</label>
+        <input id="jnl-close-price" type="number" step="0.01"
+          placeholder="Enter exit price"
+          style="width:100%;padding:10px 12px;border:1.5px solid var(--card-border,#1e293b);border-radius:8px;
+          background:var(--input-bg,rgba(255,255,255,.06));color:var(--text,#e2e8f0);
+          font-family:var(--font-mono);font-size:13px;outline:none;box-sizing:border-box"
+          onkeydown="if(event.key==='Enter')jnlConfirmClose(${id})"
+          oninput="jnlPreviewClose(${id},this.value)">
+        <div id="jnl-close-preview" style="margin-top:6px;font-size:10px;color:var(--text3);min-height:16px"></div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--text3);display:block;margin-bottom:6px">OUTCOME</label>
+        <div style="display:flex;gap:8px">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--text2)">
+            <input type="radio" name="jnl-close-status" value="Closed" checked> Closed (target/manual)
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--text2)">
+            <input type="radio" name="jnl-close-status" value="StoppedOut"> Stopped Out
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('jnl-close-dialog').remove()"
+          style="padding:8px 18px;border-radius:8px;border:1px solid var(--card-border,#1e293b);
+          background:transparent;color:var(--text3);font-family:var(--font-mono);font-size:11px;cursor:pointer">
+          Cancel
+        </button>
+        <button onclick="jnlConfirmClose(${id})"
+          style="padding:8px 20px;border-radius:8px;border:none;background:var(--cyan,#06b6d4);
+          color:#0a0e17;font-family:var(--font-mono);font-size:11px;font-weight:700;cursor:pointer">
+          Close Trade ✅
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(dialog);
+  // Auto-focus price input
+  setTimeout(() => {
+    const inp = document.getElementById('jnl-close-price');
+    if (inp) inp.focus();
+    // Auto-fill stop loss as default if stopped out
+    if (trade?.stop_loss) inp.value = trade.stop_loss;
+    jnlPreviewClose(id, inp?.value || '');
+  }, 50);
+}
+
+function jnlPreviewClose(id, priceVal) {
+  const trade   = _jnlTrades.find(t => t.id === id);
+  const preview = document.getElementById('jnl-close-preview');
+  if (!trade || !preview) return;
+
+  const price = parseFloat(priceVal);
+  if (!price || isNaN(price)) { preview.textContent = ''; return; }
+
+  const entry = trade.entry_price || 0;
+  const qty   = trade.quantity   || 0;
+  const stop  = trade.stop_loss  || 0;
+  const dir   = trade.direction  || 'Long';
+
+  const pnlPct = entry > 0
+    ? (dir === 'Long' ? (price - entry) / entry * 100 : (entry - price) / entry * 100)
+    : 0;
+  const pnlAmt = pnlPct / 100 * entry * qty;
+  let rMult = '';
+  if (stop && entry && Math.abs(entry - stop) > 0) {
+    const risk   = Math.abs(entry - stop);
+    const reward = dir === 'Long' ? (price - entry) : (entry - price);
+    rMult = ` · ${(reward / risk).toFixed(2)}R`;
+  }
+
+  const color = pnlPct >= 0 ? '#22c55e' : '#ef4444';
+  preview.innerHTML = `<span style="color:${color};font-weight:700">${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%</span>`
+    + (qty ? ` <span style="color:${color}">₹${Math.round(pnlAmt).toLocaleString('en-IN')}</span>` : '')
+    + `<span style="color:var(--text3)">${rMult}</span>`;
+}
+
+async function jnlConfirmClose(id) {
+  const priceEl = document.getElementById('jnl-close-price');
+  const price   = parseFloat(priceEl?.value);
+  const status  = document.querySelector('input[name="jnl-close-status"]:checked')?.value || 'Closed';
+
+  if (!price || isNaN(price) || price <= 0) {
+    priceEl?.style && (priceEl.style.borderColor = 'var(--red)');
+    priceEl?.focus();
+    return;
+  }
+
+  const btn = document.querySelector('#jnl-close-dialog button:last-child');
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+
+  try {
+    const res = await fetch(`${API}/api/journal/trades/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        exit_price: price,
+        exit_date:  new Date().toISOString().slice(0, 10),
+        status:     status,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById('jnl-close-dialog')?.remove();
+    await jnlLoadTrades();
+  } catch (e) {
+    alert('Failed to close trade: ' + e.message);
+    if (btn) { btn.textContent = 'Close Trade ✅'; btn.disabled = false; }
+  }
 }
 
 async function jnlDeleteTrade(id) {
