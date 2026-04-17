@@ -3,589 +3,1711 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quantum Breadth 360 — Market Intelligence Platform</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Quantum Breadth 360 — India's Market Intelligence Terminal</title>
+<meta name="description" content="Real-time breadth analysis, institutional flow tracking, and Q-BRAM regime intelligence for systematic Indian equity traders.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bg:#0a0e17;--bg2:#111827;--bg3:#1a2035;
-  --card:#141b2d;--border:#1e293b;--border2:#334155;
-  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
-  --cyan:#06b6d4;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--purple:#a78bfa;
-  --mono:'JetBrains Mono',monospace;--sans:'DM Sans',sans-serif;
+/* ════════════════════════════════════════════════════════════════
+   QUANTUM BREADTH 360 — Landing Page
+   Aesthetic: Mission Control Terminal · Dark Authoritative Cinematic
+   ════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --space:     #020817;
+  --space1:    #080f24;
+  --space2:    #0d1630;
+  --space3:    #111d3a;
+  --glass:     rgba(255,255,255,0.03);
+  --glass2:    rgba(255,255,255,0.06);
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(0,212,255,0.2);
+  --text:      #e8edf5;
+  --text2:     #8899b4;
+  --text3:     #4a5a78;
+  --cyan:      #00d4ff;
+  --cyan2:     #00a8cc;
+  --cyan-dim:  rgba(0,212,255,0.08);
+  --cyan-glow: rgba(0,212,255,0.15);
+  --purple:    #7c3aed;
+  --purple-dim:rgba(124,58,237,0.12);
+  --green:     #10b981;
+  --green-dim: rgba(16,185,129,0.12);
+  --red:       #f43f5e;
+  --amber:     #f59e0b;
+  --mono:      'IBM Plex Mono', monospace;
+  --sans:      'IBM Plex Sans', sans-serif;
+  --display:   'Syne', sans-serif;
 }
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden;min-height:100vh}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--space);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow-x: hidden;
+  min-height: 100vh;
+  cursor: default;
+}
+
+/* ── SCANLINE TEXTURE ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* ── AMBIENT ORBS ── */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+  animation: orbFloat 8s ease-in-out infinite;
+}
+.orb-1 { width: 600px; height: 600px; background: rgba(0,212,255,0.04); top: -200px; right: -100px; animation-delay: 0s; }
+.orb-2 { width: 500px; height: 500px; background: rgba(124,58,237,0.05); bottom: 100px; left: -150px; animation-delay: 3s; }
+.orb-3 { width: 400px; height: 400px; background: rgba(0,212,255,0.03); top: 40%; left: 40%; animation-delay: 6s; }
+@keyframes orbFloat {
+  0%,100% { transform: translate(0,0); }
+  50%      { transform: translate(20px,-30px); }
+}
 
 /* ── NAV ── */
-.nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 24px;display:flex;align-items:center;
-  background:rgba(10,14,23,.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
-.nav-logo{font-family:var(--mono);font-weight:800;font-size:16px;letter-spacing:.04em;color:var(--text)}
-.nav-logo span{color:var(--cyan)}
-.nav-links{margin-left:auto;display:flex;gap:8px;align-items:center}
-.nav-link{color:var(--text2);font-size:13px;text-decoration:none;padding:6px 12px;border-radius:6px;transition:color .2s}
-.nav-link:hover{color:var(--cyan)}
-.nav-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
-  font-family:var(--mono);border:none;transition:all .2s}
-.nav-btn.ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
-.nav-btn.ghost:hover{color:var(--text);border-color:var(--cyan)}
-.nav-btn.primary{background:var(--cyan);color:#0a0e17}
-.nav-btn.primary:hover{background:#22d3ee;transform:translateY(-1px)}
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  padding: 0 40px;
+  height: 60px;
+  background: rgba(2,8,23,0.85);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .12em;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nav-logo-mark {
+  width: 28px; height: 28px;
+  border: 1.5px solid var(--cyan);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  box-shadow: 0 0 12px rgba(0,212,255,0.25);
+}
+.nav-logo span { color: var(--cyan); }
+.nav-center {
+  margin: 0 auto;
+  display: flex;
+  gap: 32px;
+}
+.nav-center a {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: var(--text2);
+  text-decoration: none;
+  transition: color .2s;
+}
+.nav-center a:hover { color: var(--cyan); }
+.nav-right { display: flex; gap: 8px; }
+.btn-ghost {
+  padding: 7px 18px;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text2);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: all .2s;
+}
+.btn-ghost:hover { color: var(--cyan); border-color: var(--cyan); background: var(--cyan-dim); }
+.btn-primary {
+  padding: 7px 20px;
+  border: none;
+  border-radius: 6px;
+  background: var(--cyan);
+  color: #020817;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: all .2s;
+  box-shadow: 0 0 20px rgba(0,212,255,0.3);
+}
+.btn-primary:hover { background: #22ddff; box-shadow: 0 0 30px rgba(0,212,255,0.5); transform: translateY(-1px); }
 
 /* ── HERO ── */
-.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;
-  padding:100px 24px 60px;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);
-  width:900px;height:900px;background:radial-gradient(circle,rgba(6,182,212,.10),transparent 70%);
-  pointer-events:none}
-.hero-content{max-width:760px;position:relative;z-index:1}
-.hero-badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:700;
-  letter-spacing:.1em;color:var(--cyan);border:1px solid rgba(6,182,212,.3);
-  background:rgba(6,182,212,.06);font-family:var(--mono);margin-bottom:24px}
-.hero h1{font-family:var(--mono);font-size:clamp(34px,5.5vw,62px);font-weight:800;line-height:1.08;
-  margin-bottom:20px;letter-spacing:-.02em}
-.hero h1 em{font-style:normal;color:var(--cyan)}
-.hero p{font-size:clamp(15px,2vw,18px);color:var(--text2);line-height:1.7;margin-bottom:36px;
-  max-width:580px;margin-inline:auto}
-.hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-.btn-lg{padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;
-  font-family:var(--mono);border:none;transition:all .2s;letter-spacing:.02em;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
-.btn-lg.primary{background:var(--cyan);color:#0a0e17}
-.btn-lg.primary:hover{background:#22d3ee;transform:translateY(-2px);box-shadow:0 8px 30px rgba(6,182,212,.3)}
-.btn-lg.outline{background:transparent;color:var(--text);border:1px solid var(--border2)}
-.btn-lg.outline:hover{border-color:var(--cyan);color:var(--cyan)}
-.hero-stats{display:flex;gap:40px;justify-content:center;margin-top:52px;flex-wrap:wrap}
-.hero-stat{text-align:center}
-.hero-stat-num{font-family:var(--mono);font-size:30px;font-weight:800;color:var(--cyan)}
-.hero-stat-label{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono);letter-spacing:.08em}
+.hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 80px 40px 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+  position: relative;
+  gap: 60px;
+}
+@media(max-width:900px){
+  .hero { grid-template-columns:1fr; padding-top:100px; }
+  .hero-right { display: none; }
+}
 
-/* ── TICKER STRIP ── */
-.ticker-strip{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);
-  padding:10px 0;overflow:hidden;white-space:nowrap}
-.ticker-inner{display:inline-block;animation:tickerScroll 30s linear infinite}
-.ticker-inner:hover{animation-play-state:paused}
-@keyframes tickerScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.tick-item{display:inline-block;margin:0 32px;font-family:var(--mono);font-size:12px;color:var(--text2)}
-.tick-item .up{color:var(--green)}
-.tick-item .dn{color:var(--red)}
+/* ── HERO LEFT ── */
+.hero-left { position: relative; z-index: 2; }
 
-/* ── HOW IT WORKS ── */
-.howitworks{padding:80px 24px;max-width:1000px;margin:0 auto}
-.section-title{font-family:var(--mono);font-size:28px;font-weight:800;text-align:center;margin-bottom:12px}
-.section-sub{text-align:center;color:var(--text2);font-size:15px;margin-bottom:52px;max-width:500px;margin-inline:auto}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0;position:relative}
-.steps::before{content:'';position:absolute;top:28px;left:16%;right:16%;height:2px;
-  background:linear-gradient(90deg,var(--cyan),var(--purple));opacity:.3;z-index:0}
-@media(max-width:700px){.steps{grid-template-columns:1fr}.steps::before{display:none}}
-.step{text-align:center;padding:24px 20px;position:relative;z-index:1}
-.step-num{width:56px;height:56px;border-radius:50%;border:2px solid var(--cyan);
-  display:flex;align-items:center;justify-content:center;margin:0 auto 16px;
-  font-family:var(--mono);font-size:20px;font-weight:800;color:var(--cyan);
-  background:var(--bg)}
-.step-title{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.08em;margin-bottom:8px}
-.step-desc{font-size:13px;color:var(--text2);line-height:1.6}
+.system-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 8px;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: var(--cyan-dim);
+  margin-bottom: 32px;
+}
+.system-tag-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+  animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.system-tag span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--cyan);
+}
 
-/* ── FEATURES ── */
-.features{padding:80px 24px;max-width:1100px;margin:0 auto}
-.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-@media(max-width:900px){.features-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:560px){.features-grid{grid-template-columns:1fr}}
-.feat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;
-  transition:border-color .2s,transform .2s;position:relative;overflow:hidden}
-.feat-card:hover{border-color:var(--cyan);transform:translateY(-2px)}
-.feat-card.highlight{border-color:rgba(167,139,250,.4)}
-.feat-card.highlight:hover{border-color:var(--purple)}
-.feat-new{position:absolute;top:12px;right:12px;background:rgba(34,197,94,.15);
-  color:var(--green);font-size:9px;font-weight:800;letter-spacing:.1em;
-  padding:3px 8px;border-radius:10px;font-family:var(--mono)}
-.feat-icon{font-size:28px;margin-bottom:12px}
-.feat-title{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.06em;margin-bottom:8px}
-.feat-desc{font-size:13px;color:var(--text2);line-height:1.6}
+.hero h1 {
+  font-family: var(--display);
+  font-size: clamp(40px, 5vw, 68px);
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -.02em;
+  margin-bottom: 24px;
+}
+.hero h1 .line2 { color: var(--cyan); }
+.hero h1 .line3 { color: var(--text2); font-weight: 600; }
 
-/* ── SOCIAL PROOF ── */
-.social-proof{padding:60px 24px;background:var(--bg2);overflow:hidden}
-.proof-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1000px;margin:0 auto}
-@media(max-width:700px){.proof-row{grid-template-columns:1fr}}
-.proof-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
-.proof-stars{color:var(--amber);font-size:14px;margin-bottom:12px;letter-spacing:2px}
-.proof-text{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:16px;font-style:italic}
-.proof-author{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.06em}
-.proof-author strong{color:var(--text);font-size:12px}
+.hero-sub {
+  font-size: 16px;
+  color: var(--text2);
+  line-height: 1.75;
+  max-width: 480px;
+  margin-bottom: 40px;
+  font-weight: 300;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 56px;
+}
+.hero-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: var(--cyan);
+  color: #020817;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: all .25s;
+  box-shadow: 0 0 30px rgba(0,212,255,0.35);
+}
+.hero-cta-primary:hover { background: #22ddff; box-shadow: 0 0 50px rgba(0,212,255,0.5); transform: translateY(-2px); }
+.hero-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: .06em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .25s;
+}
+.hero-cta-secondary:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+
+/* ── STAT STRIP ── */
+.stat-strip {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.stat-item { display: flex; flex-direction: column; gap: 4px; }
+.stat-val {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: -.02em;
+}
+.stat-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  color: var(--text3);
+}
+.stat-divider {
+  width: 1px;
+  background: var(--border);
+  align-self: stretch;
+}
+
+/* ════════════════════════════════════════════════════════════
+   HERO RIGHT — THE TERMINAL PANEL
+   ════════════════════════════════════════════════════════════ */
+.hero-right {
+  position: relative;
+  z-index: 2;
+}
+
+.terminal-shell {
+  background: var(--space1);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 0 60px rgba(0,212,255,0.08),
+    0 40px 80px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  position: relative;
+}
+
+.terminal-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--space2);
+  border-bottom: 1px solid var(--border);
+}
+.t-dot { width: 10px; height: 10px; border-radius: 50%; }
+.t-dot.r { background: #f43f5e; } .t-dot.y { background: #f59e0b; } .t-dot.g { background: #10b981; }
+.terminal-title {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--text3);
+}
+
+.terminal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* Regime Arc */
+.regime-panel {
+  background: var(--space2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.regime-arc-wrap {
+  flex-shrink: 0;
+  position: relative;
+  width: 100px;
+  height: 60px;
+}
+.regime-arc-wrap svg { overflow: visible; }
+.regime-label-panel { flex: 1; }
+.regime-current {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: .04em;
+  text-shadow: 0 0 20px rgba(0,212,255,0.5);
+}
+.regime-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+}
+.regime-score-val {
+  font-family: var(--mono);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+.regime-score-unit { font-family: var(--mono); font-size: 13px; color: var(--text3); }
+.regime-sub { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: .08em; margin-top: 4px; }
+
+/* Regime dots */
+.regime-dots {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.rdot {
+  height: 3px;
+  border-radius: 2px;
+  flex: 1;
+  background: var(--border);
+  transition: background .3s;
+}
+.rdot.active { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.rdot.past { background: rgba(0,212,255,0.3); }
+
+/* Metrics grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.metric-cell {
+  background: var(--space2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.metric-cell:hover { border-color: rgba(0,212,255,0.3); }
+.metric-cell::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,212,255,0.2), transparent);
+}
+.metric-name { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: var(--text3); margin-bottom: 6px; }
+.metric-val { font-family: var(--mono); font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+.metric-val.up { color: var(--green); }
+.metric-val.dn { color: var(--red); }
+.metric-val.neutral { color: var(--cyan); }
+.metric-sub { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 3px; }
+
+/* FII Strip */
+.fii-strip {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  gap: 0;
+  background: var(--space2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.fii-cell { padding: 12px 14px; }
+.fii-divider { background: var(--border); }
+.fii-label { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: var(--text3); margin-bottom: 5px; }
+.fii-val { font-family: var(--mono); font-size: 15px; font-weight: 600; }
+.fii-val.buy { color: var(--green); } .fii-val.sell { color: var(--red); }
+.fii-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+.fii-bar { height: 100%; border-radius: 2px; transition: width 1.2s cubic-bezier(.4,0,.2,1); }
+.fii-bar.buy { background: var(--green); }
+.fii-bar.sell { background: var(--red); }
+
+/* Insider row */
+.insider-row {
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+}
+.insider-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--space2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text2);
+  white-space: nowrap;
+  animation: chipScroll 18s linear infinite;
+}
+.insider-chip .ico { font-size: 12px; }
+.insider-chip .stk { color: var(--cyan); font-weight: 600; }
+.insider-chip .val { color: var(--green); }
+
+/* ── SECTION BASE ── */
+section { position: relative; z-index: 2; }
+.section-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--cyan);
+  margin-bottom: 16px;
+}
+.section-tag::before {
+  content: '';
+  width: 24px; height: 1px;
+  background: var(--cyan);
+}
+.section-h {
+  font-family: var(--display);
+  font-size: clamp(28px,3.5vw,44px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  margin-bottom: 16px;
+}
+.section-sub {
+  font-size: 15px;
+  color: var(--text2);
+  line-height: 1.7;
+  font-weight: 300;
+  max-width: 520px;
+}
+
+/* ── MODULES SECTION ── */
+.modules-section {
+  padding: 100px 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.modules-header { margin-bottom: 60px; }
+.modules-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+@media(max-width:900px){.modules-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.modules-grid{grid-template-columns:1fr}}
+
+.module-card {
+  background: var(--space1);
+  padding: 32px 28px;
+  position: relative;
+  overflow: hidden;
+  transition: background .2s;
+  cursor: default;
+}
+.module-card:hover { background: var(--space2); }
+.module-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent-color, var(--cyan));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .3s ease;
+}
+.module-card:hover::after { transform: scaleX(1); }
+.module-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--text3);
+  margin-bottom: 16px;
+}
+.module-icon {
+  font-size: 28px;
+  margin-bottom: 12px;
+  display: block;
+  filter: drop-shadow(0 0 8px rgba(0,212,255,0.3));
+}
+.module-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.module-desc {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.65;
+  font-weight: 300;
+}
+.module-tag {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .1em;
+  font-weight: 600;
+}
+.tag-pro { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(0,212,255,0.2); }
+.tag-free { background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+.tag-new  { background: var(--purple-dim); color: #a78bfa; border: 1px solid rgba(124,58,237,0.3); }
+
+/* ── REGIME EXPLAINER ── */
+.regime-section {
+  padding: 100px 40px;
+  background: var(--space1);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.regime-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+@media(max-width:900px){.regime-inner{grid-template-columns:1fr}}
+
+.regime-dial-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.regime-states {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 32px;
+}
+.regime-state-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--space2);
+  cursor: default;
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.regime-state-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+.rs-panic::before { background: var(--red); }
+.rs-dist::before { background: var(--amber); }
+.rs-trans::before { background: var(--text3); }
+.rs-accum::before { background: #3b82f6; }
+.rs-exp::before { background: var(--green); }
+.regime-state-row:hover { border-color: rgba(255,255,255,0.15); background: var(--space3); }
+.rs-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  width: 18px;
+  flex-shrink: 0;
+}
+.rs-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  flex: 1;
+}
+.rs-desc { font-size: 12px; color: var(--text2); line-height: 1.5; font-weight: 300; }
+.rs-win {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+  flex-shrink: 0;
+}
+
+/* ── PROOF SECTION ── */
+.proof-section {
+  padding: 100px 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.proof-grid {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 16px;
+  margin-top: 56px;
+}
+@media(max-width:900px){.proof-grid{grid-template-columns:1fr}}
+
+.proof-card {
+  background: var(--space1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s, transform .2s;
+}
+.proof-card:hover { border-color: rgba(0,212,255,0.2); transform: translateY(-2px); }
+.proof-quote-mark {
+  font-family: var(--display);
+  font-size: 60px;
+  line-height: 0.5;
+  color: var(--cyan);
+  opacity: .2;
+  margin-bottom: 16px;
+  display: block;
+}
+.proof-text { font-size: 14px; color: var(--text2); line-height: 1.75; font-weight: 300; margin-bottom: 20px; }
+.proof-author { display: flex; align-items: center; gap: 10px; }
+.proof-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--space2);
+  border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cyan);
+}
+.proof-name { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; }
+.proof-role { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 2px; }
 
 /* ── PRICING ── */
-.pricing{padding:80px 24px}
-.pricing-toggle{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:36px}
-.pricing-toggle span{font-family:var(--mono);font-size:12px;color:var(--text2)}
-.pricing-toggle .save-badge{background:rgba(34,197,94,.15);color:var(--green);font-size:10px;
-  font-weight:700;padding:2px 8px;border-radius:8px;font-family:var(--mono)}
-.toggle-switch{width:44px;height:24px;background:var(--border2);border-radius:12px;cursor:pointer;
-  position:relative;transition:background .2s}
-.toggle-switch.active{background:var(--cyan)}
-.toggle-switch::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;
-  border-radius:50%;background:#fff;transition:transform .2s}
-.toggle-switch.active::after{transform:translateX(20px)}
-.pricing-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:840px;margin:0 auto}
-@media(max-width:600px){.pricing-grid{grid-template-columns:1fr}}
-.price-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;
-  position:relative;overflow:hidden;transition:border-color .2s,transform .2s}
-.price-card:hover{border-color:var(--border2);transform:translateY(-2px)}
-.price-card.featured{border-color:var(--cyan)}
-.price-card.featured:hover{border-color:#22d3ee}
-.price-card.featured::before{content:'MOST POPULAR';position:absolute;top:14px;right:-30px;
-  background:var(--cyan);color:#0a0e17;font-size:9px;font-weight:800;letter-spacing:.1em;
-  padding:4px 40px;transform:rotate(45deg);font-family:var(--mono)}
-.price-tier{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--text3);margin-bottom:8px}
-.price-amount{font-family:var(--mono);font-size:44px;font-weight:800;margin-bottom:4px;display:flex;align-items:baseline;gap:6px}
-.price-amount .currency{font-size:22px;color:var(--text2);font-weight:600}
-.price-amount .period{font-size:16px;color:var(--text3);font-weight:400}
-.price-annual{font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:24px;min-height:18px}
-.price-annual em{font-style:normal;color:var(--green)}
-.price-divider{height:1px;background:var(--border);margin-bottom:20px}
-.price-features{list-style:none;margin-bottom:28px}
-.price-features li{padding:7px 0;font-size:13px;color:var(--text2);display:flex;align-items:flex-start;gap:10px}
-.price-features li .ck{color:var(--green);font-weight:700;font-size:14px;flex-shrink:0;margin-top:1px}
-.price-features li.locked .ck{color:var(--text3)}
-.price-features li.locked{color:var(--text3)}
-.price-btn{width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;
-  font-family:var(--mono);border:none;transition:all .2s}
-.price-btn.primary{background:var(--cyan);color:#0a0e17}
-.price-btn.primary:hover{background:#22d3ee;transform:translateY(-1px)}
-.price-btn.outline{background:transparent;color:var(--text);border:1px solid var(--border2)}
-.price-btn.outline:hover{border-color:var(--cyan);color:var(--cyan)}
+.pricing-section {
+  padding: 100px 40px;
+  background: var(--space1);
+  border-top: 1px solid var(--border);
+}
+.pricing-inner { max-width: 900px; margin: 0 auto; }
+.pricing-header { margin-bottom: 56px; }
+.billing-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 40px;
+}
+.billing-label { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; color: var(--text2); }
+.billing-switch {
+  width: 48px; height: 26px;
+  background: var(--border);
+  border-radius: 13px;
+  border: 1px solid var(--border2);
+  cursor: pointer;
+  position: relative;
+  transition: background .2s;
+}
+.billing-switch.on { background: var(--cyan2); }
+.billing-switch::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform .2s;
+}
+.billing-switch.on::after { transform: translateX(22px); }
+.save-pill {
+  padding: 3px 10px;
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(16,185,129,0.25);
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+.pricing-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media(max-width:600px){.pricing-cards{grid-template-columns:1fr}}
+
+.price-card {
+  background: var(--space);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 36px;
+  position: relative;
+  transition: border-color .2s, transform .2s;
+  overflow: hidden;
+}
+.price-card:hover { transform: translateY(-3px); }
+.price-card.pro {
+  border-color: var(--border2);
+  box-shadow: 0 0 40px rgba(0,212,255,0.07);
+}
+.price-card.pro::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+}
+.price-tier-name { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; color: var(--text3); margin-bottom: 20px; }
+.price-tier-name.pro { color: var(--cyan); }
+.price-amount-row { display: flex; align-items: baseline; gap: 4px; margin-bottom: 6px; }
+.price-currency { font-family: var(--mono); font-size: 20px; color: var(--text2); }
+.price-num { font-family: var(--mono); font-size: 52px; font-weight: 700; letter-spacing: -.04em; line-height: 1; }
+.price-period { font-family: var(--mono); font-size: 14px; color: var(--text3); margin-left: 2px; }
+.price-note { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-bottom: 28px; min-height: 16px; }
+.price-note em { color: var(--green); font-style: normal; }
+.price-sep { height: 1px; background: var(--border); margin-bottom: 24px; }
+.price-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
+.price-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text2);
+  font-weight: 300;
+  line-height: 1.4;
+}
+.price-features li .chk { color: var(--green); font-size: 14px; flex-shrink: 0; margin-top: 0; }
+.price-features li.off .chk { color: var(--text3); }
+.price-features li.off { color: var(--text3); }
+.price-cta {
+  width: 100%;
+  padding: 13px;
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+  border: none;
+  transition: all .2s;
+}
+.price-cta.outline { background: transparent; color: var(--text); border: 1px solid var(--border2); }
+.price-cta.outline:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+.price-cta.filled { background: var(--cyan); color: #020817; box-shadow: 0 0 24px rgba(0,212,255,0.3); }
+.price-cta.filled:hover { background: #22ddff; box-shadow: 0 0 40px rgba(0,212,255,0.5); transform: translateY(-1px); }
 
 /* ── FAQ ── */
-.faq{padding:80px 24px;max-width:720px;margin:0 auto}
-.faq-item{border-bottom:1px solid var(--border);padding:20px 0}
-.faq-q{font-family:var(--mono);font-size:14px;font-weight:700;cursor:pointer;display:flex;
-  align-items:center;justify-content:space-between;gap:16px;user-select:none}
-.faq-q::after{content:'+';font-size:20px;color:var(--cyan);flex-shrink:0;transition:transform .2s}
-.faq-item.open .faq-q::after{transform:rotate(45deg)}
-.faq-a{font-size:14px;color:var(--text2);line-height:1.8;max-height:0;overflow:hidden;
-  transition:max-height .3s ease,padding .3s ease;padding-top:0}
-.faq-item.open .faq-a{max-height:200px;padding-top:12px}
+.faq-section {
+  padding: 100px 40px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.faq-list { margin-top: 48px; }
+.faq-item { border-bottom: 1px solid var(--border); }
+.faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  transition: color .2s;
+}
+.faq-q:hover { color: var(--cyan); }
+.faq-icon {
+  width: 22px; height: 22px;
+  border: 1px solid var(--border2);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  color: var(--cyan);
+  flex-shrink: 0;
+  transition: transform .25s, background .2s;
+}
+.faq-item.open .faq-icon { transform: rotate(45deg); background: var(--cyan-dim); }
+.faq-a {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.8;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .35s ease, padding .3s;
+  font-weight: 300;
+}
+.faq-item.open .faq-a { max-height: 300px; padding-bottom: 22px; }
 
-/* ── CTA BANNER ── */
-.cta-banner{padding:80px 24px;text-align:center;background:var(--bg2);
-  border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-.cta-banner h2{font-family:var(--mono);font-size:clamp(24px,4vw,40px);font-weight:800;margin-bottom:16px}
-.cta-banner h2 em{font-style:normal;color:var(--cyan)}
-.cta-banner p{color:var(--text2);font-size:15px;margin-bottom:32px;max-width:420px;margin-inline:auto}
-.cta-sub{font-size:12px;color:var(--text3);font-family:var(--mono);margin-top:16px}
+/* ── FINAL CTA ── */
+.final-cta {
+  padding: 100px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.final-cta::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(0,212,255,0.06), transparent 70%);
+  pointer-events: none;
+}
+.final-cta h2 {
+  font-family: var(--display);
+  font-size: clamp(32px,5vw,56px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  margin-bottom: 20px;
+}
+.final-cta h2 em { font-style: normal; color: var(--cyan); }
+.final-cta p { color: var(--text2); font-size: 16px; margin-bottom: 36px; font-weight: 300; }
+.final-disclaimer { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 20px; letter-spacing: .06em; }
 
 /* ── FOOTER ── */
-.footer{padding:48px 24px 32px;background:var(--bg);border-top:1px solid var(--border)}
-.footer-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr;gap:40px}
-@media(max-width:700px){.footer-inner{grid-template-columns:1fr}}
-.footer-brand{font-family:var(--mono);font-size:15px;font-weight:800;margin-bottom:12px}
-.footer-brand span{color:var(--cyan)}
-.footer-tagline{font-size:13px;color:var(--text3);line-height:1.6;margin-bottom:16px}
-.footer-col-title{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;
-  color:var(--text3);margin-bottom:12px}
-.footer-links{list-style:none;display:flex;flex-direction:column;gap:8px}
-.footer-links a{font-size:13px;color:var(--text2);text-decoration:none;transition:color .2s}
-.footer-links a:hover{color:var(--cyan)}
-.footer-bottom{max-width:1100px;margin:32px auto 0;border-top:1px solid var(--border);
-  padding-top:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.footer-copy{font-size:11px;color:var(--text3);font-family:var(--mono)}
-.footer-admin-links{display:flex;gap:16px}
-.footer-admin-links a{font-size:11px;text-decoration:none;font-family:var(--mono)}
+footer {
+  background: var(--space1);
+  border-top: 1px solid var(--border);
+  padding: 60px 40px 32px;
+}
+.footer-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px;
+  margin-bottom: 48px;
+}
+@media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.footer-grid{grid-template-columns:1fr}}
+.footer-brand {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  margin-bottom: 12px;
+}
+.footer-brand span { color: var(--cyan); }
+.footer-desc { font-size: 13px; color: var(--text3); line-height: 1.7; font-weight: 300; max-width: 280px; }
+.footer-col-h { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--text3); margin-bottom: 16px; }
+.footer-links { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.footer-links a { font-size: 13px; color: var(--text2); text-decoration: none; transition: color .2s; font-weight: 300; }
+.footer-links a:hover { color: var(--cyan); }
+.footer-bottom {
+  max-width: 1400px;
+  margin: 0 auto;
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.footer-copy { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: .06em; }
+.footer-admin { display: flex; gap: 16px; }
+.footer-admin a { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-decoration: none; transition: opacity .2s; opacity: .6; }
+.footer-admin a:hover { opacity: 1; }
 
 /* ── AUTH MODAL ── */
-.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);
-  z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
-.auth-overlay.active{display:flex}
-.auth-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;
-  padding:36px;width:100%;max-width:420px;position:relative}
-.auth-close{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text3);
-  font-size:22px;cursor:pointer;line-height:1}
-.auth-close:hover{color:var(--text)}
-.auth-title{font-family:var(--mono);font-size:20px;font-weight:800;margin-bottom:4px}
-.auth-sub{font-size:13px;color:var(--text2);margin-bottom:24px}
-.auth-field{margin-bottom:16px}
-.auth-field label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text3);
-  font-family:var(--mono);margin-bottom:6px}
-.auth-field input{width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);
-  background:var(--bg);color:var(--text);font-size:14px;font-family:var(--mono);outline:none;
-  transition:border-color .2s}
-.auth-field input:focus{border-color:var(--cyan)}
-.auth-submit{width:100%;padding:14px;border-radius:10px;background:var(--cyan);color:#0a0e17;
-  font-size:14px;font-weight:700;cursor:pointer;font-family:var(--mono);border:none;
-  transition:all .2s;margin-top:8px}
-.auth-submit:hover{background:#22d3ee}
-.auth-submit:disabled{opacity:.5;cursor:not-allowed}
-.auth-error{color:var(--red);font-size:12px;font-family:var(--mono);margin-top:8px;display:none}
-.auth-switch{text-align:center;margin-top:16px;font-size:13px;color:var(--text2)}
-.auth-switch a{color:var(--cyan);cursor:pointer;text-decoration:none}
-.auth-switch a:hover{text-decoration:underline}
+.auth-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(2,8,23,0.85);
+  backdrop-filter: blur(16px);
+  z-index: 950;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.auth-backdrop.open { display: flex; }
+.auth-modal {
+  background: var(--space1);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 440px;
+  position: relative;
+  box-shadow: 0 0 60px rgba(0,212,255,0.08), 0 40px 80px rgba(0,0,0,0.7);
+}
+.auth-modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  border-radius: 16px 16px 0 0;
+}
+.auth-close-btn {
+  position: absolute;
+  top: 14px; right: 16px;
+  background: none; border: none;
+  color: var(--text3); font-size: 20px; cursor: pointer;
+  line-height: 1; padding: 4px;
+  transition: color .2s;
+}
+.auth-close-btn:hover { color: var(--text); }
+.auth-modal-title {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  letter-spacing: -.01em;
+}
+.auth-modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; font-weight: 300; }
+.auth-field { margin-bottom: 16px; }
+.auth-field label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--text3);
+  margin-bottom: 7px;
+}
+.auth-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--space2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+.auth-field input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0,212,255,0.08); }
+.auth-err { color: var(--red); font-family: var(--mono); font-size: 11px; margin-top: 6px; display: none; }
+.auth-submit-btn {
+  width: 100%;
+  padding: 13px;
+  margin-top: 8px;
+  border-radius: 8px;
+  background: var(--cyan);
+  color: #020817;
+  border: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: all .2s;
+  box-shadow: 0 0 24px rgba(0,212,255,0.3);
+}
+.auth-submit-btn:hover { background: #22ddff; box-shadow: 0 0 40px rgba(0,212,255,0.5); }
+.auth-submit-btn:disabled { opacity: .5; cursor: not-allowed; }
+.auth-switch-link { text-align: center; margin-top: 18px; font-size: 13px; color: var(--text2); }
+.auth-switch-link a { color: var(--cyan); cursor: pointer; text-decoration: none; }
+.auth-switch-link a:hover { text-decoration: underline; }
 
-/* ── RAZORPAY CHECKOUT ── */
-#rzp-upgrading{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);
-  z-index:300;align-items:center;justify-content:center;flex-direction:column;gap:16px}
-#rzp-upgrading.show{display:flex}
-.rzp-spinner{width:48px;height:48px;border:3px solid var(--border2);border-top-color:var(--cyan);
-  border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.rzp-msg{font-family:var(--mono);font-size:14px;color:var(--text2)}
+/* ── RZP OVERLAY ── */
+#rzp-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(2,8,23,0.92);
+  z-index: 960;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+}
+#rzp-overlay.show { display: flex; }
+.rzp-ring {
+  width: 48px; height: 48px;
+  border: 2px solid var(--border);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  box-shadow: 0 0 20px rgba(0,212,255,0.3);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.rzp-text { font-family: var(--mono); font-size: 12px; color: var(--text2); letter-spacing: .08em; }
 
-/* ── RESPONSIVE ── */
+/* ── LOAD ANIMATIONS ── */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.fade-up { opacity:0; animation: fadeUp .6s ease forwards; }
+.d1{animation-delay:.1s} .d2{animation-delay:.2s} .d3{animation-delay:.3s}
+.d4{animation-delay:.4s} .d5{animation-delay:.5s} .d6{animation-delay:.6s}
+
 @media(max-width:600px){
-  .nav{padding:10px 16px}
-  .nav-logo{font-size:13px}
-  .nav-link{display:none}
-  .hero-stats{gap:20px}
-  .hero-stat-num{font-size:22px}
-  .auth-box{padding:24px}
+  nav { padding: 0 16px; }
+  .nav-center { display: none; }
+  .hero { padding: 80px 20px 40px; }
+  .modules-section, .regime-section, .proof-section,
+  .pricing-section, .faq-section, .final-cta, footer { padding-left:20px; padding-right:20px; }
 }
 </style>
 </head>
 <body>
 
-<!-- NAV -->
-<nav class="nav">
-  <div class="nav-logo">QUANTUM <span>BREADTH 360</span></div>
-  <div class="nav-links">
-    <a href="#features" class="nav-link">Features</a>
-    <a href="#pricing" class="nav-link">Pricing</a>
-    <a href="#faq" class="nav-link">FAQ</a>
-    <button class="nav-btn ghost" onclick="openAuth('login')">Login</button>
-    <button class="nav-btn primary" onclick="openAuth('register')">Start Free →</button>
+<!-- Ambient -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ════════ NAV ════════ -->
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">⚛</div>
+    QUANTUM <span>&nbsp;BREADTH 360</span>
+  </div>
+  <div class="nav-center">
+    <a href="#modules">MODULES</a>
+    <a href="#regimes">Q-BRAM</a>
+    <a href="#pricing">PRICING</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn-ghost" onclick="openAuth('login')">LOGIN</button>
+    <button class="btn-primary" onclick="openAuth('register')">START FREE</button>
   </div>
 </nav>
 
-<!-- HERO -->
+<!-- ════════ HERO ════════ -->
 <section class="hero">
-  <div class="hero-content">
-    <div class="hero-badge">Q-BRAM POWERED · 5-REGIME MODEL</div>
-    <h1>See the Market<br>Before It <em>Moves</em></h1>
-    <p>Real-time breadth analysis, institutional flow tracking, and AI-driven regime intelligence for systematic Indian equity traders.</p>
-    <div class="hero-ctas">
-      <button class="btn-lg primary" onclick="openAuth('register')">Start Free — No Card Needed</button>
-      <a href="#pricing" class="btn-lg outline">View Pricing</a>
-    </div>
-    <div class="hero-stats">
-      <div class="hero-stat"><div class="hero-stat-num">2,500+</div><div class="hero-stat-label">NSE STOCKS TRACKED</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">50+</div><div class="hero-stat-label">BREADTH METRICS</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">5</div><div class="hero-stat-label">MARKET REGIMES</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">Live</div><div class="hero-stat-label">FII / DII FLOW</div></div>
-    </div>
-  </div>
-</section>
-
-<!-- TICKER STRIP -->
-<div class="ticker-strip">
-  <div class="ticker-inner" id="ticker-inner">
-    <span class="tick-item">NIFTY 50 <span class="up">▲ 0.48%</span></span>
-    <span class="tick-item">NIFTY 500 <span class="dn">▼ 0.12%</span></span>
-    <span class="tick-item">Q-BRAM Score <span class="up">72.4 · EXPANSION</span></span>
-    <span class="tick-item">% Above 50 DMA <span class="up">64.8%</span></span>
-    <span class="tick-item">New 52W Highs <span class="up">87</span></span>
-    <span class="tick-item">FII Net <span class="up">+₹2,140 Cr</span></span>
-    <span class="tick-item">DII Net <span class="up">+₹890 Cr</span></span>
-    <span class="tick-item">A/D Ratio <span class="up">1.84</span></span>
-    <span class="tick-item">NIFTY BANK <span class="dn">▼ 0.22%</span></span>
-    <span class="tick-item">RS Leaders Today <span class="up">24 stocks</span></span>
-    <span class="tick-item">Insider Buys (7d) <span class="up">31</span></span>
-    <span class="tick-item">NIFTY 50 <span class="up">▲ 0.48%</span></span>
-    <span class="tick-item">NIFTY 500 <span class="dn">▼ 0.12%</span></span>
-    <span class="tick-item">Q-BRAM Score <span class="up">72.4 · EXPANSION</span></span>
-    <span class="tick-item">% Above 50 DMA <span class="up">64.8%</span></span>
-    <span class="tick-item">New 52W Highs <span class="up">87</span></span>
-    <span class="tick-item">FII Net <span class="up">+₹2,140 Cr</span></span>
-    <span class="tick-item">DII Net <span class="up">+₹890 Cr</span></span>
-    <span class="tick-item">A/D Ratio <span class="up">1.84</span></span>
-    <span class="tick-item">NIFTY BANK <span class="dn">▼ 0.22%</span></span>
-    <span class="tick-item">RS Leaders Today <span class="up">24 stocks</span></span>
-    <span class="tick-item">Insider Buys (7d) <span class="up">31</span></span>
-  </div>
-</div>
-
-<!-- HOW IT WORKS -->
-<section class="howitworks">
-  <div class="section-title">How It Works</div>
-  <div class="section-sub">Three steps from market chaos to confident decisions.</div>
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">01</div>
-      <div class="step-title">READ THE REGIME</div>
-      <div class="step-desc">Q-BRAM classifies the market into one of 5 regimes in real time — Panic, Distribution, Transition, Accumulation, or Expansion. Know the environment before placing a trade.</div>
-    </div>
-    <div class="step">
-      <div class="step-num">02</div>
-      <div class="step-title">IDENTIFY LEADERS</div>
-      <div class="step-desc">Scanner + RS Leaders surface the strongest stocks in the strongest sectors with institutional buying behind them — FII flow, insider activity, and fundamental grades combined.</div>
-    </div>
-    <div class="step">
-      <div class="step-num">03</div>
-      <div class="step-title">TRACK & IMPROVE</div>
-      <div class="step-desc">The integrated Trading Journal ties every trade back to the regime it was taken in. Build your edge with performance analytics, calendar P&L, and strategy leaderboards.</div>
-    </div>
-  </div>
-</section>
-
-<!-- FEATURES -->
-<section class="features" id="features">
-  <div class="section-title">Everything You Need</div>
-  <div class="section-sub">From breadth analysis to psychology tracking — one platform, zero noise.</div>
-  <div class="features-grid">
-    <div class="feat-card">
-      <div class="feat-icon">📊</div>
-      <div class="feat-title">Q-BRAM REGIME ENGINE</div>
-      <div class="feat-desc">Proprietary 5-regime classification built on 19 years of NIFTY data. 50+ breadth metrics — A/D, DMA crossings, new highs/lows, momentum thrust — rolled into a single actionable score.</div>
-    </div>
-    <div class="feat-card">
-      <div class="feat-icon">🔥</div>
-      <div class="feat-title">SECTOR ROTATION MAP</div>
-      <div class="feat-desc">RRG-style rotation heatmap updated daily. Catch sector leadership shifts before price confirms. Combines RS momentum, breadth, and FII preference.</div>
-    </div>
-    <div class="feat-card">
-      <div class="feat-icon">🏛️</div>
-      <div class="feat-title">FII / DII FLOW MATRIX</div>
-      <div class="feat-desc">Institutional money tracker with streak detection, 60-day dot matrices, 5-day velocity, and cumulative flow. Know when smart money is accumulating or distributing.</div>
-    </div>
-    <div class="feat-card">
-      <div class="feat-icon">👁️</div>
-      <div class="feat-title">INSIDER ACTIVITY (SEBI PIT)</div>
-      <div class="feat-desc">Real-time NSE SEBI PIT disclosures with smart clustering, value scoring, and promoter vs insider segmentation. Spot clustered buying before the crowd.</div>
-    </div>
-    <div class="feat-card">
-      <div class="feat-icon">💎</div>
-      <div class="feat-title">F-VALUE SCREENER</div>
-      <div class="feat-desc">7-factor fundamental scoring system (A→E grades) with Justified PE fair value. Find companies with improving quality before the market re-rates them.</div>
-    </div>
-    <div class="feat-card">
-      <div class="feat-icon">🧠</div>
-      <div class="feat-title">AI MARKET INTELLIGENCE</div>
-      <div class="feat-desc">LLM-powered synthesis of breadth, regime, FII, and insider data into plain-language actionable insight. Ask the market a question, get a structured answer.</div>
-    </div>
-    <div class="feat-card highlight">
-      <div class="feat-new">INCLUDED</div>
-      <div class="feat-icon">📓</div>
-      <div class="feat-title">REGIME-AWARE TRADING JOURNAL</div>
-      <div class="feat-desc">Every trade is tagged to its market regime automatically. Calendar P&L heatmap, strategy leaderboard ranked by expectancy, 8-slider psychology scoring, and R-multiple tracking — built for systematic traders.</div>
-    </div>
-    <div class="feat-card">
-      <div class="feat-icon">🔍</div>
-      <div class="feat-title">SMART SCREENER</div>
-      <div class="feat-desc">Two-pass screener — Pass 1 filters by breadth, trend, and volume; Pass 2 scores by composite momentum. Minervini Trend Template and RS rank built in.</div>
-    </div>
-    <div class="feat-card">
-      <div class="feat-icon">📈</div>
-      <div class="feat-title">BREADTH CHARTS & ALERTS</div>
-      <div class="feat-desc">70+ historical breadth chart series — McClellan Oscillator, Summation Index, TRIN, VIX crossings, and custom indicators visualised alongside price. Regime Timeline with full annotation history.</div>
-    </div>
-  </div>
-</section>
-
-<!-- SOCIAL PROOF -->
-<section class="social-proof">
-  <div class="section-title" style="margin-bottom:40px">What Traders Say</div>
-  <div class="proof-row">
-    <div class="proof-card">
-      <div class="proof-stars">★★★★★</div>
-      <div class="proof-text">"The Q-BRAM regime signal alone is worth the subscription. I stopped fighting the tape the day I started using this."</div>
-      <div class="proof-author"><strong>Rajan M.</strong> · Swing Trader, Mumbai</div>
-    </div>
-    <div class="proof-card">
-      <div class="proof-stars">★★★★★</div>
-      <div class="proof-text">"FII/DII flow combined with insider clustering — I've not seen this combination anywhere else at this price point. Exceptional."</div>
-      <div class="proof-author"><strong>Priya S.</strong> · Portfolio Manager, Bangalore</div>
-    </div>
-    <div class="proof-card">
-      <div class="proof-stars">★★★★★</div>
-      <div class="proof-text">"The trading journal finally showed me I was a good stock picker in expansion regimes and a terrible one in distribution. Changed everything."</div>
-      <div class="proof-author"><strong>Vikram T.</strong> · Systematic Trader, Hyderabad</div>
-    </div>
-  </div>
-</section>
-
-<!-- PRICING -->
-<section class="pricing" id="pricing">
-  <div class="section-title">Simple, Honest Pricing</div>
-  <div class="section-sub">Start free forever. Upgrade when the platform pays for itself.</div>
-
-  <!-- Monthly / Annual toggle -->
-  <div class="pricing-toggle">
-    <span>MONTHLY</span>
-    <div class="toggle-switch" id="billing-toggle" onclick="toggleBilling()"></div>
-    <span>ANNUAL <span class="save-badge">SAVE 20%</span></span>
-  </div>
-
-  <div class="pricing-grid">
-    <!-- Explorer (Free) -->
-    <div class="price-card">
-      <div class="price-tier">EXPLORER</div>
-      <div class="price-amount"><span class="currency">₹</span>0<span class="period">/mo</span></div>
-      <div class="price-annual">Free forever. No credit card needed.</div>
-      <div class="price-divider"></div>
-      <ul class="price-features">
-        <li><span class="ck">✓</span> Market Overview & Q-BRAM Score</li>
-        <li><span class="ck">✓</span> Breadth Charts (DMA, A/D, Oscillator)</li>
-        <li><span class="ck">✓</span> Sector Heatmap & Rotation Map</li>
-        <li><span class="ck">✓</span> Basic Trading Journal (10 trades)</li>
-        <li class="locked"><span class="ck">✗</span> Scanner & RS Leaders</li>
-        <li class="locked"><span class="ck">✗</span> FII/DII Institutional Flow</li>
-        <li class="locked"><span class="ck">✗</span> Insider Activity & F-Value</li>
-        <li class="locked"><span class="ck">✗</span> AI Market Intelligence</li>
-      </ul>
-      <button class="price-btn outline" onclick="openAuth('register')">Create Free Account</button>
+  <!-- LEFT -->
+  <div class="hero-left">
+    <div class="system-tag fade-up d1">
+      <div class="system-tag-dot"></div>
+      <span>SYSTEM ONLINE · NIFTY 500 UNIVERSE · NSE LIVE</span>
     </div>
 
-    <!-- Pro -->
-    <div class="price-card featured">
-      <div class="price-tier">PRO</div>
-      <div class="price-amount" id="pro-price-display">
-        <span class="currency">₹</span><span id="pro-price-num">299</span><span class="period">/mo</span>
+    <h1 class="fade-up d2">
+      Read the Market.<br>
+      <span class="line2">Before It Moves.</span>
+    </h1>
+
+    <p class="hero-sub fade-up d3">
+      India's only regime-aware market intelligence terminal. Q-BRAM classifies the market in real time — 5 regimes, 50+ breadth metrics, institutional flows, insider signals. Built for systematic traders who need to know <em>why</em>, not just <em>what</em>.
+    </p>
+
+    <div class="hero-ctas fade-up d4">
+      <button class="hero-cta-primary" onclick="openAuth('register')">
+        START FREE — NO CARD NEEDED
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
+      <a href="#pricing" class="hero-cta-secondary">
+        VIEW PRICING
+      </a>
+    </div>
+
+    <div class="stat-strip fade-up d5">
+      <div class="stat-item">
+        <div class="stat-val" id="stat1">2,500+</div>
+        <div class="stat-label">NSE STOCKS</div>
       </div>
-      <div class="price-annual" id="pro-billing-note">or ₹2,870/year — <em>save 20%</em></div>
-      <div class="price-divider"></div>
-      <ul class="price-features">
-        <li><span class="ck">✓</span> Everything in Explorer</li>
-        <li><span class="ck">✓</span> Scanner & RS Leaders (Unlimited)</li>
-        <li><span class="ck">✓</span> FII/DII Institutional Flow</li>
-        <li><span class="ck">✓</span> Insider Activity (SEBI PIT)</li>
-        <li><span class="ck">✓</span> F-Value Fundamental Screener</li>
-        <li><span class="ck">✓</span> AI Market Intelligence</li>
-        <li><span class="ck">✓</span> Full Trading Journal (unlimited)</li>
-        <li><span class="ck">✓</span> Smart Screener & Watchlist</li>
-      </ul>
-      <button class="price-btn primary" onclick="startCheckout('pro')" id="pro-cta-btn">Start Pro Trial — 14 Days Free →</button>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-val" id="stat2">50+</div>
+        <div class="stat-label">BREADTH METRICS</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-val" id="stat3">19Y</div>
+        <div class="stat-label">BACKTEST DATA</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-val" id="stat4">61.8%</div>
+        <div class="stat-label">WIN RATE*</div>
+      </div>
     </div>
   </div>
 
-  <p style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:24px">
-    All prices in INR. Payments processed securely via Razorpay. Cancel anytime.
-  </p>
+  <!-- RIGHT — TERMINAL -->
+  <div class="hero-right fade-up d6">
+    <div class="terminal-shell">
+      <div class="terminal-titlebar">
+        <div class="t-dot r"></div>
+        <div class="t-dot y"></div>
+        <div class="t-dot g"></div>
+        <div class="terminal-title">QB360 · MARKET INTELLIGENCE TERMINAL · LIVE</div>
+      </div>
+      <div class="terminal-body">
+
+        <!-- Regime Panel -->
+        <div class="regime-panel">
+          <div class="regime-arc-wrap">
+            <svg width="100" height="65" viewBox="0 0 100 65">
+              <!-- Track arcs for 5 regimes -->
+              <path d="M10,60 A45,45 0 0,1 90,60" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="8" stroke-linecap="round"/>
+              <!-- Panic -->
+              <path d="M10,60 A45,45 0 0,1 28,20" fill="none" stroke="#f43f5e" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
+              <!-- Distribution -->
+              <path d="M28,20 A45,45 0 0,1 50,12" fill="none" stroke="#f59e0b" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
+              <!-- Transition -->
+              <path d="M50,12 A45,45 0 0,1 63,15" fill="none" stroke="#64748b" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
+              <!-- Accumulation -->
+              <path d="M63,15 A45,45 0 0,1 78,26" fill="none" stroke="#3b82f6" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
+              <!-- Expansion — ACTIVE -->
+              <path d="M78,26 A45,45 0 0,1 90,60" fill="none" stroke="#00d4ff" stroke-width="8" stroke-linecap="round"
+                style="filter:drop-shadow(0 0 6px #00d4ff)"/>
+              <!-- Needle -->
+              <line id="regime-needle" x1="50" y1="58" x2="85" y2="30"
+                stroke="#00d4ff" stroke-width="2" stroke-linecap="round"
+                style="transform-origin:50px 58px; animation: needlePulse 3s ease-in-out infinite;"/>
+              <!-- Center dot -->
+              <circle cx="50" cy="58" r="4" fill="#00d4ff" style="filter:drop-shadow(0 0 6px #00d4ff)"/>
+            </svg>
+          </div>
+          <div class="regime-label-panel">
+            <div class="regime-current">EXPANSION</div>
+            <div class="regime-score-row">
+              <div class="regime-score-val" id="score-counter">72</div>
+              <div class="regime-score-unit">/ 100</div>
+            </div>
+            <div class="regime-sub">Q-BRAM COMPOSITE SCORE</div>
+            <div class="regime-dots">
+              <div class="rdot past"></div>
+              <div class="rdot past"></div>
+              <div class="rdot past"></div>
+              <div class="rdot past"></div>
+              <div class="rdot active"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics grid -->
+        <div class="metrics-grid">
+          <div class="metric-cell">
+            <div class="metric-name">% ABOVE 50 DMA</div>
+            <div class="metric-val up">64.8%</div>
+            <div class="metric-sub">↑ 3.2% vs last week</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-name">52W HIGHS / LOWS</div>
+            <div class="metric-val neutral">87 <span style="font-size:12px;color:var(--text3)">/ 11</span></div>
+            <div class="metric-sub">Ratio 7.9 : 1</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-name">A/D LINE TREND</div>
+            <div class="metric-val up">+1.84</div>
+            <div class="metric-sub">12-day slope ↑</div>
+          </div>
+          <div class="metric-cell">
+            <div class="metric-name">RS LEADERS</div>
+            <div class="metric-val up">24</div>
+            <div class="metric-sub">Stocks RS ≥ 90 today</div>
+          </div>
+        </div>
+
+        <!-- FII / DII -->
+        <div class="fii-strip">
+          <div class="fii-cell">
+            <div class="fii-label">FII NET TODAY</div>
+            <div class="fii-val buy">+₹2,140 Cr</div>
+            <div class="fii-bar-wrap"><div class="fii-bar buy" style="width:72%"></div></div>
+          </div>
+          <div class="fii-divider"></div>
+          <div class="fii-cell">
+            <div class="fii-label">DII NET TODAY</div>
+            <div class="fii-val buy">+₹890 Cr</div>
+            <div class="fii-bar-wrap"><div class="fii-bar buy" style="width:38%"></div></div>
+          </div>
+        </div>
+
+        <!-- Insider Chips -->
+        <div class="insider-row">
+          <div class="insider-chip"><span class="ico">👁</span> <span class="stk">TATAPOWER</span> <span class="val">+₹12.4Cr</span></div>
+          <div class="insider-chip"><span class="ico">👁</span> <span class="stk">HDFCBANK</span> <span class="val">+₹8.1Cr</span></div>
+          <div class="insider-chip"><span class="ico">👁</span> <span class="stk">RELIANCE</span> <span class="val">+₹31Cr</span></div>
+          <div class="insider-chip"><span class="ico">👁</span> <span class="stk">INFY</span> <span class="val">+₹4.2Cr</span></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 </section>
 
-<!-- FAQ -->
-<section class="faq" id="faq">
-  <div class="section-title" style="margin-bottom:40px">Frequently Asked</div>
-
-  <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">What is Q-BRAM and why does it matter?</div>
-    <div class="faq-a">Q-BRAM (Quantitative Breadth Regime Analysis Model) is a proprietary market classification framework backtested on 19 years of NIFTY 500 data. It classifies the market into 5 regimes — Panic, Distribution, Transition, Accumulation, and Expansion — giving you a single score to trade from. Our backtests show a 61.8% win rate on signals taken in Expansion regime vs 34% in Distribution.</div>
+<!-- ════════ MODULES ════════ -->
+<section class="modules-section" id="modules">
+  <div class="modules-header">
+    <div class="section-tag">PLATFORM MODULES</div>
+    <div class="section-h">Everything a Systematic Trader Needs</div>
+    <div class="section-sub">Nine intelligence modules. One terminal. Built on 19 years of NSE breadth research.</div>
   </div>
+  <div class="modules-grid">
 
-  <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">Is this only for Indian markets?</div>
-    <div class="faq-a">The platform is India-first (NSE/BSE) with full coverage of NIFTY 500 stocks, NSE sectors, FII/DII data, and SEBI PIT insider filings. US market (Russell 3000) data is partially integrated and expanding. Indian traders will get the most value from the platform today.</div>
-  </div>
+    <div class="module-card" style="--accent-color:var(--cyan)">
+      <div class="module-num">01</div>
+      <span class="module-icon">📊</span>
+      <div class="module-name">Q-BRAM REGIME ENGINE</div>
+      <div class="module-desc">Proprietary 5-regime market classifier — Panic, Distribution, Transition, Accumulation, Expansion. Backtested on 19 years of NIFTY 500 data. One score tells you everything about market state.</div>
+      <span class="module-tag tag-free">FREE</span>
+    </div>
 
-  <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">How is this different from Tickertape or Screener.in?</div>
-    <div class="faq-a">Those tools are fundamental screeners. Quantum Breadth 360 is a market-breadth intelligence platform — it tells you the health of the overall market, where institutional money is flowing, and which sectors are leading before you even look at individual stocks. The Trading Journal then ties your trades back to regime context — something no other platform does.</div>
-  </div>
+    <div class="module-card" style="--accent-color:var(--amber)">
+      <div class="module-num">02</div>
+      <span class="module-icon">🔥</span>
+      <div class="module-name">SECTOR ROTATION MAP</div>
+      <div class="module-desc">RRG-style sector momentum heatmap updated daily. Identify leadership shifts before price confirms. Combines RS momentum, FII sector flows, and breadth concentration.</div>
+      <span class="module-tag tag-free">FREE</span>
+    </div>
 
-  <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">What happens after the 14-day Pro trial?</div>
-    <div class="faq-a">After your trial, you'll be downgraded to the Explorer (free) tier automatically — no charges, no surprises. Your data and trades are preserved. You can upgrade to Pro at any time from within the app to restore full access.</div>
-  </div>
+    <div class="module-card" style="--accent-color:#3b82f6">
+      <div class="module-num">03</div>
+      <span class="module-icon">🏛️</span>
+      <div class="module-name">FII / DII FLOW MATRIX</div>
+      <div class="module-desc">Institutional money tracker with streak detection, 60-day dot matrices, velocity scoring, and selling intensity alerts. Know in real time when smart money flips direction.</div>
+      <span class="module-tag tag-pro">PRO</span>
+    </div>
 
-  <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">Can I cancel my Pro subscription?</div>
-    <div class="faq-a">Yes, anytime from the Billing section inside your account. Cancellation takes effect at the end of your current billing period — you keep full Pro access until then. No partial refunds, but no lock-in either.</div>
-  </div>
+    <div class="module-card" style="--accent-color:var(--purple)">
+      <div class="module-num">04</div>
+      <span class="module-icon">👁️</span>
+      <div class="module-name">INSIDER ACTIVITY (SEBI PIT)</div>
+      <div class="module-desc">Real-time NSE SEBI disclosures with smart clustering, value scoring, and promoter vs insider segmentation. Spot promoter accumulation before the breakout.</div>
+      <span class="module-tag tag-pro">PRO</span>
+    </div>
 
-  <div class="faq-item">
-    <div class="faq-q" onclick="toggleFaq(this)">Is my data safe?</div>
-    <div class="faq-a">All data is stored securely. We do not sell your trading data or share it with third parties. Payments are handled entirely by Razorpay — we never see your card details.</div>
+    <div class="module-card" style="--accent-color:var(--green)">
+      <div class="module-num">05</div>
+      <span class="module-icon">💎</span>
+      <div class="module-name">F-VALUE SCREENER</div>
+      <div class="module-desc">7-factor fundamental grading (A→E) with Justified PE fair value estimation. Surface improving-quality companies before the market re-rates them higher.</div>
+      <span class="module-tag tag-pro">PRO</span>
+    </div>
+
+    <div class="module-card" style="--accent-color:var(--cyan)">
+      <div class="module-num">06</div>
+      <span class="module-icon">🔍</span>
+      <div class="module-name">SMART SCREENER</div>
+      <div class="module-desc">Two-pass screener — Pass 1 filters by breadth, trend, and volume conditions; Pass 2 ranks by composite momentum score. Minervini Trend Template and RS rank built in.</div>
+      <span class="module-tag tag-pro">PRO</span>
+    </div>
+
+    <div class="module-card" style="--accent-color:var(--amber)">
+      <div class="module-num">07</div>
+      <span class="module-icon">📈</span>
+      <div class="module-name">BREADTH CHARTS & HISTORY</div>
+      <div class="module-desc">70+ breadth chart series — McClellan Oscillator, Summation Index, TRIN, VIX crossings. Regime Timeline with full annotation history going back years.</div>
+      <span class="module-tag tag-free">FREE</span>
+    </div>
+
+    <div class="module-card" style="--accent-color:#a78bfa">
+      <div class="module-num">08</div>
+      <span class="module-icon">🧠</span>
+      <div class="module-name">AI MARKET INTELLIGENCE</div>
+      <div class="module-desc">LLM synthesis of breadth, regime, FII, and insider signals into actionable plain-language insight. Ask the market a question. Get a structured, data-backed answer.</div>
+      <span class="module-tag tag-pro">PRO</span>
+    </div>
+
+    <div class="module-card" style="--accent-color:var(--green)">
+      <div class="module-num">09</div>
+      <span class="module-icon">📓</span>
+      <div class="module-name">REGIME-AWARE TRADING JOURNAL</div>
+      <div class="module-desc">The only journal that tags every trade to its market regime. Calendar P&L heatmap, strategy leaderboard by expectancy, 8-slider psychology scoring, R-multiple tracking. Built for edge-builders.</div>
+      <span class="module-tag tag-new">INCLUDED</span>
+    </div>
+
   </div>
 </section>
 
-<!-- CTA BANNER -->
-<section class="cta-banner">
-  <h2>Ready to Trade with<br><em>Market Context</em>?</h2>
-  <p>Join traders who stopped guessing the regime and started reading it.</p>
-  <button class="btn-lg primary" onclick="openAuth('register')">Create Your Free Account →</button>
-  <div class="cta-sub">No credit card · Free Explorer plan forever · Upgrade when you're ready</div>
+<!-- ════════ REGIME EXPLAINER ════════ -->
+<section class="regime-section" id="regimes">
+  <div class="regime-inner">
+    <div>
+      <div class="section-tag">Q-BRAM MODEL</div>
+      <div class="section-h">5 Regimes.<br>One Decision Framework.</div>
+      <div class="section-sub" style="margin-bottom:32px">Q-BRAM (Quantitative Breadth Regime Analysis Model) classifies every trading day into one of 5 market states — backtested on 19 years of NIFTY 500 data. Each regime has a statistically different expected return distribution. Trade with the regime.</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:32px">
+        <div>
+          <div style="font-family:var(--mono);font-size:32px;font-weight:700;color:var(--cyan)">61.8%</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.1em;margin-top:4px">WIN RATE IN EXPANSION</div>
+        </div>
+        <div style="width:1px;background:var(--border)"></div>
+        <div>
+          <div style="font-family:var(--mono);font-size:32px;font-weight:700;color:var(--green)">+2.74%</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.1em;margin-top:4px">MEAN 20-DAY RETURN</div>
+        </div>
+        <div style="width:1px;background:var(--border)"></div>
+        <div>
+          <div style="font-family:var(--mono);font-size:32px;font-weight:700;color:var(--purple)">411</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.1em;margin-top:4px">SIGNALS BACKTESTED</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="regime-states">
+      <div class="regime-state-row rs-panic">
+        <div class="rs-num">01</div>
+        <div>
+          <div class="rs-name" style="color:var(--red)">PANIC</div>
+          <div class="rs-desc">Breadth collapse. Institutional liquidation. Avoid longs. Capital preservation mode.</div>
+        </div>
+        <div class="rs-win" style="color:var(--red)">Avoid</div>
+      </div>
+      <div class="regime-state-row rs-dist">
+        <div class="rs-num">02</div>
+        <div>
+          <div class="rs-name" style="color:var(--amber)">DISTRIBUTION</div>
+          <div class="rs-desc">Deteriorating internals. Smart money reducing exposure. Defensive positioning.</div>
+        </div>
+        <div class="rs-win" style="color:var(--amber)">Reduce</div>
+      </div>
+      <div class="regime-state-row rs-trans">
+        <div class="rs-num">03</div>
+        <div>
+          <div class="rs-name" style="color:var(--text2)">TRANSITION</div>
+          <div class="rs-desc">Mixed signals. Regime change in progress. Selective and small sizing only.</div>
+        </div>
+        <div class="rs-win" style="color:var(--text3)">Selective</div>
+      </div>
+      <div class="regime-state-row rs-accum">
+        <div class="rs-num">04</div>
+        <div>
+          <div class="rs-name" style="color:#3b82f6">ACCUMULATION</div>
+          <div class="rs-desc">Base-building. Leadership emerging. Begin building quality positions.</div>
+        </div>
+        <div class="rs-win" style="color:#3b82f6">Build</div>
+      </div>
+      <div class="regime-state-row rs-exp">
+        <div class="rs-num">05</div>
+        <div>
+          <div class="rs-name" style="color:var(--cyan)">EXPANSION</div>
+          <div class="rs-desc">Broad participation. Institutional flows positive. Maximum deployment zone. 61.8% win rate.</div>
+        </div>
+        <div class="rs-win">Full Size</div>
+      </div>
+    </div>
+  </div>
 </section>
 
-<!-- FOOTER -->
-<footer class="footer">
-  <div class="footer-inner">
+<!-- ════════ SOCIAL PROOF ════════ -->
+<section class="proof-section">
+  <div class="section-tag">TRADER STORIES</div>
+  <div class="section-h">From the People Using It Daily</div>
+  <div class="proof-grid">
+    <div class="proof-card">
+      <span class="proof-quote-mark">"</span>
+      <p class="proof-text">The Q-BRAM regime signal alone changed how I size positions. I stopped fighting distribution phases and my drawdowns dropped by half.</p>
+      <div class="proof-author">
+        <div class="proof-avatar">R</div>
+        <div>
+          <div class="proof-name">RAJAN M.</div>
+          <div class="proof-role">SWING TRADER · MUMBAI</div>
+        </div>
+      </div>
+    </div>
+    <div class="proof-card">
+      <span class="proof-quote-mark">"</span>
+      <p class="proof-text">FII flow combined with insider clustering — I've not seen this combination anywhere at this price. The institutional matrix is exceptional.</p>
+      <div class="proof-author">
+        <div class="proof-avatar">P</div>
+        <div>
+          <div class="proof-name">PRIYA S.</div>
+          <div class="proof-role">PORTFOLIO MANAGER · BANGALORE</div>
+        </div>
+      </div>
+    </div>
+    <div class="proof-card">
+      <span class="proof-quote-mark">"</span>
+      <p class="proof-text">The Trading Journal showed me I'm a great stock picker in Expansion and terrible in Distribution. That insight alone paid for years of subscription.</p>
+      <div class="proof-author">
+        <div class="proof-avatar">V</div>
+        <div>
+          <div class="proof-name">VIKRAM T.</div>
+          <div class="proof-role">SYSTEMATIC TRADER · HYDERABAD</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ PRICING ════════ -->
+<section class="pricing-section" id="pricing">
+  <div class="pricing-inner">
+    <div class="pricing-header">
+      <div class="section-tag">PRICING</div>
+      <div class="section-h">Start Free. Upgrade When It Pays for Itself.</div>
+    </div>
+
+    <div class="billing-toggle-row">
+      <span class="billing-label">MONTHLY</span>
+      <div class="billing-switch" id="bill-switch" onclick="toggleBilling()"></div>
+      <span class="billing-label">ANNUAL</span>
+      <span class="save-pill">SAVE 20%</span>
+    </div>
+
+    <div class="pricing-cards">
+      <!-- Explorer -->
+      <div class="price-card">
+        <div class="price-tier-name">EXPLORER</div>
+        <div class="price-amount-row">
+          <span class="price-currency">₹</span>
+          <span class="price-num">0</span>
+          <span class="price-period">/mo</span>
+        </div>
+        <div class="price-note">Free forever. No credit card needed.</div>
+        <div class="price-sep"></div>
+        <ul class="price-features">
+          <li><span class="chk">✓</span> Market Overview & Q-BRAM Score</li>
+          <li><span class="chk">✓</span> Breadth Charts (DMA, A/D, Oscillator)</li>
+          <li><span class="chk">✓</span> Sector Heatmap & Rotation Map</li>
+          <li><span class="chk">✓</span> Basic Trading Journal (10 trades)</li>
+          <li class="off"><span class="chk">✗</span> Scanner & RS Leaders</li>
+          <li class="off"><span class="chk">✗</span> FII/DII Institutional Flow</li>
+          <li class="off"><span class="chk">✗</span> Insider Activity & F-Value</li>
+          <li class="off"><span class="chk">✗</span> AI Market Intelligence</li>
+        </ul>
+        <button class="price-cta outline" onclick="openAuth('register')">CREATE FREE ACCOUNT</button>
+      </div>
+
+      <!-- Pro -->
+      <div class="price-card pro">
+        <div class="price-tier-name pro">PRO</div>
+        <div class="price-amount-row">
+          <span class="price-currency">₹</span>
+          <span class="price-num" id="pro-num">299</span>
+          <span class="price-period">/mo</span>
+        </div>
+        <div class="price-note" id="pro-note">or ₹2,870/year — <em>save 20%</em></div>
+        <div class="price-sep"></div>
+        <ul class="price-features">
+          <li><span class="chk">✓</span> Everything in Explorer</li>
+          <li><span class="chk">✓</span> Scanner & RS Leaders (Unlimited)</li>
+          <li><span class="chk">✓</span> FII/DII Institutional Flow</li>
+          <li><span class="chk">✓</span> Insider Activity (SEBI PIT)</li>
+          <li><span class="chk">✓</span> F-Value Fundamental Screener</li>
+          <li><span class="chk">✓</span> AI Market Intelligence</li>
+          <li><span class="chk">✓</span> Full Trading Journal (unlimited)</li>
+          <li><span class="chk">✓</span> Smart Screener & Watchlist</li>
+        </ul>
+        <button class="price-cta filled" onclick="startCheckout('pro')" id="pro-cta">
+          START PRO — 14 DAYS FREE
+        </button>
+      </div>
+    </div>
+
+    <p style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:24px;letter-spacing:.06em">
+      * 61.8% win rate on Expansion regime + Pocket Pivot + RS≥85 signals — 411 occurrences, 20-year backtest on NIFTY 500 universe.
+      Payments via Razorpay. Cancel anytime.
+    </p>
+  </div>
+</section>
+
+<!-- ════════ FAQ ════════ -->
+<section class="faq-section" id="faq">
+  <div class="section-tag">QUESTIONS</div>
+  <div class="section-h">Frequently Asked</div>
+  <div class="faq-list">
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        What is Q-BRAM and what makes it different?
+        <div class="faq-icon">+</div>
+      </div>
+      <div class="faq-a">Q-BRAM (Quantitative Breadth Regime Analysis Model) is a proprietary 5-regime market classification framework developed and backtested on 19 years of NIFTY 500 data. It combines 50+ breadth metrics — A/D line, DMA crossings, new highs/lows, thrust indicators — into a single composite score. The key insight: signals taken in the Expansion regime show a 61.8% win rate vs 34% in Distribution. Most traders use price alone. Q-BRAM uses the internal health of the entire market.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        Is this only for Indian markets?
+        <div class="faq-icon">+</div>
+      </div>
+      <div class="faq-a">The platform is India-first — full NSE/BSE coverage, NIFTY 500 universe, SEBI PIT insider filings, FII/DII institutional data, and NSE sector taxonomy. US market (Russell 3000) data is partially integrated and expanding. Indian systematic traders will get the maximum value from the platform today.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        How is this different from Tickertape, Screener.in, or Chartink?
+        <div class="faq-icon">+</div>
+      </div>
+      <div class="faq-a">Those tools are stock-level screeners and fundamental databases. Quantum Breadth 360 is a market-breadth intelligence terminal — it tells you the health of the overall market, where institutional money is flowing, and which sectors are leading before you even look at individual stocks. The Trading Journal then ties every trade back to its market regime — something no other platform in India does.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        What happens after the 14-day Pro trial?
+        <div class="faq-icon">+</div>
+      </div>
+      <div class="faq-a">After your trial ends, you're automatically moved to the Explorer (free) tier — no charges, no surprises. Your trades, journal entries, and watchlist data are preserved. You can upgrade to Pro at any time from inside the app to restore full access.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        Can I cancel my Pro subscription anytime?
+        <div class="faq-icon">+</div>
+      </div>
+      <div class="faq-a">Yes. Cancel anytime from the Billing section in your account settings. Cancellation takes effect at the end of your current billing period — you keep full Pro access until then. No lock-in, no partial refunds, no questions asked.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        Is this suitable for intraday traders?
+        <div class="faq-icon">+</div>
+      </div>
+      <div class="faq-a">Quantum Breadth 360 is optimised for swing and positional traders (2-day to 8-week holding periods) using methodologies like Minervini SEPA, O'Neil CAN SLIM, Qullamaggie momentum, and Weinstein Stage Analysis. The breadth and regime data is most valuable for traders whose holding periods are long enough for market context to matter. Intraday traders will find limited utility.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════ FINAL CTA ════════ -->
+<section class="final-cta">
+  <h2>Stop Guessing<br>the <em>Regime</em>.</h2>
+  <p>Start reading the market's internal health in real time — free, today.</p>
+  <button class="hero-cta-primary" style="margin:0 auto" onclick="openAuth('register')">
+    CREATE FREE ACCOUNT
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+  </button>
+  <div class="final-disclaimer">No credit card · Free Explorer plan forever · NSE data updated daily</div>
+</section>
+
+<!-- ════════ FOOTER ════════ -->
+<footer>
+  <div class="footer-grid">
     <div>
       <div class="footer-brand">QUANTUM <span>BREADTH 360</span></div>
-      <div class="footer-tagline">India's only regime-aware market intelligence platform — powered by 19 years of breadth research and the Q-BRAM model.</div>
+      <div class="footer-desc">India's only regime-aware market intelligence terminal. Built on Q-BRAM — 19 years of NSE breadth research distilled into a single platform for systematic traders.</div>
     </div>
     <div>
-      <div class="footer-col-title">PLATFORM</div>
+      <div class="footer-col-h">PLATFORM</div>
       <ul class="footer-links">
-        <li><a href="#features">Features</a></li>
+        <li><a href="#modules">Modules</a></li>
+        <li><a href="#regimes">Q-BRAM Model</a></li>
         <li><a href="#pricing">Pricing</a></li>
-        <li><a href="#faq">FAQ</a></li>
         <li><a href="/app" onclick="localStorage.setItem('qb360_mode','dev')">Launch App</a></li>
       </ul>
     </div>
     <div>
-      <div class="footer-col-title">RESOURCES</div>
+      <div class="footer-col-h">RESEARCH</div>
       <ul class="footer-links">
         <li><a href="https://substack.com" target="_blank">Q-BRAM Substack</a></li>
         <li><a href="https://medium.com" target="_blank">Research Articles</a></li>
-        <li><a href="mailto:support@quantumtradeledger.com">Support</a></li>
+        <li><a href="https://x.com" target="_blank">X / Twitter</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-h">SUPPORT</div>
+      <ul class="footer-links">
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="mailto:support@quantumtradeledger.com">Contact</a></li>
+        <li><a href="/app">Login</a></li>
       </ul>
     </div>
   </div>
   <div class="footer-bottom">
-    <div class="footer-copy">© 2026 Quantum Breadth 360 · Powered by Q-BRAM Engine · quantumtradeledger.com</div>
-    <div class="footer-admin-links">
-      <a href="/app?mode=admin" style="color:var(--amber)" onclick="localStorage.setItem('qb360_mode','admin')">🔑 Admin</a>
-      <a href="/app?mode=dev" style="color:var(--purple)" onclick="localStorage.setItem('qb360_mode','dev')">🛠 Dev</a>
+    <div class="footer-copy">© 2026 QUANTUM BREADTH 360 · QUANTUMTRADELEDGER.COM · POWERED BY Q-BRAM ENGINE</div>
+    <div class="footer-admin">
+      <a href="/app?mode=admin" style="color:var(--amber)" onclick="localStorage.setItem('qb360_mode','admin')">🔑 ADMIN</a>
+      <a href="/app?mode=dev" style="color:var(--purple)" onclick="localStorage.setItem('qb360_mode','dev')">🛠 DEV</a>
     </div>
   </div>
 </footer>
 
-<!-- RAZORPAY UPGRADING OVERLAY -->
-<div id="rzp-upgrading">
-  <div class="rzp-spinner"></div>
-  <div class="rzp-msg" id="rzp-msg">Connecting to payment gateway...</div>
+<!-- ════════ RZP OVERLAY ════════ -->
+<div id="rzp-overlay">
+  <div class="rzp-ring"></div>
+  <div class="rzp-text" id="rzp-text">CONNECTING TO PAYMENT GATEWAY...</div>
 </div>
 
-<!-- AUTH MODAL -->
-<div class="auth-overlay" id="auth-overlay">
-  <div class="auth-box">
-    <button class="auth-close" onclick="closeAuth()">×</button>
-    <div id="auth-login-form">
-      <div class="auth-title">Welcome Back</div>
-      <div class="auth-sub">Login to your Quantum Breadth 360 account</div>
-      <div class="auth-field"><label>EMAIL</label><input type="email" id="login-email" placeholder="you@example.com"></div>
-      <div class="auth-field"><label>PASSWORD</label><input type="password" id="login-password" placeholder="••••••••"></div>
-      <div class="auth-error" id="login-error"></div>
-      <button class="auth-submit" onclick="doLogin()">Login →</button>
-      <div class="auth-switch">Don't have an account? <a onclick="switchAuth('register')">Register free</a></div>
+<!-- ════════ AUTH MODAL ════════ -->
+<div class="auth-backdrop" id="auth-backdrop">
+  <div class="auth-modal">
+    <button class="auth-close-btn" onclick="closeAuth()">×</button>
+
+    <!-- Login -->
+    <div id="form-login">
+      <div class="auth-modal-title">Welcome Back</div>
+      <div class="auth-modal-sub">Login to your Quantum Breadth 360 account</div>
+      <div class="auth-field"><label>EMAIL</label><input type="email" id="l-email" placeholder="you@example.com"></div>
+      <div class="auth-field"><label>PASSWORD</label><input type="password" id="l-pass" placeholder="••••••••"></div>
+      <div class="auth-err" id="l-err"></div>
+      <button class="auth-submit-btn" onclick="doLogin()">LOGIN →</button>
+      <div class="auth-switch-link">Don't have an account? <a onclick="switchForm('register')">Register free</a></div>
     </div>
-    <div id="auth-register-form" style="display:none">
-      <div class="auth-title">Create Account</div>
-      <div class="auth-sub">Start with Explorer (free) — upgrade anytime</div>
-      <div class="auth-field"><label>FULL NAME</label><input type="text" id="reg-name" placeholder="Your name"></div>
-      <div class="auth-field"><label>EMAIL</label><input type="email" id="reg-email" placeholder="you@example.com"></div>
-      <div class="auth-field"><label>PASSWORD</label><input type="password" id="reg-password" placeholder="Min 6 characters"></div>
-      <div class="auth-error" id="reg-error"></div>
-      <button class="auth-submit" onclick="doRegister()">Create Account →</button>
-      <div class="auth-switch">Already have an account? <a onclick="switchAuth('login')">Login</a></div>
+
+    <!-- Register -->
+    <div id="form-register" style="display:none">
+      <div class="auth-modal-title">Create Account</div>
+      <div class="auth-modal-sub">Start with Explorer (free) — upgrade anytime</div>
+      <div class="auth-field"><label>FULL NAME</label><input type="text" id="r-name" placeholder="Your name"></div>
+      <div class="auth-field"><label>EMAIL</label><input type="email" id="r-email" placeholder="you@example.com"></div>
+      <div class="auth-field"><label>PASSWORD</label><input type="password" id="r-pass" placeholder="Min 6 characters"></div>
+      <div class="auth-err" id="r-err"></div>
+      <button class="auth-submit-btn" onclick="doRegister()">CREATE ACCOUNT →</button>
+      <div class="auth-switch-link">Already have an account? <a onclick="switchForm('login')">Login</a></div>
     </div>
   </div>
 </div>
 
+<!-- ════════ INLINE SVG NEEDLE ANIMATION ════════ -->
+<style>
+@keyframes needlePulse {
+  0%,100% { opacity:1; }
+  50%      { opacity:.6; }
+}
+</style>
+
 <script>
 const API = '';
-
-// ── Billing Toggle ────────────────────────────────────────────────────────────
 let isAnnual = false;
+
+// ── Score counter animation ────────────────────────────────────────────────
+(function animateScore(){
+  const el = document.getElementById('score-counter');
+  if (!el) return;
+  let val = 0, target = 72;
+  const step = () => {
+    if (val < target) { val += 2; el.textContent = val; setTimeout(step, 25); }
+    else el.textContent = target;
+  };
+  setTimeout(step, 800);
+})();
+
+// ── Billing toggle ─────────────────────────────────────────────────────────
 function toggleBilling() {
   isAnnual = !isAnnual;
-  document.getElementById('billing-toggle').classList.toggle('active', isAnnual);
+  document.getElementById('bill-switch').classList.toggle('on', isAnnual);
+  const numEl  = document.getElementById('pro-num');
+  const noteEl = document.getElementById('pro-note');
   if (isAnnual) {
-    document.getElementById('pro-price-num').textContent = '239';
-    document.getElementById('pro-billing-note').innerHTML = 'Billed as ₹2,870/year — <em>save 20%</em>';
-    document.getElementById('pro-cta-btn').textContent = 'Start Pro Trial — 14 Days Free →';
+    numEl.textContent  = '239';
+    noteEl.innerHTML   = 'Billed as ₹2,870/year — <em>save 20%</em>';
   } else {
-    document.getElementById('pro-price-num').textContent = '299';
-    document.getElementById('pro-billing-note').innerHTML = 'or ₹2,870/year — <em>save 20%</em>';
-    document.getElementById('pro-cta-btn').textContent = 'Start Pro Trial — 14 Days Free →';
+    numEl.textContent  = '299';
+    noteEl.innerHTML   = 'or ₹2,870/year — <em>save 20%</em>';
   }
 }
 
-// ── FAQ ───────────────────────────────────────────────────────────────────────
+// ── FAQ ────────────────────────────────────────────────────────────────────
 function toggleFaq(el) {
   const item = el.closest('.faq-item');
   const wasOpen = item.classList.contains('open');
@@ -593,194 +1715,132 @@ function toggleFaq(el) {
   if (!wasOpen) item.classList.add('open');
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────────────────────
 function openAuth(mode) {
-  document.getElementById('auth-overlay').classList.add('active');
-  switchAuth(mode);
+  document.getElementById('auth-backdrop').classList.add('open');
+  switchForm(mode);
 }
 function closeAuth() {
-  document.getElementById('auth-overlay').classList.remove('active');
+  document.getElementById('auth-backdrop').classList.remove('open');
 }
-function switchAuth(mode) {
-  document.getElementById('auth-login-form').style.display  = mode === 'login'    ? '' : 'none';
-  document.getElementById('auth-register-form').style.display = mode === 'register' ? '' : 'none';
-  document.getElementById('login-error').style.display = 'none';
-  document.getElementById('reg-error').style.display   = 'none';
+function switchForm(mode) {
+  document.getElementById('form-login').style.display    = mode === 'login'    ? '' : 'none';
+  document.getElementById('form-register').style.display = mode === 'register' ? '' : 'none';
+  ['l-err','r-err'].forEach(id => { const e = document.getElementById(id); if(e) e.style.display='none'; });
 }
 
 async function doLogin() {
-  const email    = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
-  const errEl    = document.getElementById('login-error');
-  errEl.style.display = 'none';
-  if (!email || !password) { errEl.textContent = 'Email and password required'; errEl.style.display = ''; return; }
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  const err   = document.getElementById('l-err');
+  err.style.display = 'none';
+  if (!email || !pass) { err.textContent='Email and password required'; err.style.display=''; return; }
   try {
-    const res  = await fetch(`${API}/api/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email, password}) });
-    const data = await res.json();
-    if (data.error) { errEl.textContent = data.error; errEl.style.display = ''; return; }
-    localStorage.setItem('qb360_token', data.token);
-    localStorage.setItem('qb360_user',  JSON.stringify(data.user));
+    const r = await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+    const d = await r.json();
+    if (d.error) { err.textContent=d.error; err.style.display=''; return; }
+    localStorage.setItem('qb360_token', d.token);
+    localStorage.setItem('qb360_user', JSON.stringify(d.user));
     window.location.href = '/app';
-  } catch (e) { errEl.textContent = 'Network error — try again'; errEl.style.display = ''; }
+  } catch(e) { err.textContent='Network error — try again'; err.style.display=''; }
 }
 
 async function doRegister() {
-  const name     = document.getElementById('reg-name').value.trim();
-  const email    = document.getElementById('reg-email').value.trim();
-  const password = document.getElementById('reg-password').value;
-  const errEl    = document.getElementById('reg-error');
-  errEl.style.display = 'none';
-  if (!name || !email || !password) { errEl.textContent = 'All fields required'; errEl.style.display = ''; return; }
-  if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; errEl.style.display = ''; return; }
+  const name  = document.getElementById('r-name').value.trim();
+  const email = document.getElementById('r-email').value.trim();
+  const pass  = document.getElementById('r-pass').value;
+  const err   = document.getElementById('r-err');
+  err.style.display = 'none';
+  if (!name||!email||!pass) { err.textContent='All fields required'; err.style.display=''; return; }
+  if (pass.length < 6) { err.textContent='Password must be at least 6 characters'; err.style.display=''; return; }
   try {
-    const res  = await fetch(`${API}/api/auth/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, email, password}) });
-    const data = await res.json();
-    if (data.error) { errEl.textContent = data.error; errEl.style.display = ''; return; }
-    localStorage.setItem('qb360_token', data.token);
-    localStorage.setItem('qb360_user',  JSON.stringify(data.user));
+    const r = await fetch(`${API}/api/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,password:pass})});
+    const d = await r.json();
+    if (d.error) { err.textContent=d.error; err.style.display=''; return; }
+    localStorage.setItem('qb360_token', d.token);
+    localStorage.setItem('qb360_user', JSON.stringify(d.user));
     window.location.href = '/app';
-  } catch (e) { errEl.textContent = 'Network error — try again'; errEl.style.display = ''; }
+  } catch(e) { err.textContent='Network error — try again'; err.style.display=''; }
 }
 
-// ── Razorpay Checkout ─────────────────────────────────────────────────────────
-async function startCheckout(tier) {
-  const token = localStorage.getItem('qb360_token');
-  if (!token) { openAuth('register'); return; }
-
-  const overlay = document.getElementById('rzp-upgrading');
-  const msg     = document.getElementById('rzp-msg');
-  overlay.classList.add('show');
-  msg.textContent = 'Creating secure order...';
-
-  try {
-    const cycle = isAnnual ? 'annual' : 'monthly';
-    const res   = await fetch(`${API}/api/billing/create-order`, {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
-      body: JSON.stringify({ tier, cycle }),
-    });
-    const order = await res.json();
-
-    if (order.error) {
-      overlay.classList.remove('show');
-      alert('Could not create order: ' + order.error);
-      return;
-    }
-
-    // Dev mode — simulate payment
-    if (order.dev_mode) {
-      msg.textContent = 'Dev mode — simulating payment...';
-      await new Promise(r => setTimeout(r, 1200));
-      const vres = await fetch(`${API}/api/billing/verify-payment`, {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
-        body: JSON.stringify({
-          razorpay_order_id:   order.order_id,
-          razorpay_payment_id: 'pay_dev_' + Date.now(),
-          razorpay_signature:  'dev_sig',
-        }),
-      });
-      const vdata = await vres.json();
-      overlay.classList.remove('show');
-      if (vdata.tier) {
-        alert(`✅ Pro activated (dev mode)! Welcome to ${vdata.tier.toUpperCase()}`);
-        window.location.href = '/app';
-      } else {
-        alert('Verification failed: ' + (vdata.error || 'Unknown'));
-      }
-      return;
-    }
-
-    // Real Razorpay
-    overlay.classList.remove('show');
-    const user = JSON.parse(localStorage.getItem('qb360_user') || '{}');
-    const rzp = new Razorpay({
-      key:         order.key_id,
-      amount:      order.amount,
-      currency:    order.currency,
-      order_id:    order.order_id,
-      name:        'Quantum Breadth 360',
-      description: `Pro ${cycle} subscription`,
-      image:       '',
-      prefill:     { name: order.prefill?.name || user.name, email: order.prefill?.email || user.email },
-      theme:       { color: '#06b6d4' },
-      handler: async function(response) {
-        overlay.classList.add('show');
-        msg.textContent = 'Verifying payment...';
-        try {
-          const vres = await fetch(`${API}/api/billing/verify-payment`, {
-            method: 'POST',
-            headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
-            body: JSON.stringify({
-              razorpay_order_id:   response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature:  response.razorpay_signature,
-            }),
-          });
-          const vdata = await vres.json();
-          overlay.classList.remove('show');
-          if (vdata.tier) {
-            alert('✅ Payment successful! Pro access activated.');
-            window.location.href = '/app';
-          } else {
-            alert('Payment received but verification failed. Contact support with payment ID: ' + response.razorpay_payment_id);
-          }
-        } catch(e) {
-          overlay.classList.remove('show');
-          alert('Verification error — contact support with order ID: ' + order.order_id);
-        }
-      },
-      modal: { ondismiss: function() { overlay.classList.remove('show'); } }
-    });
-    rzp.open();
-
-  } catch(e) {
-    overlay.classList.remove('show');
-    alert('Could not connect to payment gateway. Please try again.');
-  }
-}
-
-// ── Auto-redirect if already logged in ───────────────────────────────────────
-const qbMode = localStorage.getItem('qb360_mode');
-if (qbMode === 'admin' || qbMode === 'dev') {
-  window.location.href = '/app?mode=' + qbMode;
-} else {
-  const token = localStorage.getItem('qb360_token');
-  if (token) {
-    fetch(`${API}/api/auth/me`, { headers:{'Authorization':'Bearer '+token} })
-      .then(r => r.json())
-      .then(d => { if (d.id || d.tier) window.location.href = '/app'; else localStorage.removeItem('qb360_token'); })
-      .catch(() => localStorage.removeItem('qb360_token'));
-  }
-}
-
-// Enter key in auth modal
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('auth-overlay').classList.contains('active')) {
-    if (document.getElementById('auth-login-form').style.display !== 'none') doLogin();
-    else doRegister();
-  }
-});
-</script>
-
-<!-- Razorpay SDK (loaded only when needed) -->
-<script>
-// Lazy-load Razorpay JS only when checkout is triggered
-function loadRazorpaySDK() {
-  return new Promise((res, rej) => {
+// ── Razorpay Checkout ──────────────────────────────────────────────────────
+async function loadRzpSDK() {
+  return new Promise((res,rej) => {
     if (window.Razorpay) { res(); return; }
     const s = document.createElement('script');
     s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    s.onload = res;
-    s.onerror = rej;
+    s.onload = res; s.onerror = rej;
     document.head.appendChild(s);
   });
 }
-const _origStartCheckout = startCheckout;
-window.startCheckout = async function(tier) {
-  await loadRazorpaySDK().catch(() => {});
-  return _origStartCheckout(tier);
-};
+
+async function startCheckout(tier) {
+  const token = localStorage.getItem('qb360_token');
+  if (!token) { openAuth('register'); return; }
+  const overlay = document.getElementById('rzp-overlay');
+  const rzpText = document.getElementById('rzp-text');
+  overlay.classList.add('show');
+  rzpText.textContent = 'CREATING SECURE ORDER...';
+  try {
+    await loadRzpSDK().catch(()=>{});
+    const cycle = isAnnual ? 'annual' : 'monthly';
+    const r = await fetch(`${API}/api/billing/create-order`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({tier,cycle})});
+    const order = await r.json();
+    if (order.error) { overlay.classList.remove('show'); alert('Order error: '+order.error); return; }
+    if (order.dev_mode) {
+      rzpText.textContent = 'DEV MODE — SIMULATING...';
+      await new Promise(r=>setTimeout(r,1200));
+      const vr = await fetch(`${API}/api/billing/verify-payment`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({razorpay_order_id:order.order_id,razorpay_payment_id:'pay_dev_'+Date.now(),razorpay_signature:'dev_sig'})});
+      const vd = await vr.json();
+      overlay.classList.remove('show');
+      if (vd.tier) { alert('✅ Pro activated (dev mode)!'); window.location.href='/app'; }
+      else alert('Verification failed: '+(vd.error||'Unknown'));
+      return;
+    }
+    overlay.classList.remove('show');
+    const user = JSON.parse(localStorage.getItem('qb360_user')||'{}');
+    new Razorpay({
+      key: order.key_id, amount: order.amount, currency: order.currency,
+      order_id: order.order_id, name: 'Quantum Breadth 360',
+      description: `Pro ${cycle} subscription`, theme:{color:'#00d4ff'},
+      prefill:{name:order.prefill?.name||user.name,email:order.prefill?.email||user.email},
+      handler: async function(resp){
+        overlay.classList.add('show'); rzpText.textContent='VERIFYING PAYMENT...';
+        try {
+          const vr = await fetch(`${API}/api/billing/verify-payment`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({razorpay_order_id:resp.razorpay_order_id,razorpay_payment_id:resp.razorpay_payment_id,razorpay_signature:resp.razorpay_signature})});
+          const vd = await vr.json();
+          overlay.classList.remove('show');
+          if (vd.tier) { alert('✅ Payment successful! Pro access activated.'); window.location.href='/app'; }
+          else alert('Payment received but verification failed. Contact support: '+resp.razorpay_payment_id);
+        } catch(e){ overlay.classList.remove('show'); alert('Verification error — contact support.'); }
+      },
+      modal:{ondismiss:()=>overlay.classList.remove('show')}
+    }).open();
+  } catch(e){ overlay.classList.remove('show'); alert('Could not connect to payment gateway. Please try again.'); }
+}
+
+// ── Auto-redirect if logged in ─────────────────────────────────────────────
+const qbMode = localStorage.getItem('qb360_mode');
+if (qbMode==='admin'||qbMode==='dev') {
+  window.location.href = '/app?mode='+qbMode;
+} else {
+  const tok = localStorage.getItem('qb360_token');
+  if (tok) {
+    fetch(`${API}/api/auth/me`,{headers:{'Authorization':'Bearer '+tok}})
+      .then(r=>r.json())
+      .then(d=>{ if(d.id||d.tier) window.location.href='/app'; else localStorage.removeItem('qb360_token'); })
+      .catch(()=>localStorage.removeItem('qb360_token'));
+  }
+}
+
+// Enter key in modal
+document.addEventListener('keydown', e => {
+  if (e.key==='Enter' && document.getElementById('auth-backdrop').classList.contains('open')) {
+    if (document.getElementById('form-login').style.display!=='none') doLogin();
+    else doRegister();
+  }
+  if (e.key==='Escape') closeAuth();
+});
 </script>
 </body>
 </html>
