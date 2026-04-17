@@ -160,22 +160,6 @@ function _jnlRenderTable() {
     </tr>`;
   }).join('');
   wrap.innerHTML = `
-    <div id="jnl-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;
-      margin-bottom:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
-      border-radius:8px;font-family:var(--font-mono);font-size:12px">
-      <span id="jnl-bulk-count" style="color:var(--red);font-weight:700"></span>
-      <span style="color:var(--text3)">trades selected</span>
-      <button onclick="jnlDeleteSelected()"
-        style="margin-left:8px;background:var(--red);color:#fff;border:none;border-radius:6px;
-        padding:5px 14px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--font-mono)">
-        Delete Selected
-      </button>
-      <button onclick="jnlClearSelection()"
-        style="background:transparent;border:1px solid var(--card-border);border-radius:6px;
-        padding:5px 12px;cursor:pointer;font-size:11px;color:var(--text3);font-family:var(--font-mono)">
-        Clear
-      </button>
-    </div>
     <div style="overflow-x:auto"><table class="sm-table" style="min-width:920px">
     <thead><tr>
       <th class="sm-th" style="width:36px;text-align:center">
