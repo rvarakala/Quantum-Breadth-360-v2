@@ -323,9 +323,13 @@ function _renderSidebarUser(user) {
       <div><span style="color:${color};font-weight:700">${tierLabel}</span></div>
     </div>`;
 
-  // Show admin link if admin
+  // Show Control Center link if admin (tier or mode)
   const adminLink = document.getElementById('sidebar-admin-link');
-  if (adminLink) adminLink.style.display = eff === 'admin' ? '' : 'none';
+  if (adminLink) {
+    const mode = localStorage.getItem('qb360_mode');
+    const canSeeCC = eff === 'admin' || mode === 'admin' || mode === 'dev';
+    adminLink.style.display = canSeeCC ? '' : 'none';
+  }
 
   // Show billing/plan link for all non-admin users
   const billingBtn = document.getElementById('sidebar-billing-btn');
