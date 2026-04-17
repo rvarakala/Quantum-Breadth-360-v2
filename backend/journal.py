@@ -1038,23 +1038,80 @@ def parse_csv_import(content: str, broker: str = "generic") -> list:
                 exit_p  = float(r.get("s / l","0") or 0) or None
                 pnl     = float(r.get("profit","0") or 0)
                 date    = (r.get("time","") or "")[:10]
-            # Generic: try common column names
+            # Generic / M360 Demo — reads all columns
             else:
+                def _f(val, fallback=0.0):
+                    try: return float(val) if val and val.strip() else fallback
+                    except: return fallback
+                def _i(val, fallback=0):
+                    try: return int(float(val)) if val and val.strip() else fallback
+                    except: return fallback
+
                 ticker  = (r.get("ticker","") or r.get("symbol","") or r.get("instrument","")).upper()
-                qty     = abs(float(r.get("quantity","0") or r.get("qty","0") or 0))
-                entry   = float(r.get("entry","0") or r.get("entry price","0") or r.get("buy","0") or 0)
-                exit_p  = float(r.get("exit","0") or r.get("exit price","0") or r.get("sell","0") or 0) or None
-                pnl     = float(r.get("pnl","0") or r.get("profit","0") or r.get("p&l","0") or 0)
-                date    = (r.get("date","") or r.get("trade date",""))[:10]
+                qty     = abs(_f(r.get("quantity") or r.get("qty","0")))
+                entry   = _f(r.get("entry") or r.get("entry price") or r.get("buy","0"))
+                exit_p  = _f(r.get("exit") or r.get("exit price") or r.get("sell","0")) or None
+                pnl     = _f(r.get("pnl") or r.get("profit") or r.get("p&l","0"))
+                date    = (r.get("date","") or r.get("entry_date","") or r.get("trade date",""))[:10]
+                direction = r.get("direction","Long") or "Long"
+                stop_loss = _f(r.get("stop_loss") or r.get("stop") or r.get("stoploss"), None)
+                target    = _f(r.get("target") or r.get("tp") or r.get("take profit"), None)
+                setup_type= r.get("setup_type","") or r.get("setup","")
+                timeframe = r.get("timeframe","") or r.get("tf","")
+                broker_nm = r.get("broker","") or broker.title()
+                risk_amt  = _f(r.get("risk_amount") or r.get("risk","0"))
+                fees      = _f(r.get("fees") or r.get("commission","0"))
+                r_mult    = _f(r.get("r_multiple") or r.get("r_mult") or r.get("r","0"))
+                hold_days = _i(r.get("holding_days") or r.get("hold_days","0"))
+                p_conf    = _i(r.get("psych_confidence") or r.get("confidence","0"))
+                p_focus   = _i(r.get("psych_focus") or r.get("focus","0"))
+                p_stress  = _i(r.get("psych_stress") or r.get("stress","0"))
+                p_pat     = _i(r.get("psych_patience") or r.get("patience","0"))
+                p_fomo    = _i(r.get("psych_fomo") or r.get("fomo","0"))
+                p_rev     = _i(r.get("psych_revenge") or r.get("revenge","0"))
+                p_sleep   = _i(r.get("psych_sleep") or r.get("sleep","0"))
+                p_energy  = _i(r.get("psych_energy") or r.get("energy","0"))
+                grade     = r.get("trade_grade","") or r.get("grade","")
+                fol_plan  = _i(r.get("followed_plan","1"))
+                w_repeat  = _i(r.get("would_repeat","1"))
+                notes_val = r.get("notes","") or f"Imported from {broker.upper()} CSV"
+                mae       = _f(r.get("mae","0"))
+                mfe       = _f(r.get("mfe","0"))
 
             if not ticker or not entry: continue
-            direction = "Long"
+            direction = direction if direction in ("Long","Short") else "Long"
             status    = "Closed" if exit_p else "Open"
             trades.append({
-                "ticker": ticker, "direction": direction, "entry_date": date,
-                "entry_price": entry, "exit_price": exit_p, "quantity": qty,
-                "status": status, "broker": broker.title(),
-                "notes": f"Imported from {broker.upper()} CSV",
+                "ticker":           ticker,
+                "direction":        direction,
+                "entry_date":       date,
+                "entry_price":      entry,
+                "exit_price":       exit_p,
+                "quantity":         qty,
+                "status":           status,
+                "stop_loss":        stop_loss,
+                "target":           target,
+                "setup_type":       setup_type,
+                "timeframe":        timeframe,
+                "broker":           broker_nm,
+                "risk_amount":      risk_amt,
+                "fees":             fees,
+                "r_multiple":       r_mult,
+                "holding_days":     hold_days,
+                "psych_confidence": p_conf,
+                "psych_focus":      p_focus,
+                "psych_stress":     p_stress,
+                "psych_patience":   p_pat,
+                "psych_fomo":       p_fomo,
+                "psych_revenge":    p_rev,
+                "psych_sleep":      p_sleep,
+                "psych_energy":     p_energy,
+                "trade_grade":      grade,
+                "followed_plan":    fol_plan,
+                "would_repeat":     w_repeat,
+                "notes":            notes_val,
+                "mae":              mae,
+                "mfe":              mfe,
             })
         except Exception:
             continue
