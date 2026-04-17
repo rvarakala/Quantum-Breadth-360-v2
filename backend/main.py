@@ -164,6 +164,12 @@ def serve_control_center():
     """Admin Control Center."""
     return _serve_html("control-center.html")
 
+@app.get("/landing")
+@app.get("/landing.html")
+def serve_landing():
+    """Public landing page — marketing + pricing."""
+    return _serve_html("landing.html")
+
 @app.get("/index.html")
 def serve_index():
     """Dashboard via legacy URL — same as /app."""
