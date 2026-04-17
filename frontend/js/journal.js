@@ -104,9 +104,13 @@ function _jnlRenderStats() {
     <div class="sm-stat-card"><div class="sm-stat-num" style="color:${livePnl>=0?'var(--green)':'var(--red)'}">₹${Math.round(livePnl).toLocaleString('en-IN')}</div><div class="sm-stat-label">OPEN P&L</div></div>`;
 }
 
+let _jnlSelected = new Set();  // selected trade IDs
+
 function _jnlRenderTable() {
   const trades = _jnlTrades;
   const wrap   = document.getElementById('jnl-table-wrap');
+  _jnlSelected.clear();
+  _jnlUpdateBulkBar();
   if (!trades.length) {
     wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-family:var(--font-mono)">📖 No trades. Click <b>+ New Trade</b> to start journaling.</div>';
     return;
@@ -129,7 +133,12 @@ function _jnlRenderTable() {
     const psychBar = pos>0
       ? `<div style="display:flex;align-items:center;gap:4px"><div style="width:40px;height:3px;background:var(--card-border);border-radius:2px;overflow:hidden"><div style="height:100%;width:${Math.round(pos*10)}%;background:${psychColor}"></div></div><span style="font-size:9px;color:${psychColor}">${Math.round(pos)}</span></div>`
       : (t.discipline_score ? `⭐${t.discipline_score}` : '—');
-    return `<tr class="sm-row" ondblclick="jnlEditTrade(${t.id})">
+    return `<tr class="sm-row jnl-tr" id="jnl-tr-${t.id}" ondblclick="jnlEditTrade(${t.id})">
+      <td class="sm-td" style="width:36px;text-align:center" onclick="event.stopPropagation()">
+        <input type="checkbox" class="jnl-row-cb" data-id="${t.id}"
+          onchange="jnlToggleSelect(${t.id},this.checked)"
+          style="width:14px;height:14px;cursor:pointer;accent-color:var(--cyan)">
+      </td>
       <td class="sm-td" style="font-family:var(--font-mono);font-weight:700">${t.ticker}</td>
       <td class="sm-td">${t.direction==='Short'?'🔴':'🟢'} ${t.direction}</td>
       <td class="sm-td">${setupBadge}</td>
@@ -150,14 +159,101 @@ function _jnlRenderTable() {
       </td>
     </tr>`;
   }).join('');
-  wrap.innerHTML = `<div style="overflow-x:auto"><table class="sm-table" style="min-width:900px">
+  wrap.innerHTML = `
+    <div id="jnl-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;
+      margin-bottom:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+      border-radius:8px;font-family:var(--font-mono);font-size:12px">
+      <span id="jnl-bulk-count" style="color:var(--red);font-weight:700"></span>
+      <span style="color:var(--text3)">trades selected</span>
+      <button onclick="jnlDeleteSelected()"
+        style="margin-left:8px;background:var(--red);color:#fff;border:none;border-radius:6px;
+        padding:5px 14px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--font-mono)">
+        Delete Selected
+      </button>
+      <button onclick="jnlClearSelection()"
+        style="background:transparent;border:1px solid var(--card-border);border-radius:6px;
+        padding:5px 12px;cursor:pointer;font-size:11px;color:var(--text3);font-family:var(--font-mono)">
+        Clear
+      </button>
+    </div>
+    <div style="overflow-x:auto"><table class="sm-table" style="min-width:920px">
     <thead><tr>
+      <th class="sm-th" style="width:36px;text-align:center">
+        <input type="checkbox" id="jnl-select-all" title="Select all"
+          onchange="jnlSelectAll(this.checked)"
+          style="width:14px;height:14px;cursor:pointer;accent-color:var(--cyan)">
+      </th>
       <th class="sm-th">TICKER</th><th class="sm-th">DIR</th><th class="sm-th">SETUP</th>
       <th class="sm-th">DATE</th><th class="sm-th">ENTRY ₹</th><th class="sm-th">STOP</th>
       <th class="sm-th">CMP/EXIT</th><th class="sm-th">P&L%</th><th class="sm-th">R</th>
       <th class="sm-th">STATUS</th><th class="sm-th">PSYCH</th><th class="sm-th">PLAN</th>
       <th class="sm-th">NOTES</th><th class="sm-th">ACTIONS</th>
     </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function jnlToggleSelect(id, checked) {
+  if (checked) _jnlSelected.add(id);
+  else _jnlSelected.delete(id);
+  // Update row highlight
+  const row = document.getElementById(`jnl-tr-${id}`);
+  if (row) row.style.outline = checked ? '1px solid rgba(239,68,68,.4)' : '';
+  // Sync select-all checkbox state
+  const allCbs = document.querySelectorAll('.jnl-row-cb');
+  const selectAll = document.getElementById('jnl-select-all');
+  if (selectAll) {
+    selectAll.indeterminate = _jnlSelected.size > 0 && _jnlSelected.size < allCbs.length;
+    selectAll.checked = _jnlSelected.size === allCbs.length && allCbs.length > 0;
+  }
+  _jnlUpdateBulkBar();
+}
+
+function jnlSelectAll(checked) {
+  document.querySelectorAll('.jnl-row-cb').forEach(cb => {
+    const id = parseInt(cb.dataset.id);
+    cb.checked = checked;
+    if (checked) _jnlSelected.add(id);
+    else _jnlSelected.delete(id);
+    const row = document.getElementById(`jnl-tr-${id}`);
+    if (row) row.style.outline = checked ? '1px solid rgba(239,68,68,.4)' : '';
+  });
+  _jnlUpdateBulkBar();
+}
+
+function jnlClearSelection() {
+  document.querySelectorAll('.jnl-row-cb').forEach(cb => { cb.checked = false; });
+  const selectAll = document.getElementById('jnl-select-all');
+  if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
+  document.querySelectorAll('.jnl-tr').forEach(r => r.style.outline = '');
+  _jnlSelected.clear();
+  _jnlUpdateBulkBar();
+}
+
+function _jnlUpdateBulkBar() {
+  const bar = document.getElementById('jnl-bulk-bar');
+  const cnt = document.getElementById('jnl-bulk-count');
+  if (!bar) return;
+  if (_jnlSelected.size > 0) {
+    bar.style.display = 'flex';
+    if (cnt) cnt.textContent = _jnlSelected.size;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+async function jnlDeleteSelected() {
+  const ids = [..._jnlSelected];
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} selected trade${ids.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+  // Delete sequentially — avoids hammering the backend
+  let deleted = 0;
+  for (const id of ids) {
+    try {
+      await fetch(`${API}/api/journal/trades/${id}`, { method: 'DELETE' });
+      deleted++;
+    } catch(e) { /* skip failed */ }
+  }
+  _jnlSelected.clear();
+  await jnlLoadTrades();
 }
 
 async function _jnlLoadAnalytics() {
