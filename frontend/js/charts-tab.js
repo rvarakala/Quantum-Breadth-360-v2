@@ -51,11 +51,20 @@ const CHART_THEMES = {
     timeScale: { borderColor: '#E5E4E0', timeVisible: false },
     rightPriceScale: { borderColor: '#E5E4E0' },
   },
+  editorial: {
+    layout: { background: { type: 'solid', color: '#F5F1EA' }, textColor: '#1A1A1A', fontSize: 11, fontFamily: 'Geist, sans-serif' },
+    grid: { vertLines: { color: 'rgba(26,26,26,0.08)' }, horzLines: { color: 'rgba(26,26,26,0.08)' } },
+    crosshair: { mode: 0 },
+    timeScale: { borderColor: '#1A1A1A', timeVisible: false },
+    rightPriceScale: { borderColor: '#1A1A1A' },
+  },
 };
 
 function _currentChartTheme() {
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  return isLight ? CHART_THEMES.light : CHART_THEMES.dark;
+  const t = document.documentElement.getAttribute('data-theme');
+  if (t === 'light') return CHART_THEMES.light;
+  if (t === 'editorial') return CHART_THEMES.editorial;
+  return CHART_THEMES.dark;
 }
 
 // Alias for backward compat within this file

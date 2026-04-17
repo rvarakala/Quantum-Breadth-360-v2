@@ -404,7 +404,7 @@ function smExportPNG() {
   const el = document.getElementById('sm-table-container');
   if (!el) return;
   if (typeof html2canvas === 'function') {
-    html2canvas(el, {backgroundColor:'#0a0e17', scale:2}).then(canvas => {
+    html2canvas(el, {backgroundColor:(window._exportBg?window._exportBg():'#0a0e17'), scale:2}).then(canvas => {
       const a = document.createElement('a'); a.href = canvas.toDataURL('image/png');
       a.download = `smart_money_${new Date().toISOString().slice(0,10)}.png`; a.click();
     });

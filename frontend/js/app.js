@@ -1002,10 +1002,19 @@ function _scrExportFilename(prefix) {
   return `${prefix}_${d}`;
 }
 
+// Helper — pick screenshot background that matches current theme
+function _exportBg() {
+  const t = document.documentElement.getAttribute('data-theme');
+  if (t === 'editorial') return '#F5F1EA';
+  if (t === 'light')     return '#F7F6F2';
+  return '#0f0c29';
+}
+window._exportBg = _exportBg;
+
 function exportScreenerPNG() {
   const el = document.querySelector('.scr-tbl') || document.querySelector('.scn-results-tbl');
   if (!el) { alert('No results to export'); return; }
-  html2canvas(el, { backgroundColor: '#0f0c29', scale: 2 }).then(canvas => {
+  html2canvas(el, { backgroundColor: _exportBg(), scale: 2 }).then(canvas => {
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
     a.download = _scrExportFilename('screener') + '.png';
@@ -1025,14 +1034,18 @@ function exportScreenerPDF() {
   if (!tbl) { alert('No results to export'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('l', 'pt', 'a4');
-  doc.autoTable({ html: tbl, styles: { fontSize: 8 }, headStyles: { fillColor: [15, 12, 41] } });
+  const t = document.documentElement.getAttribute('data-theme');
+  const headFill = t === 'editorial' ? [230, 57, 70]   // signal red
+                  : t === 'light'     ? [1, 105, 111]   // teal
+                  : [15, 12, 41];                        // dark
+  doc.autoTable({ html: tbl, styles: { fontSize: 8 }, headStyles: { fillColor: headFill } });
   doc.save(_scrExportFilename('screener') + '.pdf');
 }
 
 function exportScannerPNG() {
   const el = document.getElementById('scn-qr-body');
   if (!el || !el.querySelector('table')) { alert('No results to export'); return; }
-  html2canvas(el, { backgroundColor: '#0f0c29', scale: 2 }).then(canvas => {
+  html2canvas(el, { backgroundColor: _exportBg(), scale: 2 }).then(canvas => {
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
     a.download = _scrExportFilename('scanner') + '.png';

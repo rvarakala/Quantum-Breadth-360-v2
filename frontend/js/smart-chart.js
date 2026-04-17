@@ -124,11 +124,27 @@ function _createCharts() {
   const LWC = window.LightweightCharts;
   if (!LWC) { console.error('LightweightCharts not loaded'); return; }
 
-  const isDark = !document.documentElement.getAttribute('data-theme');
-  const bg = isDark ? '#0a0e17' : '#ffffff';
-  const txt = isDark ? '#94a3b8' : '#64748b';
-  const grid = isDark ? 'rgba(30,41,59,0.5)' : 'rgba(226,232,240,0.5)';
-  const border = isDark ? '#1e293b' : '#e2e8f0';
+  const theme = document.documentElement.getAttribute('data-theme');
+  const isDark = !theme;
+  const isEditorial = theme === 'editorial';
+
+  let bg, txt, grid, border;
+  if (isEditorial) {
+    bg     = '#F5F1EA';
+    txt    = '#1A1A1A';
+    grid   = 'rgba(26,26,26,0.08)';
+    border = '#1A1A1A';
+  } else if (isDark) {
+    bg     = '#0a0e17';
+    txt    = '#94a3b8';
+    grid   = 'rgba(30,41,59,0.5)';
+    border = '#1e293b';
+  } else {
+    bg     = '#ffffff';
+    txt    = '#64748b';
+    grid   = 'rgba(226,232,240,0.5)';
+    border = '#e2e8f0';
+  }
 
   const chartOpts = {
     layout: { background: { type: 'solid', color: bg }, textColor: txt, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 },

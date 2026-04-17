@@ -420,7 +420,7 @@ function exportLdrPNG() {
   if(typeof html2canvas==='undefined'){ alert('html2canvas not loaded'); return; }
   const modal = document.querySelector('.ldr-fv-modal');
   if(!modal) return;
-  html2canvas(modal, { backgroundColor:'#0a0f1e', scale:2 }).then(canvas => {
+  html2canvas(modal, { backgroundColor:(window._exportBg?window._exportBg():'#0a0f1e'), scale:2 }).then(canvas => {
     const a = document.createElement('a');
     a.download = _ldrExportFilename('png');
     a.href = canvas.toDataURL('image/png');
