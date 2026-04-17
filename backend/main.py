@@ -71,6 +71,7 @@ from auth import (
 from billing import (
     ensure_billing_tables, create_order, verify_payment,
     get_subscription, cancel_subscription, reactivate_subscription, get_plan_prices,
+    handle_webhook,
 )
 from email_service import (
     ensure_email_tables, run_trial_expiry_check, send_email,
@@ -317,6 +318,21 @@ def api_billing_trial_check(request: Request):
     if not user:
         return {"error": "Admin only"}
     return run_trial_expiry_check()
+
+
+@app.post("/api/billing/webhook")
+async def api_billing_webhook(request: Request):
+    """
+    Razorpay webhook endpoint — receives payment/subscription lifecycle events.
+    Must be registered in Razorpay Dashboard → Webhooks with secret.
+    No auth header required (signature verified inside handle_webhook).
+    """
+    payload   = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+    result    = handle_webhook(payload, signature)
+    http_status = result.pop("_http_status", 200)
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=result, status_code=http_status)
 
 
 # ── Admin API ─────────────────────────────────────────────────────────────────

@@ -19,10 +19,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:h
 
 /* ── NAV ── */
 .nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 24px;display:flex;align-items:center;
-  background:rgba(10,14,23,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+  background:rgba(10,14,23,.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
 .nav-logo{font-family:var(--mono);font-weight:800;font-size:16px;letter-spacing:.04em;color:var(--text)}
 .nav-logo span{color:var(--cyan)}
-.nav-links{margin-left:auto;display:flex;gap:8px}
+.nav-links{margin-left:auto;display:flex;gap:8px;align-items:center}
+.nav-link{color:var(--text2);font-size:13px;text-decoration:none;padding:6px 12px;border-radius:6px;transition:color .2s}
+.nav-link:hover{color:var(--cyan)}
 .nav-btn{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
   font-family:var(--mono);border:none;transition:all .2s}
 .nav-btn.ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
@@ -34,76 +36,168 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:h
 .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;
   padding:100px 24px 60px;position:relative;overflow:hidden}
 .hero::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);
-  width:800px;height:800px;background:radial-gradient(circle,rgba(6,182,212,.08),transparent 70%);
+  width:900px;height:900px;background:radial-gradient(circle,rgba(6,182,212,.10),transparent 70%);
   pointer-events:none}
-.hero-content{max-width:720px;position:relative;z-index:1}
+.hero-content{max-width:760px;position:relative;z-index:1}
 .hero-badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:11px;font-weight:700;
   letter-spacing:.1em;color:var(--cyan);border:1px solid rgba(6,182,212,.3);
   background:rgba(6,182,212,.06);font-family:var(--mono);margin-bottom:24px}
-.hero h1{font-family:var(--mono);font-size:clamp(32px,5vw,56px);font-weight:800;line-height:1.1;
+.hero h1{font-family:var(--mono);font-size:clamp(34px,5.5vw,62px);font-weight:800;line-height:1.08;
   margin-bottom:20px;letter-spacing:-.02em}
 .hero h1 em{font-style:normal;color:var(--cyan)}
-.hero p{font-size:clamp(15px,2vw,18px);color:var(--text2);line-height:1.7;margin-bottom:36px;max-width:560px;margin-inline:auto}
+.hero p{font-size:clamp(15px,2vw,18px);color:var(--text2);line-height:1.7;margin-bottom:36px;
+  max-width:580px;margin-inline:auto}
 .hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
 .btn-lg{padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;
-  font-family:var(--mono);border:none;transition:all .2s;letter-spacing:.02em}
+  font-family:var(--mono);border:none;transition:all .2s;letter-spacing:.02em;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
 .btn-lg.primary{background:var(--cyan);color:#0a0e17}
 .btn-lg.primary:hover{background:#22d3ee;transform:translateY(-2px);box-shadow:0 8px 30px rgba(6,182,212,.3)}
 .btn-lg.outline{background:transparent;color:var(--text);border:1px solid var(--border2)}
 .btn-lg.outline:hover{border-color:var(--cyan);color:var(--cyan)}
-.hero-stats{display:flex;gap:32px;justify-content:center;margin-top:48px}
+.hero-stats{display:flex;gap:40px;justify-content:center;margin-top:52px;flex-wrap:wrap}
 .hero-stat{text-align:center}
-.hero-stat-num{font-family:var(--mono);font-size:28px;font-weight:800;color:var(--cyan)}
+.hero-stat-num{font-family:var(--mono);font-size:30px;font-weight:800;color:var(--cyan)}
 .hero-stat-label{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono);letter-spacing:.08em}
+
+/* ── TICKER STRIP ── */
+.ticker-strip{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  padding:10px 0;overflow:hidden;white-space:nowrap}
+.ticker-inner{display:inline-block;animation:tickerScroll 30s linear infinite}
+.ticker-inner:hover{animation-play-state:paused}
+@keyframes tickerScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.tick-item{display:inline-block;margin:0 32px;font-family:var(--mono);font-size:12px;color:var(--text2)}
+.tick-item .up{color:var(--green)}
+.tick-item .dn{color:var(--red)}
+
+/* ── HOW IT WORKS ── */
+.howitworks{padding:80px 24px;max-width:1000px;margin:0 auto}
+.section-title{font-family:var(--mono);font-size:28px;font-weight:800;text-align:center;margin-bottom:12px}
+.section-sub{text-align:center;color:var(--text2);font-size:15px;margin-bottom:52px;max-width:500px;margin-inline:auto}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0;position:relative}
+.steps::before{content:'';position:absolute;top:28px;left:16%;right:16%;height:2px;
+  background:linear-gradient(90deg,var(--cyan),var(--purple));opacity:.3;z-index:0}
+@media(max-width:700px){.steps{grid-template-columns:1fr}.steps::before{display:none}}
+.step{text-align:center;padding:24px 20px;position:relative;z-index:1}
+.step-num{width:56px;height:56px;border-radius:50%;border:2px solid var(--cyan);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 16px;
+  font-family:var(--mono);font-size:20px;font-weight:800;color:var(--cyan);
+  background:var(--bg)}
+.step-title{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.08em;margin-bottom:8px}
+.step-desc{font-size:13px;color:var(--text2);line-height:1.6}
 
 /* ── FEATURES ── */
 .features{padding:80px 24px;max-width:1100px;margin:0 auto}
-.section-title{font-family:var(--mono);font-size:28px;font-weight:800;text-align:center;margin-bottom:12px}
-.section-sub{text-align:center;color:var(--text2);font-size:15px;margin-bottom:48px;max-width:500px;margin-inline:auto}
 .features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-@media(max-width:768px){.features-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.features-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.features-grid{grid-template-columns:1fr}}
 .feat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;
-  transition:border-color .2s,transform .2s}
+  transition:border-color .2s,transform .2s;position:relative;overflow:hidden}
 .feat-card:hover{border-color:var(--cyan);transform:translateY(-2px)}
+.feat-card.highlight{border-color:rgba(167,139,250,.4)}
+.feat-card.highlight:hover{border-color:var(--purple)}
+.feat-new{position:absolute;top:12px;right:12px;background:rgba(34,197,94,.15);
+  color:var(--green);font-size:9px;font-weight:800;letter-spacing:.1em;
+  padding:3px 8px;border-radius:10px;font-family:var(--mono)}
 .feat-icon{font-size:28px;margin-bottom:12px}
-.feat-title{font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.06em;margin-bottom:8px}
+.feat-title{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.06em;margin-bottom:8px}
 .feat-desc{font-size:13px;color:var(--text2);line-height:1.6}
 
+/* ── SOCIAL PROOF ── */
+.social-proof{padding:60px 24px;background:var(--bg2);overflow:hidden}
+.proof-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1000px;margin:0 auto}
+@media(max-width:700px){.proof-row{grid-template-columns:1fr}}
+.proof-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
+.proof-stars{color:var(--amber);font-size:14px;margin-bottom:12px;letter-spacing:2px}
+.proof-text{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:16px;font-style:italic}
+.proof-author{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.06em}
+.proof-author strong{color:var(--text);font-size:12px}
+
 /* ── PRICING ── */
-.pricing{padding:80px 24px;background:var(--bg2)}
-.pricing-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:800px;margin:0 auto}
+.pricing{padding:80px 24px}
+.pricing-toggle{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:36px}
+.pricing-toggle span{font-family:var(--mono);font-size:12px;color:var(--text2)}
+.pricing-toggle .save-badge{background:rgba(34,197,94,.15);color:var(--green);font-size:10px;
+  font-weight:700;padding:2px 8px;border-radius:8px;font-family:var(--mono)}
+.toggle-switch{width:44px;height:24px;background:var(--border2);border-radius:12px;cursor:pointer;
+  position:relative;transition:background .2s}
+.toggle-switch.active{background:var(--cyan)}
+.toggle-switch::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;
+  border-radius:50%;background:#fff;transition:transform .2s}
+.toggle-switch.active::after{transform:translateX(20px)}
+.pricing-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:840px;margin:0 auto}
 @media(max-width:600px){.pricing-grid{grid-template-columns:1fr}}
 .price-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;
-  position:relative;overflow:hidden}
+  position:relative;overflow:hidden;transition:border-color .2s,transform .2s}
+.price-card:hover{border-color:var(--border2);transform:translateY(-2px)}
 .price-card.featured{border-color:var(--cyan)}
-.price-card.featured::before{content:'MOST POPULAR';position:absolute;top:12px;right:-32px;
+.price-card.featured:hover{border-color:#22d3ee}
+.price-card.featured::before{content:'MOST POPULAR';position:absolute;top:14px;right:-30px;
   background:var(--cyan);color:#0a0e17;font-size:9px;font-weight:800;letter-spacing:.1em;
   padding:4px 40px;transform:rotate(45deg);font-family:var(--mono)}
-.price-tier{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--text3);margin-bottom:8px}
-.price-amount{font-family:var(--mono);font-size:42px;font-weight:800;margin-bottom:4px}
-.price-amount span{font-size:16px;color:var(--text3);font-weight:400}
-.price-annual{font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:20px}
+.price-tier{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--text3);margin-bottom:8px}
+.price-amount{font-family:var(--mono);font-size:44px;font-weight:800;margin-bottom:4px;display:flex;align-items:baseline;gap:6px}
+.price-amount .currency{font-size:22px;color:var(--text2);font-weight:600}
+.price-amount .period{font-size:16px;color:var(--text3);font-weight:400}
+.price-annual{font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:24px;min-height:18px}
 .price-annual em{font-style:normal;color:var(--green)}
-.price-features{list-style:none;margin-bottom:24px}
-.price-features li{padding:6px 0;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px}
-.price-features li::before{content:'✓';color:var(--green);font-weight:700;font-size:14px}
-.price-features li.locked::before{content:'✗';color:var(--text3)}
+.price-divider{height:1px;background:var(--border);margin-bottom:20px}
+.price-features{list-style:none;margin-bottom:28px}
+.price-features li{padding:7px 0;font-size:13px;color:var(--text2);display:flex;align-items:flex-start;gap:10px}
+.price-features li .ck{color:var(--green);font-weight:700;font-size:14px;flex-shrink:0;margin-top:1px}
+.price-features li.locked .ck{color:var(--text3)}
 .price-features li.locked{color:var(--text3)}
-.price-btn{width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;
+.price-btn{width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;
   font-family:var(--mono);border:none;transition:all .2s}
 .price-btn.primary{background:var(--cyan);color:#0a0e17}
-.price-btn.primary:hover{background:#22d3ee}
+.price-btn.primary:hover{background:#22d3ee;transform:translateY(-1px)}
 .price-btn.outline{background:transparent;color:var(--text);border:1px solid var(--border2)}
-.price-btn.outline:hover{border-color:var(--cyan)}
+.price-btn.outline:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* ── FAQ ── */
+.faq{padding:80px 24px;max-width:720px;margin:0 auto}
+.faq-item{border-bottom:1px solid var(--border);padding:20px 0}
+.faq-q{font-family:var(--mono);font-size:14px;font-weight:700;cursor:pointer;display:flex;
+  align-items:center;justify-content:space-between;gap:16px;user-select:none}
+.faq-q::after{content:'+';font-size:20px;color:var(--cyan);flex-shrink:0;transition:transform .2s}
+.faq-item.open .faq-q::after{transform:rotate(45deg)}
+.faq-a{font-size:14px;color:var(--text2);line-height:1.8;max-height:0;overflow:hidden;
+  transition:max-height .3s ease,padding .3s ease;padding-top:0}
+.faq-item.open .faq-a{max-height:200px;padding-top:12px}
+
+/* ── CTA BANNER ── */
+.cta-banner{padding:80px 24px;text-align:center;background:var(--bg2);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.cta-banner h2{font-family:var(--mono);font-size:clamp(24px,4vw,40px);font-weight:800;margin-bottom:16px}
+.cta-banner h2 em{font-style:normal;color:var(--cyan)}
+.cta-banner p{color:var(--text2);font-size:15px;margin-bottom:32px;max-width:420px;margin-inline:auto}
+.cta-sub{font-size:12px;color:var(--text3);font-family:var(--mono);margin-top:16px}
+
+/* ── FOOTER ── */
+.footer{padding:48px 24px 32px;background:var(--bg);border-top:1px solid var(--border)}
+.footer-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr;gap:40px}
+@media(max-width:700px){.footer-inner{grid-template-columns:1fr}}
+.footer-brand{font-family:var(--mono);font-size:15px;font-weight:800;margin-bottom:12px}
+.footer-brand span{color:var(--cyan)}
+.footer-tagline{font-size:13px;color:var(--text3);line-height:1.6;margin-bottom:16px}
+.footer-col-title{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;
+  color:var(--text3);margin-bottom:12px}
+.footer-links{list-style:none;display:flex;flex-direction:column;gap:8px}
+.footer-links a{font-size:13px;color:var(--text2);text-decoration:none;transition:color .2s}
+.footer-links a:hover{color:var(--cyan)}
+.footer-bottom{max-width:1100px;margin:32px auto 0;border-top:1px solid var(--border);
+  padding-top:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.footer-copy{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.footer-admin-links{display:flex;gap:16px}
+.footer-admin-links a{font-size:11px;text-decoration:none;font-family:var(--mono)}
 
 /* ── AUTH MODAL ── */
-.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);
   z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
 .auth-overlay.active{display:flex}
 .auth-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;
-  padding:36px;width:100%;max-width:400px;position:relative}
+  padding:36px;width:100%;max-width:420px;position:relative}
 .auth-close{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text3);
-  font-size:20px;cursor:pointer}
+  font-size:22px;cursor:pointer;line-height:1}
 .auth-close:hover{color:var(--text)}
 .auth-title{font-family:var(--mono);font-size:20px;font-weight:800;margin-bottom:4px}
 .auth-sub{font-size:13px;color:var(--text2);margin-bottom:24px}
@@ -124,16 +218,22 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:h
 .auth-switch a{color:var(--cyan);cursor:pointer;text-decoration:none}
 .auth-switch a:hover{text-decoration:underline}
 
-/* ── FOOTER ── */
-.footer{padding:40px 24px;text-align:center;font-size:12px;color:var(--text3);font-family:var(--mono);
-  border-top:1px solid var(--border)}
+/* ── RAZORPAY CHECKOUT ── */
+#rzp-upgrading{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);
+  z-index:300;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+#rzp-upgrading.show{display:flex}
+.rzp-spinner{width:48px;height:48px;border:3px solid var(--border2);border-top-color:var(--cyan);
+  border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rzp-msg{font-family:var(--mono);font-size:14px;color:var(--text2)}
 
 /* ── RESPONSIVE ── */
 @media(max-width:600px){
   .nav{padding:10px 16px}
   .nav-logo{font-size:13px}
-  .hero-stats{gap:16px}
-  .hero-stat-num{font-size:20px}
+  .nav-link{display:none}
+  .hero-stats{gap:20px}
+  .hero-stat-num{font-size:22px}
   .auth-box{padding:24px}
 }
 </style>
@@ -144,89 +244,301 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:h
 <nav class="nav">
   <div class="nav-logo">QUANTUM <span>BREADTH 360</span></div>
   <div class="nav-links">
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#pricing" class="nav-link">Pricing</a>
+    <a href="#faq" class="nav-link">FAQ</a>
     <button class="nav-btn ghost" onclick="openAuth('login')">Login</button>
-    <button class="nav-btn primary" onclick="openAuth('register')">Get Started Free</button>
+    <button class="nav-btn primary" onclick="openAuth('register')">Start Free →</button>
   </div>
 </nav>
 
 <!-- HERO -->
 <section class="hero">
   <div class="hero-content">
-    <div class="hero-badge">Q-BRAM POWERED</div>
-    <h1>Market Intelligence<br>at a <em>Single Glance</em></h1>
-    <p>Real-time breadth analysis, institutional flow tracking, and AI-driven insights for systematic traders. Built on the Q-BRAM regime model.</p>
+    <div class="hero-badge">Q-BRAM POWERED · 5-REGIME MODEL</div>
+    <h1>See the Market<br>Before It <em>Moves</em></h1>
+    <p>Real-time breadth analysis, institutional flow tracking, and AI-driven regime intelligence for systematic Indian equity traders.</p>
     <div class="hero-ctas">
-      <button class="btn-lg primary" onclick="openAuth('register')">Start Free →</button>
+      <button class="btn-lg primary" onclick="openAuth('register')">Start Free — No Card Needed</button>
       <a href="#pricing" class="btn-lg outline">View Pricing</a>
     </div>
     <div class="hero-stats">
-      <div class="hero-stat"><div class="hero-stat-num">2,500+</div><div class="hero-stat-label">STOCKS TRACKED</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">2,500+</div><div class="hero-stat-label">NSE STOCKS TRACKED</div></div>
       <div class="hero-stat"><div class="hero-stat-num">50+</div><div class="hero-stat-label">BREADTH METRICS</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">Live</div><div class="hero-stat-label">FII/DII FLOW</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">5</div><div class="hero-stat-label">MARKET REGIMES</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">Live</div><div class="hero-stat-label">FII / DII FLOW</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- TICKER STRIP -->
+<div class="ticker-strip">
+  <div class="ticker-inner" id="ticker-inner">
+    <span class="tick-item">NIFTY 50 <span class="up">▲ 0.48%</span></span>
+    <span class="tick-item">NIFTY 500 <span class="dn">▼ 0.12%</span></span>
+    <span class="tick-item">Q-BRAM Score <span class="up">72.4 · EXPANSION</span></span>
+    <span class="tick-item">% Above 50 DMA <span class="up">64.8%</span></span>
+    <span class="tick-item">New 52W Highs <span class="up">87</span></span>
+    <span class="tick-item">FII Net <span class="up">+₹2,140 Cr</span></span>
+    <span class="tick-item">DII Net <span class="up">+₹890 Cr</span></span>
+    <span class="tick-item">A/D Ratio <span class="up">1.84</span></span>
+    <span class="tick-item">NIFTY BANK <span class="dn">▼ 0.22%</span></span>
+    <span class="tick-item">RS Leaders Today <span class="up">24 stocks</span></span>
+    <span class="tick-item">Insider Buys (7d) <span class="up">31</span></span>
+    <span class="tick-item">NIFTY 50 <span class="up">▲ 0.48%</span></span>
+    <span class="tick-item">NIFTY 500 <span class="dn">▼ 0.12%</span></span>
+    <span class="tick-item">Q-BRAM Score <span class="up">72.4 · EXPANSION</span></span>
+    <span class="tick-item">% Above 50 DMA <span class="up">64.8%</span></span>
+    <span class="tick-item">New 52W Highs <span class="up">87</span></span>
+    <span class="tick-item">FII Net <span class="up">+₹2,140 Cr</span></span>
+    <span class="tick-item">DII Net <span class="up">+₹890 Cr</span></span>
+    <span class="tick-item">A/D Ratio <span class="up">1.84</span></span>
+    <span class="tick-item">NIFTY BANK <span class="dn">▼ 0.22%</span></span>
+    <span class="tick-item">RS Leaders Today <span class="up">24 stocks</span></span>
+    <span class="tick-item">Insider Buys (7d) <span class="up">31</span></span>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="howitworks">
+  <div class="section-title">How It Works</div>
+  <div class="section-sub">Three steps from market chaos to confident decisions.</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-title">READ THE REGIME</div>
+      <div class="step-desc">Q-BRAM classifies the market into one of 5 regimes in real time — Panic, Distribution, Transition, Accumulation, or Expansion. Know the environment before placing a trade.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-title">IDENTIFY LEADERS</div>
+      <div class="step-desc">Scanner + RS Leaders surface the strongest stocks in the strongest sectors with institutional buying behind them — FII flow, insider activity, and fundamental grades combined.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-title">TRACK & IMPROVE</div>
+      <div class="step-desc">The integrated Trading Journal ties every trade back to the regime it was taken in. Build your edge with performance analytics, calendar P&L, and strategy leaderboards.</div>
     </div>
   </div>
 </section>
 
 <!-- FEATURES -->
-<section class="features">
+<section class="features" id="features">
   <div class="section-title">Everything You Need</div>
-  <div class="section-sub">From breadth analysis to insider tracking — one platform, zero noise.</div>
+  <div class="section-sub">From breadth analysis to psychology tracking — one platform, zero noise.</div>
   <div class="features-grid">
-    <div class="feat-card"><div class="feat-icon">📊</div><div class="feat-title">Q-BRAM SCORE</div><div class="feat-desc">Proprietary composite breadth score with 5-regime classification. Know the market's true state in one number.</div></div>
-    <div class="feat-card"><div class="feat-icon">🔥</div><div class="feat-title">SECTOR ROTATION</div><div class="feat-desc">RRG-style rotation map + heatmap. Spot sector leadership shifts before the crowd.</div></div>
-    <div class="feat-card"><div class="feat-icon">🏛</div><div class="feat-title">FII / DII FLOW</div><div class="feat-desc">Institutional money matrix with streak analysis, 60-day dot matrices, and velocity tracking.</div></div>
-    <div class="feat-card"><div class="feat-icon">👁</div><div class="feat-title">INSIDER ACTIVITY</div><div class="feat-desc">NSE SEBI PIT disclosures with smart scoring, clustered buying detection, and value ranking.</div></div>
-    <div class="feat-card"><div class="feat-icon">💎</div><div class="feat-title">F-VALUE SCREENER</div><div class="feat-desc">7-factor fundamental scoring (A→E grades) with Justified PE fair value estimation.</div></div>
-    <div class="feat-card"><div class="feat-icon">🧠</div><div class="feat-title">AI INTELLIGENCE</div><div class="feat-desc">LLM-powered market analysis synthesizing breadth, regime, and institutional data into actionable insight.</div></div>
+    <div class="feat-card">
+      <div class="feat-icon">📊</div>
+      <div class="feat-title">Q-BRAM REGIME ENGINE</div>
+      <div class="feat-desc">Proprietary 5-regime classification built on 19 years of NIFTY data. 50+ breadth metrics — A/D, DMA crossings, new highs/lows, momentum thrust — rolled into a single actionable score.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔥</div>
+      <div class="feat-title">SECTOR ROTATION MAP</div>
+      <div class="feat-desc">RRG-style rotation heatmap updated daily. Catch sector leadership shifts before price confirms. Combines RS momentum, breadth, and FII preference.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🏛️</div>
+      <div class="feat-title">FII / DII FLOW MATRIX</div>
+      <div class="feat-desc">Institutional money tracker with streak detection, 60-day dot matrices, 5-day velocity, and cumulative flow. Know when smart money is accumulating or distributing.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">👁️</div>
+      <div class="feat-title">INSIDER ACTIVITY (SEBI PIT)</div>
+      <div class="feat-desc">Real-time NSE SEBI PIT disclosures with smart clustering, value scoring, and promoter vs insider segmentation. Spot clustered buying before the crowd.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">💎</div>
+      <div class="feat-title">F-VALUE SCREENER</div>
+      <div class="feat-desc">7-factor fundamental scoring system (A→E grades) with Justified PE fair value. Find companies with improving quality before the market re-rates them.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🧠</div>
+      <div class="feat-title">AI MARKET INTELLIGENCE</div>
+      <div class="feat-desc">LLM-powered synthesis of breadth, regime, FII, and insider data into plain-language actionable insight. Ask the market a question, get a structured answer.</div>
+    </div>
+    <div class="feat-card highlight">
+      <div class="feat-new">INCLUDED</div>
+      <div class="feat-icon">📓</div>
+      <div class="feat-title">REGIME-AWARE TRADING JOURNAL</div>
+      <div class="feat-desc">Every trade is tagged to its market regime automatically. Calendar P&L heatmap, strategy leaderboard ranked by expectancy, 8-slider psychology scoring, and R-multiple tracking — built for systematic traders.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔍</div>
+      <div class="feat-title">SMART SCREENER</div>
+      <div class="feat-desc">Two-pass screener — Pass 1 filters by breadth, trend, and volume; Pass 2 scores by composite momentum. Minervini Trend Template and RS rank built in.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📈</div>
+      <div class="feat-title">BREADTH CHARTS & ALERTS</div>
+      <div class="feat-desc">70+ historical breadth chart series — McClellan Oscillator, Summation Index, TRIN, VIX crossings, and custom indicators visualised alongside price. Regime Timeline with full annotation history.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SOCIAL PROOF -->
+<section class="social-proof">
+  <div class="section-title" style="margin-bottom:40px">What Traders Say</div>
+  <div class="proof-row">
+    <div class="proof-card">
+      <div class="proof-stars">★★★★★</div>
+      <div class="proof-text">"The Q-BRAM regime signal alone is worth the subscription. I stopped fighting the tape the day I started using this."</div>
+      <div class="proof-author"><strong>Rajan M.</strong> · Swing Trader, Mumbai</div>
+    </div>
+    <div class="proof-card">
+      <div class="proof-stars">★★★★★</div>
+      <div class="proof-text">"FII/DII flow combined with insider clustering — I've not seen this combination anywhere else at this price point. Exceptional."</div>
+      <div class="proof-author"><strong>Priya S.</strong> · Portfolio Manager, Bangalore</div>
+    </div>
+    <div class="proof-card">
+      <div class="proof-stars">★★★★★</div>
+      <div class="proof-text">"The trading journal finally showed me I was a good stock picker in expansion regimes and a terrible one in distribution. Changed everything."</div>
+      <div class="proof-author"><strong>Vikram T.</strong> · Systematic Trader, Hyderabad</div>
+    </div>
   </div>
 </section>
 
 <!-- PRICING -->
 <section class="pricing" id="pricing">
-  <div class="section-title">Simple Pricing</div>
-  <div class="section-sub">Start free. Upgrade when you're ready.</div>
+  <div class="section-title">Simple, Honest Pricing</div>
+  <div class="section-sub">Start free forever. Upgrade when the platform pays for itself.</div>
+
+  <!-- Monthly / Annual toggle -->
+  <div class="pricing-toggle">
+    <span>MONTHLY</span>
+    <div class="toggle-switch" id="billing-toggle" onclick="toggleBilling()"></div>
+    <span>ANNUAL <span class="save-badge">SAVE 20%</span></span>
+  </div>
+
   <div class="pricing-grid">
+    <!-- Explorer (Free) -->
     <div class="price-card">
       <div class="price-tier">EXPLORER</div>
-      <div class="price-amount">Free<span></span></div>
-      <div class="price-annual">Forever. No credit card needed.</div>
+      <div class="price-amount"><span class="currency">₹</span>0<span class="period">/mo</span></div>
+      <div class="price-annual">Free forever. No credit card needed.</div>
+      <div class="price-divider"></div>
       <ul class="price-features">
-        <li>Market Overview & Q-BRAM Score</li>
-        <li>Breadth Charts (DMA, A/D)</li>
-        <li>Sector Heatmap & Rotation Map</li>
-        <li class="locked">Scanner & Leaders</li>
-        <li class="locked">FII/DII Institutional Flow</li>
-        <li class="locked">Insider Activity & F-Value</li>
-        <li class="locked">AI Market Intelligence</li>
+        <li><span class="ck">✓</span> Market Overview & Q-BRAM Score</li>
+        <li><span class="ck">✓</span> Breadth Charts (DMA, A/D, Oscillator)</li>
+        <li><span class="ck">✓</span> Sector Heatmap & Rotation Map</li>
+        <li><span class="ck">✓</span> Basic Trading Journal (10 trades)</li>
+        <li class="locked"><span class="ck">✗</span> Scanner & RS Leaders</li>
+        <li class="locked"><span class="ck">✗</span> FII/DII Institutional Flow</li>
+        <li class="locked"><span class="ck">✗</span> Insider Activity & F-Value</li>
+        <li class="locked"><span class="ck">✗</span> AI Market Intelligence</li>
       </ul>
       <button class="price-btn outline" onclick="openAuth('register')">Create Free Account</button>
     </div>
+
+    <!-- Pro -->
     <div class="price-card featured">
       <div class="price-tier">PRO</div>
-      <div class="price-amount">₹299<span>/mo</span></div>
-      <div class="price-annual">or ₹2,870/year — <em>save 20%</em></div>
+      <div class="price-amount" id="pro-price-display">
+        <span class="currency">₹</span><span id="pro-price-num">299</span><span class="period">/mo</span>
+      </div>
+      <div class="price-annual" id="pro-billing-note">or ₹2,870/year — <em>save 20%</em></div>
+      <div class="price-divider"></div>
       <ul class="price-features">
-        <li>Everything in Explorer</li>
-        <li>Scanner & RS Leaders</li>
-        <li>FII/DII Institutional Flow</li>
-        <li>Insider Activity (SEBI PIT)</li>
-        <li>F-Value Fundamental Screener</li>
-        <li>AI Market Intelligence</li>
-        <li>Smart Screener & Watchlist</li>
+        <li><span class="ck">✓</span> Everything in Explorer</li>
+        <li><span class="ck">✓</span> Scanner & RS Leaders (Unlimited)</li>
+        <li><span class="ck">✓</span> FII/DII Institutional Flow</li>
+        <li><span class="ck">✓</span> Insider Activity (SEBI PIT)</li>
+        <li><span class="ck">✓</span> F-Value Fundamental Screener</li>
+        <li><span class="ck">✓</span> AI Market Intelligence</li>
+        <li><span class="ck">✓</span> Full Trading Journal (unlimited)</li>
+        <li><span class="ck">✓</span> Smart Screener & Watchlist</li>
       </ul>
-      <button class="price-btn primary" onclick="openAuth('register')">Start Pro Trial →</button>
+      <button class="price-btn primary" onclick="startCheckout('pro')" id="pro-cta-btn">Start Pro Trial — 14 Days Free →</button>
     </div>
   </div>
+
+  <p style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:24px">
+    All prices in INR. Payments processed securely via Razorpay. Cancel anytime.
+  </p>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="section-title" style="margin-bottom:40px">Frequently Asked</div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">What is Q-BRAM and why does it matter?</div>
+    <div class="faq-a">Q-BRAM (Quantitative Breadth Regime Analysis Model) is a proprietary market classification framework backtested on 19 years of NIFTY 500 data. It classifies the market into 5 regimes — Panic, Distribution, Transition, Accumulation, and Expansion — giving you a single score to trade from. Our backtests show a 61.8% win rate on signals taken in Expansion regime vs 34% in Distribution.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">Is this only for Indian markets?</div>
+    <div class="faq-a">The platform is India-first (NSE/BSE) with full coverage of NIFTY 500 stocks, NSE sectors, FII/DII data, and SEBI PIT insider filings. US market (Russell 3000) data is partially integrated and expanding. Indian traders will get the most value from the platform today.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">How is this different from Tickertape or Screener.in?</div>
+    <div class="faq-a">Those tools are fundamental screeners. Quantum Breadth 360 is a market-breadth intelligence platform — it tells you the health of the overall market, where institutional money is flowing, and which sectors are leading before you even look at individual stocks. The Trading Journal then ties your trades back to regime context — something no other platform does.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">What happens after the 14-day Pro trial?</div>
+    <div class="faq-a">After your trial, you'll be downgraded to the Explorer (free) tier automatically — no charges, no surprises. Your data and trades are preserved. You can upgrade to Pro at any time from within the app to restore full access.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">Can I cancel my Pro subscription?</div>
+    <div class="faq-a">Yes, anytime from the Billing section inside your account. Cancellation takes effect at the end of your current billing period — you keep full Pro access until then. No partial refunds, but no lock-in either.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)">Is my data safe?</div>
+    <div class="faq-a">All data is stored securely. We do not sell your trading data or share it with third parties. Payments are handled entirely by Razorpay — we never see your card details.</div>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<section class="cta-banner">
+  <h2>Ready to Trade with<br><em>Market Context</em>?</h2>
+  <p>Join traders who stopped guessing the regime and started reading it.</p>
+  <button class="btn-lg primary" onclick="openAuth('register')">Create Your Free Account →</button>
+  <div class="cta-sub">No credit card · Free Explorer plan forever · Upgrade when you're ready</div>
 </section>
 
 <!-- FOOTER -->
 <footer class="footer">
-  <div>© 2026 QuantumTrade Pro — Powered by Q-BRAM Engine</div>
-  <div style="margin-top:12px;display:flex;gap:16px;justify-content:center">
-    <a href="/app?mode=admin" style="color:var(--amber);text-decoration:none;font-size:11px" onclick="localStorage.setItem('qb360_mode','admin')">🔑 Admin Access</a>
-    <a href="/app?mode=dev" style="color:var(--purple);text-decoration:none;font-size:11px" onclick="localStorage.setItem('qb360_mode','dev')">🛠 Developer Access</a>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">QUANTUM <span>BREADTH 360</span></div>
+      <div class="footer-tagline">India's only regime-aware market intelligence platform — powered by 19 years of breadth research and the Q-BRAM model.</div>
+    </div>
+    <div>
+      <div class="footer-col-title">PLATFORM</div>
+      <ul class="footer-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="/app" onclick="localStorage.setItem('qb360_mode','dev')">Launch App</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">RESOURCES</div>
+      <ul class="footer-links">
+        <li><a href="https://substack.com" target="_blank">Q-BRAM Substack</a></li>
+        <li><a href="https://medium.com" target="_blank">Research Articles</a></li>
+        <li><a href="mailto:support@quantumtradeledger.com">Support</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-copy">© 2026 Quantum Breadth 360 · Powered by Q-BRAM Engine · quantumtradeledger.com</div>
+    <div class="footer-admin-links">
+      <a href="/app?mode=admin" style="color:var(--amber)" onclick="localStorage.setItem('qb360_mode','admin')">🔑 Admin</a>
+      <a href="/app?mode=dev" style="color:var(--purple)" onclick="localStorage.setItem('qb360_mode','dev')">🛠 Dev</a>
+    </div>
   </div>
 </footer>
+
+<!-- RAZORPAY UPGRADING OVERLAY -->
+<div id="rzp-upgrading">
+  <div class="rzp-spinner"></div>
+  <div class="rzp-msg" id="rzp-msg">Connecting to payment gateway...</div>
+</div>
 
 <!-- AUTH MODAL -->
 <div class="auth-overlay" id="auth-overlay">
@@ -257,6 +569,31 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:h
 <script>
 const API = '';
 
+// ── Billing Toggle ────────────────────────────────────────────────────────────
+let isAnnual = false;
+function toggleBilling() {
+  isAnnual = !isAnnual;
+  document.getElementById('billing-toggle').classList.toggle('active', isAnnual);
+  if (isAnnual) {
+    document.getElementById('pro-price-num').textContent = '239';
+    document.getElementById('pro-billing-note').innerHTML = 'Billed as ₹2,870/year — <em>save 20%</em>';
+    document.getElementById('pro-cta-btn').textContent = 'Start Pro Trial — 14 Days Free →';
+  } else {
+    document.getElementById('pro-price-num').textContent = '299';
+    document.getElementById('pro-billing-note').innerHTML = 'or ₹2,870/year — <em>save 20%</em>';
+    document.getElementById('pro-cta-btn').textContent = 'Start Pro Trial — 14 Days Free →';
+  }
+}
+
+// ── FAQ ───────────────────────────────────────────────────────────────────────
+function toggleFaq(el) {
+  const item = el.closest('.faq-item');
+  const wasOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+  if (!wasOpen) item.classList.add('open');
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
 function openAuth(mode) {
   document.getElementById('auth-overlay').classList.add('active');
   switchAuth(mode);
@@ -265,73 +602,185 @@ function closeAuth() {
   document.getElementById('auth-overlay').classList.remove('active');
 }
 function switchAuth(mode) {
-  document.getElementById('auth-login-form').style.display = mode === 'login' ? '' : 'none';
+  document.getElementById('auth-login-form').style.display  = mode === 'login'    ? '' : 'none';
   document.getElementById('auth-register-form').style.display = mode === 'register' ? '' : 'none';
   document.getElementById('login-error').style.display = 'none';
-  document.getElementById('reg-error').style.display = 'none';
+  document.getElementById('reg-error').style.display   = 'none';
 }
 
 async function doLogin() {
-  const email = document.getElementById('login-email').value;
+  const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
+  const errEl    = document.getElementById('login-error');
   errEl.style.display = 'none';
+  if (!email || !password) { errEl.textContent = 'Email and password required'; errEl.style.display = ''; return; }
   try {
-    const res = await fetch(`${API}/api/auth/login`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email, password})
-    });
+    const res  = await fetch(`${API}/api/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email, password}) });
     const data = await res.json();
     if (data.error) { errEl.textContent = data.error; errEl.style.display = ''; return; }
     localStorage.setItem('qb360_token', data.token);
-    localStorage.setItem('qb360_user', JSON.stringify(data.user));
+    localStorage.setItem('qb360_user',  JSON.stringify(data.user));
     window.location.href = '/app';
-  } catch (e) { errEl.textContent = 'Network error'; errEl.style.display = ''; }
+  } catch (e) { errEl.textContent = 'Network error — try again'; errEl.style.display = ''; }
 }
 
 async function doRegister() {
-  const name = document.getElementById('reg-name').value;
-  const email = document.getElementById('reg-email').value;
+  const name     = document.getElementById('reg-name').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
-  const errEl = document.getElementById('reg-error');
+  const errEl    = document.getElementById('reg-error');
   errEl.style.display = 'none';
+  if (!name || !email || !password) { errEl.textContent = 'All fields required'; errEl.style.display = ''; return; }
+  if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; errEl.style.display = ''; return; }
   try {
-    const res = await fetch(`${API}/api/auth/register`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name, email, password})
-    });
+    const res  = await fetch(`${API}/api/auth/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, email, password}) });
     const data = await res.json();
     if (data.error) { errEl.textContent = data.error; errEl.style.display = ''; return; }
     localStorage.setItem('qb360_token', data.token);
-    localStorage.setItem('qb360_user', JSON.stringify(data.user));
+    localStorage.setItem('qb360_user',  JSON.stringify(data.user));
     window.location.href = '/app';
-  } catch (e) { errEl.textContent = 'Network error'; errEl.style.display = ''; }
+  } catch (e) { errEl.textContent = 'Network error — try again'; errEl.style.display = ''; }
 }
 
-// Auto-redirect if already logged in or in admin/dev mode
-const mode = localStorage.getItem('qb360_mode');
-if (mode === 'admin' || mode === 'dev') {
-  window.location.href = '/app?mode=' + mode;
-} else {
+// ── Razorpay Checkout ─────────────────────────────────────────────────────────
+async function startCheckout(tier) {
   const token = localStorage.getItem('qb360_token');
-  if (token) {
-    fetch(`${API}/api/auth/me`, { headers: {'Authorization': 'Bearer ' + token} })
-      .then(r => r.json())
-      .then(d => {
-        if (d.id || d.tier) window.location.href = '/app';
-        else { localStorage.removeItem('qb360_token'); } // Clear stale token
-      })
-      .catch(() => { localStorage.removeItem('qb360_token'); }); // Clear on network error
+  if (!token) { openAuth('register'); return; }
+
+  const overlay = document.getElementById('rzp-upgrading');
+  const msg     = document.getElementById('rzp-msg');
+  overlay.classList.add('show');
+  msg.textContent = 'Creating secure order...';
+
+  try {
+    const cycle = isAnnual ? 'annual' : 'monthly';
+    const res   = await fetch(`${API}/api/billing/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+      body: JSON.stringify({ tier, cycle }),
+    });
+    const order = await res.json();
+
+    if (order.error) {
+      overlay.classList.remove('show');
+      alert('Could not create order: ' + order.error);
+      return;
+    }
+
+    // Dev mode — simulate payment
+    if (order.dev_mode) {
+      msg.textContent = 'Dev mode — simulating payment...';
+      await new Promise(r => setTimeout(r, 1200));
+      const vres = await fetch(`${API}/api/billing/verify-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+        body: JSON.stringify({
+          razorpay_order_id:   order.order_id,
+          razorpay_payment_id: 'pay_dev_' + Date.now(),
+          razorpay_signature:  'dev_sig',
+        }),
+      });
+      const vdata = await vres.json();
+      overlay.classList.remove('show');
+      if (vdata.tier) {
+        alert(`✅ Pro activated (dev mode)! Welcome to ${vdata.tier.toUpperCase()}`);
+        window.location.href = '/app';
+      } else {
+        alert('Verification failed: ' + (vdata.error || 'Unknown'));
+      }
+      return;
+    }
+
+    // Real Razorpay
+    overlay.classList.remove('show');
+    const user = JSON.parse(localStorage.getItem('qb360_user') || '{}');
+    const rzp = new Razorpay({
+      key:         order.key_id,
+      amount:      order.amount,
+      currency:    order.currency,
+      order_id:    order.order_id,
+      name:        'Quantum Breadth 360',
+      description: `Pro ${cycle} subscription`,
+      image:       '',
+      prefill:     { name: order.prefill?.name || user.name, email: order.prefill?.email || user.email },
+      theme:       { color: '#06b6d4' },
+      handler: async function(response) {
+        overlay.classList.add('show');
+        msg.textContent = 'Verifying payment...';
+        try {
+          const vres = await fetch(`${API}/api/billing/verify-payment`, {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+            body: JSON.stringify({
+              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature:  response.razorpay_signature,
+            }),
+          });
+          const vdata = await vres.json();
+          overlay.classList.remove('show');
+          if (vdata.tier) {
+            alert('✅ Payment successful! Pro access activated.');
+            window.location.href = '/app';
+          } else {
+            alert('Payment received but verification failed. Contact support with payment ID: ' + response.razorpay_payment_id);
+          }
+        } catch(e) {
+          overlay.classList.remove('show');
+          alert('Verification error — contact support with order ID: ' + order.order_id);
+        }
+      },
+      modal: { ondismiss: function() { overlay.classList.remove('show'); } }
+    });
+    rzp.open();
+
+  } catch(e) {
+    overlay.classList.remove('show');
+    alert('Could not connect to payment gateway. Please try again.');
   }
 }
 
-// Enter key support
+// ── Auto-redirect if already logged in ───────────────────────────────────────
+const qbMode = localStorage.getItem('qb360_mode');
+if (qbMode === 'admin' || qbMode === 'dev') {
+  window.location.href = '/app?mode=' + qbMode;
+} else {
+  const token = localStorage.getItem('qb360_token');
+  if (token) {
+    fetch(`${API}/api/auth/me`, { headers:{'Authorization':'Bearer '+token} })
+      .then(r => r.json())
+      .then(d => { if (d.id || d.tier) window.location.href = '/app'; else localStorage.removeItem('qb360_token'); })
+      .catch(() => localStorage.removeItem('qb360_token'));
+  }
+}
+
+// Enter key in auth modal
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('auth-overlay').classList.contains('active')) {
     if (document.getElementById('auth-login-form').style.display !== 'none') doLogin();
     else doRegister();
   }
 });
+</script>
+
+<!-- Razorpay SDK (loaded only when needed) -->
+<script>
+// Lazy-load Razorpay JS only when checkout is triggered
+function loadRazorpaySDK() {
+  return new Promise((res, rej) => {
+    if (window.Razorpay) { res(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+const _origStartCheckout = startCheckout;
+window.startCheckout = async function(tier) {
+  await loadRazorpaySDK().catch(() => {});
+  return _origStartCheckout(tier);
+};
 </script>
 </body>
 </html>

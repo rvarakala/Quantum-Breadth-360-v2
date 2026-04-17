@@ -335,3 +335,176 @@ def get_plan_prices() -> dict:
         "currency":    "INR",
         "currency_usd": True,
     }
+
+
+# ── Razorpay Webhook ──────────────────────────────────────────────────────────
+
+def handle_webhook(payload: bytes, signature: str) -> dict:
+    """
+    Verify and process Razorpay webhook events.
+    Called from POST /api/billing/webhook.
+    Supported events:
+      payment.captured      → activate subscription
+      subscription.charged  → renew subscription period
+      subscription.cancelled→ schedule downgrade at period end
+    """
+    if not RZP_ENABLED:
+        return {"status": "skipped", "reason": "Razorpay not configured"}
+
+    # ── 1. Verify signature ───────────────────────────────────────────────────
+    expected = hmac.new(RZP_KEY_SECRET.encode(), payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        logger.warning("Webhook signature mismatch — rejected")
+        return {"error": "Invalid webhook signature", "_http_status": 400}
+
+    import json
+    try:
+        event = json.loads(payload)
+    except Exception:
+        return {"error": "Invalid JSON payload", "_http_status": 400}
+
+    event_type = event.get("event", "")
+    entity     = event.get("payload", {}).get("payment", {}).get("entity", {}) \
+                  or event.get("payload", {}).get("subscription", {}).get("entity", {})
+
+    logger.info(f"Razorpay webhook received: {event_type}")
+
+    # ── 2. Route event ────────────────────────────────────────────────────────
+    if event_type == "payment.captured":
+        return _webhook_payment_captured(entity)
+
+    elif event_type == "subscription.charged":
+        return _webhook_subscription_charged(entity)
+
+    elif event_type in ("subscription.cancelled", "subscription.completed"):
+        return _webhook_subscription_cancelled(entity)
+
+    else:
+        # Unhandled event — acknowledge silently (don't return 4xx)
+        logger.info(f"Unhandled webhook event: {event_type} — acknowledged")
+        return {"status": "acknowledged", "event": event_type}
+
+
+def _webhook_payment_captured(entity: dict) -> dict:
+    """Handle payment.captured — upgrade user tier from notes."""
+    notes    = entity.get("notes", {})
+    user_id  = _safe_int(notes.get("user_id"))
+    tier     = notes.get("tier", "")
+    cycle    = notes.get("cycle", "monthly")
+    order_id = entity.get("order_id", "")
+    pay_id   = entity.get("id", "")
+
+    if not user_id or tier not in PLAN_PRICES:
+        logger.warning(f"Webhook payment.captured — bad notes: {notes}")
+        return {"status": "skipped", "reason": "missing user_id or tier in notes"}
+
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    conn.row_factory = sqlite3.Row
+
+    # Idempotency — skip if already paid
+    existing = conn.execute(
+        "SELECT id FROM payments WHERE razorpay_payment_id=? AND status='paid'",
+        (pay_id,)
+    ).fetchone()
+    if existing:
+        conn.close()
+        logger.info(f"Webhook payment.captured duplicate — skipping {pay_id}")
+        return {"status": "duplicate", "payment_id": pay_id}
+
+    now = datetime.now(timezone.utc)
+    sub_end = (now + timedelta(days=365 if cycle == "annual" else 31)).isoformat()
+
+    # Upsert payment record
+    conn.execute("""
+        INSERT INTO payments
+            (user_id, razorpay_order_id, razorpay_payment_id, tier,
+             billing_cycle, amount_inr, amount_usd, currency, status,
+             created_at, verified_at, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'INR', 'paid', ?, ?, 'webhook:payment.captured')
+    """, (
+        user_id, order_id, pay_id, tier, cycle,
+        PLAN_PRICES[tier][f"{cycle}_inr"],
+        PLAN_PRICES[tier][f"{cycle}_usd"],
+        now.isoformat(), now.isoformat(),
+    ))
+
+    # Upgrade user
+    conn.execute("""
+        UPDATE users SET
+            tier=?, subscription_end=?, trial_ends_at=NULL, cancel_at_period_end=0
+        WHERE id=?
+    """, (tier, sub_end, user_id))
+    conn.commit()
+    conn.close()
+
+    logger.info(f"✅ Webhook: user {user_id} upgraded to {tier} ({cycle}) via payment.captured")
+    return {"status": "ok", "user_id": user_id, "tier": tier, "subscription_end": sub_end}
+
+
+def _webhook_subscription_charged(entity: dict) -> dict:
+    """Handle subscription.charged — renew period for recurring subscribers."""
+    notes   = entity.get("notes", {})
+    user_id = _safe_int(notes.get("user_id"))
+    tier    = notes.get("tier", "")
+    cycle   = notes.get("cycle", "monthly")
+    pay_id  = entity.get("payment_id", "")
+
+    if not user_id:
+        logger.warning(f"Webhook subscription.charged — no user_id in notes: {notes}")
+        return {"status": "skipped", "reason": "missing user_id"}
+
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    conn.row_factory = sqlite3.Row
+    user = conn.execute("SELECT tier, subscription_end FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user:
+        conn.close()
+        return {"status": "skipped", "reason": "user not found"}
+
+    active_tier = tier or user["tier"]
+    if active_tier not in PLAN_PRICES:
+        active_tier = user["tier"]
+
+    now = datetime.now(timezone.utc)
+    # Extend from current sub_end or now (whichever is later)
+    try:
+        base = datetime.fromisoformat(user["subscription_end"]) if user["subscription_end"] else now
+        if base < now:
+            base = now
+    except Exception:
+        base = now
+
+    extension = timedelta(days=365 if cycle == "annual" else 31)
+    new_end = (base + extension).isoformat()
+
+    conn.execute("UPDATE users SET subscription_end=?, cancel_at_period_end=0 WHERE id=?",
+                 (new_end, user_id))
+    conn.commit()
+    conn.close()
+
+    logger.info(f"✅ Webhook: user {user_id} subscription renewed to {new_end}")
+    return {"status": "ok", "user_id": user_id, "subscription_end": new_end}
+
+
+def _webhook_subscription_cancelled(entity: dict) -> dict:
+    """Handle subscription.cancelled — mark cancel_at_period_end=1."""
+    notes   = entity.get("notes", {})
+    user_id = _safe_int(notes.get("user_id"))
+
+    if not user_id:
+        logger.warning(f"Webhook subscription.cancelled — no user_id: {notes}")
+        return {"status": "skipped", "reason": "missing user_id"}
+
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    conn.execute("UPDATE users SET cancel_at_period_end=1 WHERE id=?", (user_id,))
+    conn.commit()
+    conn.close()
+
+    logger.info(f"⚠️ Webhook: user {user_id} subscription cancelled (at period end)")
+    return {"status": "ok", "user_id": user_id, "cancel_at_period_end": True}
+
+
+def _safe_int(val) -> Optional[int]:
+    try:
+        return int(val) if val is not None else None
+    except (ValueError, TypeError):
+        return None
