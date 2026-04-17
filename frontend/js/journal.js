@@ -354,9 +354,17 @@ function _jnlRenderMonthly(monthly) {
   if (!canvas||!monthly.length) return;
   _jnlDestroyChart('jnl-monthly-canvas');
   const isDark = !document.documentElement.getAttribute('data-theme');
+  const monthOpts = _jnlChartOpts(isDark);
+  monthOpts.scales.y.ticks.callback = v => '₹' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(1)+'k' : v);
   _jnlCharts['jnl-monthly-canvas'] = new Chart(canvas,{type:'bar',
-    data:{labels:monthly.map(m=>m.month),datasets:[{data:monthly.map(m=>m.pnl),backgroundColor:monthly.map(m=>m.pnl>=0?'rgba(34,197,94,0.8)':'rgba(239,68,68,0.8)')}]},
-    options:_jnlChartOpts(isDark)});
+    data:{labels:monthly.map(m=>m.month),datasets:[{
+      data:monthly.map(m=>m.pnl),
+      backgroundColor:monthly.map(m=>m.pnl>=0?'rgba(34,197,94,0.8)':'rgba(239,68,68,0.8)'),
+      borderRadius:4,
+      maxBarThickness:52,
+      barThickness:'flex',
+    }]},
+    options:monthOpts});
 }
 
 function _jnlRenderPsychTrend() {
