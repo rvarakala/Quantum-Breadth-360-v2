@@ -219,6 +219,7 @@ def add_trade(trade: dict) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     cur = conn.execute("""
         INSERT INTO journal_trades (
+            account_id,
             ticker, direction, setup_type, strategy_name, timeframe, regime,
             broker, market_type,
             entry_date, entry_time, entry_price, stop_loss, target,
@@ -232,6 +233,7 @@ def add_trade(trade: dict) -> dict:
             psych_fomo, psych_revenge, psych_sleep, psych_energy,
             created_at, updated_at
         ) VALUES (
+            ?,
             ?,?,?,?,?,?,
             ?,?,
             ?,?,?,?,?,
@@ -246,6 +248,7 @@ def add_trade(trade: dict) -> dict:
             ?,?
         )
     """, (
+        int(trade.get("account_id", 1) or 1),
         trade.get("ticker", "").upper().strip(),
         trade.get("direction", "Long"),
         trade.get("setup_type", ""),

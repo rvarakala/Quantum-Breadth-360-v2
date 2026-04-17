@@ -1065,12 +1065,14 @@ async def api_journal_import_csv(request: Request):
     body = await request.json()
     csv_content = body.get("content","")
     broker      = body.get("broker","generic")
+    account_id  = int(body.get("account_id", 1) or 1)
     if not csv_content:
         return {"error":"No CSV content provided"}
     parsed = parse_csv_import(csv_content, broker)
     imported = 0
     errors   = 0
     for trade in parsed:
+        trade["account_id"] = account_id   # stamp target account on every row
         result = add_trade(trade)
         if result.get("id"): imported += 1
         else: errors += 1

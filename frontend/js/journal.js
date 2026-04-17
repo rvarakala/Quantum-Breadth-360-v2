@@ -49,7 +49,7 @@ function jnlToggleView(view) {
   if (view === 'analytics') _jnlLoadAnalytics();
   if (view === 'calendar')  _jnlLoadCalendar();
   if (view === 'ai')        _jnlLoadAICoach();
-  if (view === 'settings')  jnlLoadSettings();
+  if (view === 'settings')  { jnlLoadSettings(); _jnlPopulateImportAccounts(); }
 }
 
 async function _jnlLoadTilt() {
@@ -714,6 +714,17 @@ function jnlExportCSV() {
 }
 
 // ── Settings view ─────────────────────────────────────────────────────────────
+function _jnlPopulateImportAccounts() {
+  const sel = document.getElementById('jnl-import-account');
+  if (!sel || !_jnlAccounts.length) return;
+  const current = sel.value;
+  sel.innerHTML = _jnlAccounts.map(a =>
+    `<option value="${a.id}">${a.name}${a.broker ? ' — ' + a.broker : ''}</option>`
+  ).join('');
+  // Restore previous selection if still valid
+  if ([..._jnlAccounts].some(a => String(a.id) === current)) sel.value = current;
+}
+
 async function jnlLoadSettings() {
   try {
     const res  = await fetch(`${API}/api/journal/settings`);
@@ -974,7 +985,7 @@ async function jnlImportFile() {
     const res  = await fetch(`${API}/api/journal/import-csv`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: csvContent, broker }),
+      body: JSON.stringify({ content: csvContent, broker, account_id: parseInt(document.getElementById('jnl-import-account')?.value || 1) }),
     });
     const data = await res.json();
     if (data.error) {
@@ -1020,6 +1031,7 @@ async function jnlInitAccounts() {
     const data = await res.json();
     _jnlAccounts = data.accounts || [];
     _jnlRenderAccountStrip();
+    _jnlPopulateImportAccounts();   // sync import dropdown with live accounts
     // Default to Account 1 on first load
     if (_jnlActiveAcct === null && _jnlAccounts.length > 0) {
       jnlSelectAccount(_jnlAccounts[0].id, false);
