@@ -412,13 +412,25 @@ async function _jnlLoadAICoach() {
     const res  = await fetch(`${API}/api/journal/ai-insights${_jnlAcctParam()}`);
     const data = await res.json();
     const insights = data.insights || [];
+    const llmCount = insights.filter(i => i.source === 'llm').length;
+    const llmBadge = llmCount > 0
+      ? `<span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:linear-gradient(135deg,rgba(168,85,247,.15),rgba(6,182,212,.15));border:1px solid rgba(168,85,247,.3);font-size:10px;font-weight:700;color:var(--purple,#a855f7);font-family:var(--font-mono)">✨ ${llmCount} AI-powered</span>`
+      : '';
     const header = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <div style="font-size:28px">🤖</div>
       <div><div style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--text)">AI Coach</div>
       <div style="font-size:11px;color:var(--text3)">Pattern analysis from your last ${_jnlTrades.length} trades</div></div>
+      ${llmBadge}
     </div>`;
-    el.innerHTML = header + insights.map(i=>`<div class="jnl-ai-card ${i.type}">
-      <div class="jnl-ai-icon">${i.icon}</div><div class="jnl-ai-text">${i.text}</div></div>`).join('');
+    el.innerHTML = header + insights.map(i => {
+      const aiTag = i.source === 'llm'
+        ? `<span style="display:inline-block;margin-left:8px;padding:1px 6px;border-radius:3px;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);font-size:9px;font-weight:700;color:var(--purple,#a855f7);font-family:var(--font-mono);letter-spacing:.04em;vertical-align:middle">✨ AI</span>`
+        : '';
+      return `<div class="jnl-ai-card ${i.type}">
+        <div class="jnl-ai-icon">${i.icon}</div>
+        <div class="jnl-ai-text">${i.text}${aiTag}</div>
+      </div>`;
+    }).join('');
   } catch (e) {
     el.innerHTML=`<div style="color:var(--red);padding:20px">Failed: ${e.message}</div>`;
   }

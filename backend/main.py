@@ -1012,7 +1012,7 @@ async def save_smart_money_note(request: Request):
 
 # ── Trading Journal API ──────────────────────────────────────────────────────
 
-from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings, get_tilt_score, get_drawdown_series, get_monthly_pnl, get_time_of_day_stats, get_ai_insights, get_day_of_week_stats, check_risk_rules, get_gamification, parse_csv_import, list_accounts, create_account, update_account, delete_account, get_account_summary, get_calendar_data, get_strategy_leaderboard, get_calendar_months
+from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings, get_tilt_score, get_drawdown_series, get_monthly_pnl, get_time_of_day_stats, get_ai_insights, get_ai_insights_llm, get_day_of_week_stats, check_risk_rules, get_gamification, parse_csv_import, list_accounts, create_account, update_account, delete_account, get_account_summary, get_calendar_data, get_strategy_leaderboard, get_calendar_months
 
 @app.get("/api/journal/trades")
 async def api_journal_trades(status: str = "all", limit: int = 200, account_id: int = None):
@@ -1069,7 +1069,7 @@ async def api_journal_time_of_day(account_id: int = None):
 async def api_journal_ai_insights(account_id: int = None):
     analytics = get_analytics(account_id)
     trades    = get_trades(status="all", limit=500, account_id=account_id)
-    return {"insights": get_ai_insights(analytics, trades)}
+    return {"insights": get_ai_insights_llm(analytics, trades)}
 
 @app.get("/api/journal/day-of-week")
 async def api_journal_dow(account_id: int = None):

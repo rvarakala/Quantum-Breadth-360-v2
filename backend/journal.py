@@ -834,6 +834,236 @@ def get_ai_insights(analytics: dict, trades: list) -> list:
     return insights[:8]  # cap at 8 insights
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# LLM-POWERED AI COACH (Groq)
+# ──────────────────────────────────────────────────────────────────────────────
+
+# In-memory cache — keyed on a digest of analytics snapshot.
+# Invalidates whenever user logs new trades because cache key embeds trade count
+# and aggregate stats.
+_llm_coach_cache: dict = {}
+_LLM_COACH_TTL = 7200  # 2 hours
+
+# How many trades are required before we bother calling the LLM at all —
+# below this, rule-based insights are the right answer anyway.
+_LLM_MIN_TRADES = 10
+
+
+_LLM_SYSTEM_PROMPT = """You are a seasoned trading coach reviewing a systematic swing trader's journal.
+You understand Indian equity markets (NSE, NIFTY 500) and the Minervini/O'Neil/Qullamaggie/Weinstein methodology framework.
+
+Your style:
+- Blunt, evidence-based, no sycophancy
+- Cite specific numbers from the data provided
+- Name what's leaking edge and what's working
+- No generic advice ("trust the process", "stay disciplined") — those are useless
+- Actionable: every point should suggest a concrete change the trader can make
+
+Output EXACTLY a JSON array (no markdown, no commentary, no code fences) of 3-4 insight objects.
+Each object has three keys:
+- "type": one of "danger" | "warning" | "positive" | "info"
+- "icon": a single emoji matching the severity (🚨 🚩 ✅ 🏆 ⚠ 💡 🎯 🔥 🧠 etc.)
+- "text": 1-2 sentence coaching point referencing a specific number from the data
+
+Example of a GOOD insight:
+{"type":"danger","icon":"🚨","text":"Your FOMO trades win 28% (12 of 43) vs 62% (89 of 144) for planned entries — that's a 34 percentage point gap. Add a hard rule: if a stock has already moved >2% from your ideal entry, skip it."}
+
+Example of a BAD insight (too generic):
+{"type":"info","icon":"💡","text":"Remember to stay disciplined and trust your process."}
+
+If data is thin or mixed, say so honestly rather than inventing patterns."""
+
+
+def _build_llm_context(analytics: dict, trades: list) -> str:
+    """Compress the trader's data into a token-efficient structured snapshot."""
+    from collections import Counter
+
+    closed = [t for t in trades if t.get("status") in ("Closed", "StoppedOut")]
+
+    # Top / bottom setups by expectancy
+    setup_lines = []
+    by_setup = analytics.get("by_setup", {})
+    ranked = sorted(
+        by_setup.items(),
+        key=lambda x: x[1].get("avg_r", 0),
+        reverse=True,
+    )
+    for name, s in ranked[:3]:
+        if s.get("trades", 0) >= 2:
+            setup_lines.append(
+                f"  {name}: {s.get('trades',0)} trades, "
+                f"{s.get('win_rate',0)}% WR, {s.get('avg_r',0)}R avg"
+            )
+    for name, s in ranked[-2:]:
+        if s.get("trades", 0) >= 2 and name not in [r[0] for r in ranked[:3]]:
+            setup_lines.append(
+                f"  {name}: {s.get('trades',0)} trades, "
+                f"{s.get('win_rate',0)}% WR, {s.get('avg_r',0)}R avg (underperformer)"
+            )
+    setups_block = "\n".join(setup_lines) if setup_lines else "  (insufficient setup data)"
+
+    # Emotion breakdown
+    emotion_lines = []
+    by_emotion = analytics.get("by_emotion", {})
+    for emo, s in by_emotion.items():
+        if s.get("trades", 0) >= 2:
+            emotion_lines.append(
+                f"  {emo}: {s.get('trades',0)} trades, {s.get('win_rate',0)}% WR"
+            )
+    emotion_block = "\n".join(emotion_lines) if emotion_lines else "  (no emotion data)"
+
+    # Mistakes
+    mistakes = analytics.get("mistakes", {})
+    mistake_lines = [
+        f"  {m}: {c} occurrences" for m, c in sorted(mistakes.items(), key=lambda x: -x[1])[:5]
+    ]
+    mistake_block = "\n".join(mistake_lines) if mistake_lines else "  (none logged)"
+
+    # Psychology correlation — sleep & confidence
+    psych_lines = []
+    sleep_trades = [
+        (t.get("psych_sleep", 0), t.get("pnl_pct", 0))
+        for t in closed if t.get("psych_sleep", 0) > 0
+    ]
+    if len(sleep_trades) >= 5:
+        low = [p for s, p in sleep_trades if s <= 4]
+        high = [p for s, p in sleep_trades if s >= 7]
+        if low and high:
+            low_wr = sum(1 for p in low if p > 0) / len(low) * 100
+            high_wr = sum(1 for p in high if p > 0) / len(high) * 100
+            psych_lines.append(
+                f"  Poor sleep (≤4): {len(low)} trades, {low_wr:.0f}% WR"
+            )
+            psych_lines.append(
+                f"  Good sleep (≥7): {len(high)} trades, {high_wr:.0f}% WR"
+            )
+
+    # Recent overtrading
+    date_counts = Counter(t.get("entry_date", "")[:10] for t in closed)
+    overtrade_days = sum(1 for c in date_counts.values() if c > 3)
+
+    return f"""
+TRADING JOURNAL SNAPSHOT
+========================
+Total trades: {analytics.get('total', 0)} ({analytics.get('closed', 0)} closed)
+Win rate: {analytics.get('win_rate', 0)}%
+Avg R per trade: {analytics.get('avg_r', 0)}
+Profit factor: {analytics.get('profit_factor', 0)}
+Max losing streak: {analytics.get('max_loss_streak', 0)}
+Overtrading days (4+ trades/day): {overtrade_days}
+Total P&L: ₹{analytics.get('total_pnl', 0):,.0f}
+
+SETUP PERFORMANCE (by avg R)
+{setups_block}
+
+EMOTION vs WIN RATE
+{emotion_block}
+
+MISTAKES LOGGED
+{mistake_block}
+{('SLEEP CORRELATION' + chr(10) + chr(10).join(psych_lines)) if psych_lines else ''}
+""".strip()
+
+
+def _parse_llm_response(raw: str) -> list:
+    """Extract JSON array from LLM output, tolerating stray markdown/commentary."""
+    import json, re
+
+    # Strip markdown code fences if present
+    text = raw.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+
+    # Find the first JSON array in the response
+    match = re.search(r"\[\s*\{.*?\}\s*\]", text, flags=re.DOTALL)
+    if not match:
+        raise ValueError("No JSON array found in LLM response")
+
+    parsed = json.loads(match.group(0))
+    if not isinstance(parsed, list):
+        raise ValueError("LLM output is not a list")
+
+    # Validate and normalise shape
+    out = []
+    for item in parsed[:4]:
+        if not isinstance(item, dict):
+            continue
+        t = str(item.get("type", "info")).lower()
+        if t not in ("danger", "warning", "positive", "info"):
+            t = "info"
+        out.append({
+            "type": t,
+            "icon": str(item.get("icon", "💡"))[:4] or "💡",
+            "text": str(item.get("text", "")).strip()[:400],
+            "source": "llm",
+        })
+    if not out:
+        raise ValueError("No valid insights extracted from LLM output")
+    return out
+
+
+def get_ai_insights_llm(analytics: dict, trades: list) -> list:
+    """
+    Combined coaching insights: rule-based baseline + LLM-generated coaching.
+
+    Graceful degradation:
+    - No Groq API key → rule-based only
+    - Fewer than _LLM_MIN_TRADES closed trades → rule-based only
+    - LLM error or parse failure → rule-based only
+    - Never raises; the user always sees SOMETHING useful.
+    """
+    # Always start with rule-based (fast, deterministic, always works)
+    base = get_ai_insights(analytics, trades)
+
+    # Only augment with LLM if trader has enough data
+    if analytics.get("closed", 0) < _LLM_MIN_TRADES:
+        return base
+
+    # Try to get LLM coaching on top
+    try:
+        from ai_insights import _get_api_key, _call_groq_with_fallback
+    except Exception as e:
+        logger.debug(f"AI Coach: ai_insights module unavailable ({e})")
+        return base
+
+    api_key = _get_api_key()
+    if not api_key:
+        # No key configured — rule-based is the best we can do
+        return base
+
+    # Cache key: bucket stats so minor changes don't bust the cache,
+    # but new trades always do. 2h TTL safeguards against staleness.
+    import time
+    cache_key = (
+        analytics.get("closed", 0),
+        round(analytics.get("win_rate", 0) or 0),
+        round((analytics.get("avg_r", 0) or 0) * 10),
+        round((analytics.get("profit_factor", 0) or 0) * 10),
+    )
+    now = time.time()
+    cached = _llm_coach_cache.get(cache_key)
+    if cached and (now - cached["ts"] < _LLM_COACH_TTL):
+        return base + cached["insights"]
+
+    try:
+        ctx = _build_llm_context(analytics, trades)
+        raw = _call_groq_with_fallback(
+            prompt=ctx,
+            system=_LLM_SYSTEM_PROMPT,
+            api_key=api_key,
+            max_tokens=800,
+        )
+        llm_insights = _parse_llm_response(raw)
+        _llm_coach_cache[cache_key] = {"ts": now, "insights": llm_insights}
+        logger.info(f"✅ AI Coach LLM: generated {len(llm_insights)} insights "
+                    f"(closed={analytics.get('closed', 0)})")
+        return base + llm_insights
+    except Exception as e:
+        # Log and fall back silently — never break the user's view
+        logger.warning(f"AI Coach LLM call failed: {e}")
+        return base
+
+
 def get_day_of_week_stats(trades: list) -> list:
     """Group closed trades by day of week."""
     from collections import defaultdict
