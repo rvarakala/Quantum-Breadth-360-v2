@@ -487,7 +487,17 @@ async function jnlEditTrade(id) {
   document.getElementById('jnl-edit-id').value=id;
   document.getElementById('jnl-modal-title').textContent='Edit Trade #'+id;
   const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
-  set('jnl-ticker',t.ticker);set('jnl-direction',t.direction||'Long');set('jnl-setup',t.setup_type);
+  set('jnl-ticker',t.ticker);set('jnl-direction',t.direction||'Long');
+  // Add setup_type as option if not already in list (imported trades use custom values)
+  const setupSel = document.getElementById('jnl-setup');
+  if (setupSel && t.setup_type) {
+    if (![...setupSel.options].some(o => o.value === t.setup_type)) {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = t.setup_type;
+      setupSel.appendChild(opt);
+    }
+    setupSel.value = t.setup_type;
+  }
   set('jnl-timeframe',t.timeframe||'Swing');set('jnl-market',t.market_type||'Stocks');set('jnl-broker',t.broker);
   set('jnl-entry-date',(t.entry_date||'').slice(0,10));set('jnl-entry-time',t.entry_time);
   set('jnl-entry-price',t.entry_price);set('jnl-stop',t.stop_loss);set('jnl-target',t.target);
@@ -510,45 +520,108 @@ async function jnlEditTrade(id) {
 }
 
 async function jnlSaveTrade() {
-  const editId=document.getElementById('jnl-edit-id').value;
-  const g=(id)=>document.getElementById(id);
-  const trade={
-    account_id:  _jnlActiveAcct || 1,
-    ticker:      g('jnl-ticker').value.trim().toUpperCase(),
-    direction:   g('jnl-direction').value, setup_type: g('jnl-setup').value,
-    timeframe:   g('jnl-timeframe').value, market_type:g('jnl-market').value,
-    broker:      g('jnl-broker').value,    entry_date: g('jnl-entry-date').value,
-    entry_time:  g('jnl-entry-time').value,entry_price:parseFloat(g('jnl-entry-price').value)||0,
-    stop_loss:   parseFloat(g('jnl-stop').value)||null, target:parseFloat(g('jnl-target').value)||null,
-    quantity:    parseFloat(g('jnl-qty').value)||0,     fees:parseFloat(g('jnl-fees').value)||0,
-    risk_amount: parseFloat(g('jnl-risk-amount').value)||0,
-    exit_date:   g('jnl-exit-date').value||null, exit_time:g('jnl-exit-time').value,
-    exit_price:  parseFloat(g('jnl-exit-price').value)||null, status:g('jnl-status').value,
-    regime:      g('jnl-regime').value,    pre_emotion:g('jnl-emotion').value,
-    discipline_score:parseInt(g('jnl-discipline').value)||0,
-    post_review: g('jnl-review').value,    notes:g('jnl-notes').value,
-    post_notes:  g('jnl-post-notes').value,trade_grade:g('jnl-grade').value,
-    followed_plan:document.querySelector('input[name="jnl-plan"]:checked')?.value==='1'?1:0,
-    would_repeat: document.querySelector('input[name="jnl-repeat"]:checked')?.value==='1'?1:0,
-    mae:parseFloat(g('jnl-mae').value)||0, mfe:parseFloat(g('jnl-mfe').value)||0,
-    psych_confidence:parseInt(g('jnl-psych-confidence').value)||0,
-    psych_focus:     parseInt(g('jnl-psych-focus').value)||0,
-    psych_stress:    parseInt(g('jnl-psych-stress').value)||0,
-    psych_patience:  parseInt(g('jnl-psych-patience').value)||0,
-    psych_fomo:      parseInt(g('jnl-psych-fomo').value)||0,
-    psych_revenge:   parseInt(g('jnl-psych-revenge').value)||0,
-    psych_sleep:     parseInt(g('jnl-psych-sleep').value)||0,
-    psych_energy:    parseInt(g('jnl-psych-energy').value)||0,
+  const editId = document.getElementById('jnl-edit-id')?.value || '';
+
+  // Safe field reader — never throws on missing element
+  const gv  = (id, fallback='') => document.getElementById(id)?.value ?? fallback;
+  const gf  = (id)  => { const v = parseFloat(gv(id, '0')); return isNaN(v) ? null : v; };
+  const gfi = (id)  => { const v = gf(id); return v === null ? 0 : v; };
+  const gi  = (id)  => { const v = parseInt(gv(id, '0')); return isNaN(v) ? 0 : v; };
+
+  const ticker     = gv('jnl-ticker','').trim().toUpperCase();
+  const entryPrice = gf('jnl-entry-price');
+
+  // Validation — entry price 0 is invalid but null/missing is the real issue
+  if (!ticker) {
+    _jnlShowSaveError('Ticker is required'); return;
+  }
+  if (!entryPrice) {
+    _jnlShowSaveError('Entry Price is required'); return;
+  }
+
+  const trade = {
+    account_id:       _jnlActiveAcct || 1,
+    ticker,
+    direction:        gv('jnl-direction','Long'),
+    setup_type:       gv('jnl-setup',''),
+    timeframe:        gv('jnl-timeframe','Swing'),
+    market_type:      gv('jnl-market','Stocks'),
+    broker:           gv('jnl-broker',''),
+    entry_date:       gv('jnl-entry-date',''),
+    entry_time:       gv('jnl-entry-time',''),
+    entry_price:      entryPrice,
+    stop_loss:        gf('jnl-stop'),
+    target:           gf('jnl-target'),
+    quantity:         gfi('jnl-qty'),
+    fees:             gfi('jnl-fees'),
+    risk_amount:      gfi('jnl-risk-amount'),
+    exit_date:        gv('jnl-exit-date','') || null,
+    exit_time:        gv('jnl-exit-time',''),
+    exit_price:       gf('jnl-exit-price'),
+    status:           gv('jnl-status','Open'),
+    regime:           gv('jnl-regime',''),
+    pre_emotion:      gv('jnl-emotion',''),
+    discipline_score: gi('jnl-discipline'),
+    post_review:      gv('jnl-review',''),
+    notes:            gv('jnl-notes',''),
+    post_notes:       gv('jnl-post-notes',''),
+    trade_grade:      gv('jnl-grade',''),
+    followed_plan:    document.querySelector('input[name="jnl-plan"]:checked')?.value === '1' ? 1 : 0,
+    would_repeat:     document.querySelector('input[name="jnl-repeat"]:checked')?.value === '1' ? 1 : 0,
+    mae:              gfi('jnl-mae'),
+    mfe:              gfi('jnl-mfe'),
+    psych_confidence: gi('jnl-psych-confidence'),
+    psych_focus:      gi('jnl-psych-focus'),
+    psych_stress:     gi('jnl-psych-stress'),
+    psych_patience:   gi('jnl-psych-patience'),
+    psych_fomo:       gi('jnl-psych-fomo'),
+    psych_revenge:    gi('jnl-psych-revenge'),
+    psych_sleep:      gi('jnl-psych-sleep'),
+    psych_energy:     gi('jnl-psych-energy'),
   };
-  if(!trade.ticker||!trade.entry_price){alert('Ticker and Entry Price are required');return;}
+
+  // Show saving state on the button
+  const saveBtn = document.querySelector('.jnl-modal-footer .jnl-btn.primary');
+  const origText = saveBtn?.textContent;
+  if (saveBtn) { saveBtn.textContent = 'Saving…'; saveBtn.disabled = true; }
+
   try {
-    if(editId){
-      await fetch(`${API}/api/journal/trades/${editId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(trade)});
+    const url    = editId
+      ? `${API}/api/journal/trades/${editId}`
+      : `${API}/api/journal/trades`;
+    const method = editId ? 'PUT' : 'POST';
+
+    const res  = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(trade),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      _jnlShowSaveError(`Server error: ${data.error}`);
     } else {
-      await fetch(`${API}/api/journal/trades`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(trade)});
+      jnlCloseModal();
+      await jnlLoadTrades();
     }
-    jnlCloseModal(); jnlLoadTrades();
-  } catch(e){alert('Save failed: '+e.message);}
+  } catch(e) {
+    _jnlShowSaveError(`Save failed: ${e.message}`);
+  } finally {
+    if (saveBtn) { saveBtn.textContent = origText; saveBtn.disabled = false; }
+  }
+}
+
+function _jnlShowSaveError(msg) {
+  // Show error inside modal footer — no alert() that blocks the UI
+  let errEl = document.getElementById('jnl-save-error');
+  if (!errEl) {
+    errEl = document.createElement('div');
+    errEl.id = 'jnl-save-error';
+    errEl.style.cssText = 'font-size:11px;color:var(--red);font-family:var(--font-mono);margin-top:6px;text-align:center';
+    document.querySelector('.jnl-modal-footer')?.appendChild(errEl);
+  }
+  errEl.textContent = msg;
+  setTimeout(() => { if(errEl) errEl.textContent = ''; }, 4000);
 }
 
 function jnlCloseTrade(id) {
