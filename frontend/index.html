@@ -9,12 +9,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Quantum Breadth 360</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,500;1,9..144,700&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <script>
   // Apply saved theme immediately to prevent flash of wrong theme
   (function(){
     var t = localStorage.getItem('breadth-theme');
-    if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    if (t === 'light' || t === 'editorial') document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -30,6 +30,7 @@
 <link rel="stylesheet" href="/static/css/components.css?v=__ASSET_VERSION__">
 <link rel="stylesheet" href="/static/css/tabs.css?v=__ASSET_VERSION__">
 <link rel="stylesheet" href="/static/css/responsive.css?v=__ASSET_VERSION__">
+<link rel="stylesheet" href="/static/css/editorial-overrides.css?v=__ASSET_VERSION__">
 
 </head>
 <body>

@@ -633,16 +633,30 @@ async function clearBreadthCache() {
 }
 
 // ─── THEME TOGGLE ──────────────────────────────────────────────────────────
+// Cycles: dark → light → editorial → dark
 function toggleTheme() {
   const html = document.documentElement;
-  const isLight = html.getAttribute('data-theme') === 'light';
-  const newTheme = isLight ? 'dark' : 'light';
-  if (newTheme === 'light') {
-    html.setAttribute('data-theme', 'light');
-  } else {
+  const current = html.getAttribute('data-theme') || 'dark';
+  let next;
+  if (current === 'dark' || !current) next = 'light';
+  else if (current === 'light') next = 'editorial';
+  else next = 'dark';
+
+  if (next === 'dark') {
     html.removeAttribute('data-theme');
+  } else {
+    html.setAttribute('data-theme', next);
   }
-  localStorage.setItem('breadth-theme', newTheme);
+  localStorage.setItem('breadth-theme', next);
+
+  // Update label in sidebar
+  const label = document.getElementById('sidebar-theme-label');
+  if (label) {
+    label.textContent = next === 'dark' ? 'Theme: Dark'
+                      : next === 'light' ? 'Theme: Light'
+                      : 'Theme: Editorial';
+  }
+
   // Re-render charts with new theme colors if visible
   if (typeof updateChartsTheme === 'function') updateChartsTheme();
 }
@@ -650,8 +664,16 @@ function toggleTheme() {
 // Apply saved theme on load
 (function initTheme() {
   const saved = localStorage.getItem('breadth-theme');
-  if (saved === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
+  if (saved === 'light' || saved === 'editorial') {
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+  // Set initial label
+  const label = document.getElementById('sidebar-theme-label');
+  if (label) {
+    const current = saved || 'dark';
+    label.textContent = current === 'dark' ? 'Theme: Dark'
+                      : current === 'light' ? 'Theme: Light'
+                      : 'Theme: Editorial';
   }
 })();
 

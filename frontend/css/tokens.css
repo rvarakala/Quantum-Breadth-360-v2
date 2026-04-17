@@ -104,6 +104,82 @@
   --font-head: var(--font-body);
 }
 
+/* ─── EDITORIAL THEME (Financial Magazine) ─────────────────────────────────── */
+[data-theme="editorial"] {
+  /* Paper palette */
+  --bg: #F5F1EA;
+  --bg-gradient: none;
+  --surface: #FFFFFF;
+  --surface-border: rgba(26,26,26,0.12);
+  --surface-blur: none;
+  --surface-radius: 0px;
+  --surface-shadow: 2px 2px 0 rgba(26,26,26,0.08);
+
+  /* Ink text */
+  --text: #1A1A1A;
+  --text2: #3D3D3D;
+  --text3: #6B6B6B;
+
+  /* Signal red as primary accent */
+  --accent1: #E63946;
+  --accent2: #C1121F;
+  --accent-gradient: none;
+
+  /* Semantic colors — muted editorial tones */
+  --green:  #2D6A4F; --green-dim:  rgba(45,106,79,0.10);
+  --red:    #E63946; --red-dim:    rgba(230,57,70,0.10);
+  --amber:  #CA6702; --amber-dim:  rgba(202,103,2,0.10);
+  --blue:   #0077B6; --blue-dim:   rgba(0,119,182,0.10);
+  --cyan:   #0077B6; --cyan-dim:   rgba(0,119,182,0.10);
+  --purple: #7C3AED;
+
+  /* Cards & surfaces — paper-on-paper */
+  --card-bg: #FFFFFF;
+  --card-border: rgba(26,26,26,0.14);
+  --card-glow: none;
+
+  /* Nav */
+  --nav-bg: #F5F1EA;
+  --nav-border: #1A1A1A;
+
+  /* Tabs */
+  --tab-active-bg: rgba(230,57,70,0.08);
+  --tab-active-text: #E63946;
+  --tab-hover-bg: rgba(26,26,26,0.04);
+
+  /* Forms */
+  --input-bg: #FFFFFF;
+  --input-border: #1A1A1A;
+
+  /* Tables */
+  --table-header-bg: #EDE7DC;
+  --table-row-hover: #F5F1EA;
+  --table-border: rgba(26,26,26,0.12);
+
+  /* Modals */
+  --modal-bg: #F5F1EA;
+  --overlay-bg: rgba(26,26,26,0.55);
+
+  --scrollbar-thumb: rgba(26,26,26,0.22);
+  --grid-line: transparent;
+
+  /* Fonts — editorial pairing */
+  --font-body: 'Geist', 'Inter', -apple-system, sans-serif;
+  --font-head: 'Fraunces', 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Hard rules, not rounded corners */
+  --radius: 0px;
+  --radius-lg: 0px;
+
+  /* Aliases */
+  --bg1: var(--card-bg);
+  --bg2: var(--card-bg);
+  --bg3: var(--surface);
+  --border: var(--card-border);
+  --border2: var(--surface-border);
+}
+
 html { scroll-behavior: smooth; }
 
 body {
@@ -142,6 +218,7 @@ body::before {
 .glow-orb.br { width:400px;height:400px;bottom:-150px;right:-150px;background:radial-gradient(circle,#7e22ce50,transparent) }
 
 [data-theme="light"] .glow-orb { display: none; }
+[data-theme="editorial"] .glow-orb { display: none; }
 
 /* ─── THEME TOGGLE BUTTON ──────────────────────────────────────────────────── */
 .theme-toggle {
