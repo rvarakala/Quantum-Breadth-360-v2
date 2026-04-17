@@ -1142,6 +1142,7 @@ function _jnlRenderAccountStrip() {
 
 /** Switch active account and reload all data */
 function jnlSelectAccount(accountId, reload = true) {
+  _jnlCalMonth = null;  // reset so calendar auto-jumps to this account's latest data
   _jnlActiveAcct = accountId;
   _jnlRenderAccountStrip();
 
@@ -1344,20 +1345,39 @@ async function jnlDeleteAccount() {
 
 let _jnlCalMonth = null;  // "YYYY-MM" — null = current month
 
+let _jnlCalAvailMonths = [];  // months that actually have trade data
+
 async function _jnlLoadCalendar() {
-  if (!_jnlCalMonth) {
-    const now = new Date();
-    _jnlCalMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  }
   const container = document.getElementById('jnl-calendar-container');
   if (!container) return;
   container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px">Loading calendar...</div>`;
 
   try {
-    const acctParam = _jnlActiveAcct ? `&account_id=${_jnlActiveAcct}` : '';
+    const acctParam  = _jnlActiveAcct ? `&account_id=${_jnlActiveAcct}` : '';
+    const acctParam2 = _jnlActiveAcct ? `?account_id=${_jnlActiveAcct}` : '';
+
+    // Always fetch available months first so we can auto-jump + show strip
+    const monthsRes = await fetch(`${API}/api/journal/calendar-months${acctParam2}`);
+    const monthsData = await monthsRes.json();
+    _jnlCalAvailMonths = monthsData.months || [];
+
+    // Auto-jump: if current month has no data but there ARE months with data, go to latest
+    if (_jnlCalAvailMonths.length > 0) {
+      const now = new Date();
+      const curMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      // If _jnlCalMonth not set, or set to current month but no data there → jump to latest with data
+      if (!_jnlCalMonth || (!_jnlCalAvailMonths.includes(_jnlCalMonth) && _jnlCalMonth === curMonth)) {
+        _jnlCalMonth = _jnlCalAvailMonths[0];  // already sorted DESC, so [0] = most recent
+      }
+    } else if (!_jnlCalMonth) {
+      // No data at all — show current month
+      const now = new Date();
+      _jnlCalMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    }
+
     const [calRes, lbRes] = await Promise.all([
       fetch(`${API}/api/journal/calendar?month=${_jnlCalMonth}${acctParam}`),
-      fetch(`${API}/api/journal/strategy-leaderboard${_jnlActiveAcct ? '?account_id='+_jnlActiveAcct : ''}`)
+      fetch(`${API}/api/journal/strategy-leaderboard${acctParam2}`)
     ]);
     const calData = await calRes.json();
     const lbData  = await lbRes.json();
@@ -1377,6 +1397,11 @@ function _jnlCalChangeMonth(delta) {
 function _jnlCalGoToday() {
   const now = new Date();
   _jnlCalMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  _jnlLoadCalendar();
+}
+
+function _jnlCalJumpTo(month) {
+  _jnlCalMonth = month;
   _jnlLoadCalendar();
 }
 
@@ -1574,6 +1599,24 @@ function _jnlRenderCalendar(days, strategies) {
       <button class="jnl-cal-nav-btn" onclick="_jnlCalGoToday()">Today</button>
       <span class="jnl-cal-month-pnl" style="color:${pnlColor}">${fmt(totalPnl)}</span>
     </div>
+
+    ${_jnlCalAvailMonths.length > 0 ? `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono);margin-right:4px">JUMP TO:</span>
+      ${_jnlCalAvailMonths.map(m => {
+        const [my, mm] = m.split('-');
+        const label = MONTHS[parseInt(mm)-1].slice(0,3) + ' ' + my;
+        const isActive = m === _jnlCalMonth;
+        return `<button onclick="_jnlCalJumpTo('${m}')"
+          style="font-size:10px;padding:3px 10px;border-radius:12px;cursor:pointer;
+          font-family:var(--font-mono);font-weight:${isActive?'700':'400'};
+          background:${isActive?'var(--cyan)':'var(--card-bg)'};
+          color:${isActive?'#000':'var(--text3)'};
+          border:1px solid ${isActive?'var(--cyan)':'var(--card-border)'}">
+          ${label}
+        </button>`;
+      }).join('')}
+    </div>` : ''}
 
     <div class="jnl-cal-stats">
       <div class="jnl-cal-stat">

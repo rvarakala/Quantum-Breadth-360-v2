@@ -944,7 +944,7 @@ async def save_smart_money_note(request: Request):
 
 # ── Trading Journal API ──────────────────────────────────────────────────────
 
-from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings, get_tilt_score, get_drawdown_series, get_monthly_pnl, get_time_of_day_stats, get_ai_insights, get_day_of_week_stats, check_risk_rules, get_gamification, parse_csv_import, list_accounts, create_account, update_account, delete_account, get_account_summary, get_calendar_data, get_strategy_leaderboard
+from journal import add_trade, update_trade, delete_trade, get_trades, get_analytics, get_settings, save_settings, get_tilt_score, get_drawdown_series, get_monthly_pnl, get_time_of_day_stats, get_ai_insights, get_day_of_week_stats, check_risk_rules, get_gamification, parse_csv_import, list_accounts, create_account, update_account, delete_account, get_account_summary, get_calendar_data, get_strategy_leaderboard, get_calendar_months
 
 @app.get("/api/journal/trades")
 async def api_journal_trades(status: str = "all", limit: int = 200, account_id: int = None):
@@ -1048,6 +1048,10 @@ async def api_journal_update_account(acct_id: int, request: Request):
 @app.delete("/api/journal/accounts/{acct_id}")
 async def api_journal_delete_account(acct_id: int):
     return delete_account(acct_id)
+
+@app.get("/api/journal/calendar-months")
+async def api_journal_calendar_months(account_id: int = None):
+    return {"months": get_calendar_months(account_id)}
 
 @app.get("/api/journal/calendar")
 async def api_journal_calendar(month: str = None, account_id: int = None):

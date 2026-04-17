@@ -1305,3 +1305,21 @@ def get_strategy_leaderboard(account_id: int = None) -> list:
 
     result.sort(key=lambda x: x["expectancy"], reverse=True)
     return result
+
+
+def get_calendar_months(account_id: int = None) -> list:
+    """Return list of YYYY-MM strings that have at least one closed trade."""
+    _ensure_journal_tables()
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    acct_clause = f"AND account_id = {account_id}" if account_id else ""
+    rows = conn.execute(f"""
+        SELECT DISTINCT substr(entry_date, 1, 7) AS month
+        FROM journal_trades
+        WHERE status IN ('Closed','StoppedOut')
+          AND entry_date IS NOT NULL
+          AND entry_date != ''
+          {acct_clause}
+        ORDER BY month DESC
+    """).fetchall()
+    conn.close()
+    return [r[0] for r in rows if r[0]]
