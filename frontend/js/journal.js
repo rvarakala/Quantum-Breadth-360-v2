@@ -796,29 +796,133 @@ function _jnlRenderDOW(days) {
 }
 
 // ── CSV Import ────────────────────────────────────────────────────────────────
-async function jnlImportCSV() {
-  const csv    = document.getElementById('jnl-import-csv')?.value.trim();
+// ── File upload state ────────────────────────────────────────────────────────
+let _jnlFileContent = null;   // CSV string ready to send
+let _jnlFileName    = '';
+
+function jnlHandleFileSelect(input) {
+  const file = input.files[0];
+  if (file) _jnlReadFile(file);
+  input.value = '';  // reset so same file can be re-selected
+}
+
+function jnlHandleDrop(e) {
+  e.preventDefault();
+  document.getElementById('jnl-drop-zone').classList.remove('jnl-drop-hover');
+  const file = e.dataTransfer.files[0];
+  if (file) _jnlReadFile(file);
+}
+
+function _jnlReadFile(file) {
+  _jnlFileName = file.name;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+
+  if (ext === 'csv' || ext === 'txt') {
+    reader.onload = e => {
+      _jnlFileContent = e.target.result;
+      _jnlShowFileInfo(file.name, file.size, 'CSV');
+    };
+    reader.readAsText(file);
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    reader.onload = e => {
+      try {
+        const data  = new Uint8Array(e.target.result);
+        const wb    = XLSX.read(data, { type: 'array' });
+        // Use first sheet
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        _jnlFileContent = XLSX.utils.sheet_to_csv(sheet);
+        const rowCount = (_jnlFileContent.match(/\n/g)||[]).length;
+        _jnlShowFileInfo(file.name, file.size, `Excel → Sheet: ${wb.SheetNames[0]}`, rowCount - 1);
+      } catch(err) {
+        _jnlSetResult(`<span style="color:var(--red)">Excel read error: ${err.message}</span>`);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    _jnlSetResult('<span style="color:var(--red)">Unsupported format. Use .csv or .xlsx</span>');
+  }
+}
+
+function _jnlShowFileInfo(name, size, type, rows) {
+  const sizeStr = size > 1024*1024
+    ? (size/1024/1024).toFixed(1) + ' MB'
+    : Math.round(size/1024) + ' KB';
+  const rowStr = rows != null ? ` · ${rows} data rows` : '';
+  document.getElementById('jnl-file-name').textContent = name;
+  document.getElementById('jnl-file-meta').textContent = `${type} · ${sizeStr}${rowStr}`;
+  document.getElementById('jnl-file-info').style.display = '';
+  document.getElementById('jnl-drop-zone').style.borderColor = 'var(--cyan)';
+  _jnlSetResult('');
+}
+
+function jnlClearFile() {
+  _jnlFileContent = null;
+  _jnlFileName    = '';
+  document.getElementById('jnl-file-info').style.display = 'none';
+  document.getElementById('jnl-drop-zone').style.borderColor = '';
+  _jnlSetResult('');
+}
+
+function jnlTogglePaste() {
+  const zone = document.getElementById('jnl-paste-zone');
+  zone.style.display = zone.style.display === 'none' ? '' : 'none';
+}
+
+function _jnlSetResult(html) {
+  const el = document.getElementById('jnl-import-result');
+  if (el) el.innerHTML = html;
+}
+
+async function jnlImportFile() {
   const broker = document.getElementById('jnl-import-broker')?.value || 'generic';
   const result = document.getElementById('jnl-import-result');
-  if (!csv) { if(result) result.innerHTML='<span style="color:var(--red)">Paste CSV content first</span>'; return; }
-  if (result) result.innerHTML = '⏳ Importing…';
+
+  // Prefer file upload, fall back to pasted text
+  let csvContent = _jnlFileContent;
+  if (!csvContent) {
+    const pasted = document.getElementById('jnl-import-csv')?.value.trim();
+    if (pasted) { csvContent = pasted; }
+  }
+  if (!csvContent) {
+    _jnlSetResult('<span style="color:var(--red)">Upload a file or paste CSV text first</span>');
+    return;
+  }
+
+  _jnlSetResult('⏳ Importing…');
   try {
     const res  = await fetch(`${API}/api/journal/import-csv`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: csv, broker }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: csvContent, broker }),
     });
     const data = await res.json();
-    if (result) {
-      result.innerHTML = data.error
-        ? `<span style="color:var(--red)">Error: ${data.error}</span>`
-        : `<span style="color:var(--green)">✅ Imported ${data.imported} trades${data.errors ? ` (${data.errors} skipped)` : ''}</span>`;
+    if (data.error) {
+      _jnlSetResult(`<span style="color:var(--red)">Error: ${data.error}</span>`);
+    } else {
+      const skipped = data.errors ? ` · ${data.errors} skipped` : '';
+      _jnlSetResult(
+        `<span style="color:var(--green)">✅ ${data.imported} trades imported${skipped}</span>` +
+        (data.imported > 0
+          ? `<br><span style="color:var(--text3)">Refreshing journal…</span>`
+          : '')
+      );
+      if (data.imported > 0) {
+        jnlClearFile();
+        if (document.getElementById('jnl-import-csv'))
+          document.getElementById('jnl-import-csv').value = '';
+        await jnlLoadTrades();
+        // Switch to table view to show the imported trades
+        setTimeout(() => jnlToggleView('table'), 800);
+      }
     }
-    if (data.imported > 0) {
-      document.getElementById('jnl-import-csv').value = '';
-      await jnlLoadTrades();
-    }
-  } catch(e) { if(result) result.innerHTML=`<span style="color:var(--red)">Failed: ${e.message}</span>`; }
+  } catch(e) {
+    _jnlSetResult(`<span style="color:var(--red)">Failed: ${e.message}</span>`);
+  }
 }
+
+// Keep old function name as alias so any lingering onclick= calls don't break
+async function jnlImportCSV() { return jnlImportFile(); }
 
 // ════════════════════════════════════════════════════════════════════════════
 // ACCOUNT MANAGEMENT

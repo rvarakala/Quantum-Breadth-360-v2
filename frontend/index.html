@@ -894,28 +894,74 @@
           </div>
         </div>
 
-        <!-- CSV Import -->
+        <!-- File Upload Import -->
         <div class="jnl-analytics-card">
-          <div class="sc-panel-title">📥 Import Trades (CSV)</div>
+          <div class="sc-panel-title">📥 Import Trades</div>
           <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);margin-bottom:12px;line-height:1.7">
-            Import from Zerodha, IBKR, MT5 or generic CSV.<br>
-            Download your trade history from your broker portal and paste the CSV content below.
+            Upload CSV or Excel (.xlsx) — Zerodha, IBKR, MT5 or M360 Generic format.<br>
+            All columns mapped automatically. Duplicates skipped.
           </div>
-          <div class="jnl-field" style="margin-bottom:8px">
+
+          <!-- Broker selector -->
+          <div class="jnl-field" style="margin-bottom:10px">
             <label>BROKER FORMAT</label>
             <select id="jnl-import-broker" style="width:100%">
-              <option value="generic">Generic CSV</option>
+              <option value="generic">Generic / M360 Demo</option>
               <option value="zerodha">Zerodha Console</option>
               <option value="ibkr">IBKR Activity Statement</option>
               <option value="mt5">MetaTrader 5</option>
             </select>
           </div>
-          <div class="jnl-field" style="margin-bottom:10px">
-            <label>CSV CONTENT (paste here)</label>
-            <textarea id="jnl-import-csv" rows="6" placeholder="Paste CSV content here..." style="width:100%;font-size:10px;font-family:var(--font-mono)"></textarea>
+
+          <!-- Drag-and-drop upload zone -->
+          <div id="jnl-drop-zone"
+            ondragover="event.preventDefault();this.classList.add('jnl-drop-hover')"
+            ondragleave="this.classList.remove('jnl-drop-hover')"
+            ondrop="jnlHandleDrop(event)"
+            onclick="document.getElementById('jnl-file-input').click()"
+            style="border:2px dashed var(--card-border);border-radius:10px;padding:22px 16px;
+              text-align:center;cursor:pointer;transition:border-color .2s,background .2s;
+              background:rgba(6,182,212,.03);margin-bottom:10px">
+            <div style="font-size:22px;margin-bottom:6px">📂</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text1);font-family:var(--font-mono);margin-bottom:4px">
+              Click to browse or drag &amp; drop
+            </div>
+            <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">
+              Supports .csv and .xlsx files
+            </div>
+            <input type="file" id="jnl-file-input" accept=".csv,.xlsx,.xls"
+              style="display:none" onchange="jnlHandleFileSelect(this)">
           </div>
-          <button class="jnl-btn primary" onclick="jnlImportCSV()" style="width:100%">Import Trades</button>
-          <div id="jnl-import-result" style="margin-top:8px;font-size:11px;font-family:var(--font-mono)"></div>
+
+          <!-- Selected file info -->
+          <div id="jnl-file-info" style="display:none;margin-bottom:10px;
+            background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.2);
+            border-radius:8px;padding:10px 12px;font-family:var(--font-mono);font-size:11px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span id="jnl-file-name" style="color:var(--cyan);font-weight:700"></span>
+              <span onclick="jnlClearFile()" style="cursor:pointer;color:var(--text3);font-size:14px">&times;</span>
+            </div>
+            <div id="jnl-file-meta" style="color:var(--text3);margin-top:3px"></div>
+          </div>
+
+          <!-- Paste fallback toggle -->
+          <div style="text-align:center;margin-bottom:8px">
+            <span onclick="jnlTogglePaste()" style="font-size:10px;color:var(--text3);
+              cursor:pointer;font-family:var(--font-mono);text-decoration:underline">
+              or paste CSV text manually
+            </span>
+          </div>
+          <div id="jnl-paste-zone" style="display:none;margin-bottom:10px">
+            <textarea id="jnl-import-csv" rows="5"
+              placeholder="Paste CSV content here..."
+              style="width:100%;font-size:10px;font-family:var(--font-mono)"></textarea>
+          </div>
+
+          <!-- Import button -->
+          <button class="jnl-btn primary" onclick="jnlImportFile()" style="width:100%">
+            ⬆ Import Trades
+          </button>
+          <div id="jnl-import-result" style="margin-top:10px;font-size:11px;font-family:var(--font-mono);line-height:1.8"></div>
         </div>
 
       </div>
