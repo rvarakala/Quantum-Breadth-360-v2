@@ -1160,3 +1160,145 @@ def get_account_summary() -> list:
         result.append(row)
     conn.close()
     return result
+
+
+def get_calendar_data(month: str, account_id: int = None) -> list:
+    """
+    Return per-day trading summary for a given month (YYYY-MM).
+    Each day: date, net_pnl, trade_count, wins, losses, tickers[], setup_types[]
+    """
+    _ensure_journal_tables()
+    try:
+        year, mon = map(int, month.split("-"))
+    except Exception:
+        return []
+
+    import calendar
+    _, last_day = calendar.monthrange(year, mon)
+    start = f"{year:04d}-{mon:02d}-01"
+    end   = f"{year:04d}-{mon:02d}-{last_day:02d}"
+
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+
+    acct_clause = f"AND account_id = {account_id}" if account_id else ""
+    rows = conn.execute(f"""
+        SELECT
+            entry_date,
+            pnl_amount,
+            status,
+            ticker,
+            setup_type,
+            direction,
+            r_multiple,
+            entry_time,
+            exit_price
+        FROM journal_trades
+        WHERE entry_date BETWEEN ? AND ?
+          AND status IN ('Closed','StoppedOut')
+          {acct_clause}
+        ORDER BY entry_date, id
+    """, (start, end)).fetchall()
+    conn.close()
+
+    from collections import defaultdict
+    days = defaultdict(lambda: {
+        "date": "", "net_pnl": 0.0, "trade_count": 0,
+        "wins": 0, "losses": 0, "tickers": [], "setups": [], "trades": []
+    })
+
+    for r in rows:
+        d = r["entry_date"][:10]
+        day = days[d]
+        day["date"] = d
+        day["net_pnl"]      = round(day["net_pnl"] + (r["pnl_amount"] or 0), 2)
+        day["trade_count"] += 1
+        if (r["pnl_amount"] or 0) > 0:
+            day["wins"] += 1
+        else:
+            day["losses"] += 1
+        if r["ticker"] and r["ticker"] not in day["tickers"]:
+            day["tickers"].append(r["ticker"])
+        st = (r["setup_type"] or "").strip()
+        if st and st not in day["setups"]:
+            day["setups"].append(st)
+        day["trades"].append({
+            "time":      (r["entry_time"] or "")[:5],
+            "ticker":    r["ticker"],
+            "direction": r["direction"],
+            "r_multiple": round(r["r_multiple"] or 0, 2),
+            "pnl":       round(r["pnl_amount"] or 0, 2),
+            "setup":     st,
+        })
+
+    return sorted(days.values(), key=lambda x: x["date"])
+
+
+def get_strategy_leaderboard(account_id: int = None) -> list:
+    """
+    Rank strategies by expectancy.
+    Returns list of {strategy, trades, wins, losses, win_rate, avg_r,
+                     expectancy, profit_factor, net_pnl}
+    """
+    _ensure_journal_tables()
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+
+    acct_clause = f"AND account_id = {account_id}" if account_id else ""
+    rows = conn.execute(f"""
+        SELECT
+            COALESCE(NULLIF(TRIM(setup_type),''), 'Untagged') AS strategy,
+            pnl_amount,
+            r_multiple,
+            status
+        FROM journal_trades
+        WHERE status IN ('Closed','StoppedOut')
+          {acct_clause}
+    """).fetchall()
+    conn.close()
+
+    from collections import defaultdict
+    buckets = defaultdict(lambda: {"trades": 0, "wins": 0, "losses": 0,
+                                   "r_vals": [], "pnl_vals": []})
+    for r in rows:
+        s = r["strategy"]
+        b = buckets[s]
+        b["trades"] += 1
+        pnl = r["pnl_amount"] or 0
+        rm  = r["r_multiple"] or 0
+        b["pnl_vals"].append(pnl)
+        b["r_vals"].append(rm)
+        if pnl > 0:
+            b["wins"] += 1
+        else:
+            b["losses"] += 1
+
+    result = []
+    for strategy, b in buckets.items():
+        n       = b["trades"]
+        wins    = b["wins"]
+        losses  = b["losses"]
+        win_r   = round(wins / n * 100, 1) if n else 0
+        avg_r   = round(sum(b["r_vals"]) / n, 2) if n else 0
+        net_pnl = round(sum(b["pnl_vals"]), 2)
+        winners_r = [r for r in b["r_vals"] if r > 0]
+        losers_r  = [abs(r) for r in b["r_vals"] if r <= 0]
+        avg_win_r = sum(winners_r) / len(winners_r) if winners_r else 0
+        avg_los_r = sum(losers_r)  / len(losers_r)  if losers_r  else 1
+        pf        = round(sum(p for p in b["pnl_vals"] if p > 0) /
+                          max(abs(sum(p for p in b["pnl_vals"] if p < 0)), 0.01), 2)
+        expectancy = round((win_r/100) * avg_win_r - (losses/n) * avg_los_r, 3) if n else 0
+        result.append({
+            "strategy":      strategy,
+            "trades":        n,
+            "wins":          wins,
+            "losses":        losses,
+            "win_rate":      win_r,
+            "avg_r":         avg_r,
+            "expectancy":    expectancy,
+            "profit_factor": pf,
+            "net_pnl":       net_pnl,
+        })
+
+    result.sort(key=lambda x: x["expectancy"], reverse=True)
+    return result

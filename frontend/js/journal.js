@@ -40,13 +40,14 @@ async function jnlLoadTrades() {
 
 function jnlToggleView(view) {
   _jnlView = view;
-  ['table','analytics','ai','settings'].forEach(v => {
+  ['table','analytics','calendar','ai','settings'].forEach(v => {
     const p = document.getElementById(`jnl-view-${v}-panel`);
     if (p) p.style.display = v === view ? '' : 'none';
     const b = document.getElementById(`jnl-view-${v}`);
     if (b) b.classList.toggle('active', v === view);
   });
   if (view === 'analytics') _jnlLoadAnalytics();
+  if (view === 'calendar')  _jnlLoadCalendar();
   if (view === 'ai')        _jnlLoadAICoach();
   if (view === 'settings')  jnlLoadSettings();
 }
@@ -1066,4 +1067,338 @@ async function jnlDeleteAccount() {
     await jnlInitAccounts();
     jnlLoadTrades();
   } catch (e) { alert('Delete failed: ' + e.message); }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CALENDAR VIEW + STRATEGY LEADERBOARD
+// ════════════════════════════════════════════════════════════════════════════
+
+let _jnlCalMonth = null;  // "YYYY-MM" — null = current month
+
+async function _jnlLoadCalendar() {
+  if (!_jnlCalMonth) {
+    const now = new Date();
+    _jnlCalMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  const container = document.getElementById('jnl-calendar-container');
+  if (!container) return;
+  container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);font-size:12px">Loading calendar...</div>`;
+
+  try {
+    const acctParam = _jnlActiveAcct ? `&account_id=${_jnlActiveAcct}` : '';
+    const [calRes, lbRes] = await Promise.all([
+      fetch(`${API}/api/journal/calendar?month=${_jnlCalMonth}${acctParam}`),
+      fetch(`${API}/api/journal/strategy-leaderboard${_jnlActiveAcct ? '?account_id='+_jnlActiveAcct : ''}`)
+    ]);
+    const calData = await calRes.json();
+    const lbData  = await lbRes.json();
+    _jnlRenderCalendar(calData.days || [], lbData.strategies || []);
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--red);padding:20px">Error loading calendar: ${e.message}</div>`;
+  }
+}
+
+function _jnlCalChangeMonth(delta) {
+  const [y, m] = _jnlCalMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  _jnlCalMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  _jnlLoadCalendar();
+}
+
+function _jnlCalGoToday() {
+  const now = new Date();
+  _jnlCalMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  _jnlLoadCalendar();
+}
+
+function _jnlRenderCalendar(days, strategies) {
+  const container = document.getElementById('jnl-calendar-container');
+  if (!container) return;
+
+  const [year, mon] = _jnlCalMonth.split('-').map(Number);
+  const MONTHS = ['January','February','March','April','May','June','July',
+                  'August','September','October','November','December'];
+  const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  // Build day lookup
+  const dayMap = {};
+  days.forEach(d => { dayMap[d.date] = d; });
+
+  // Month stats
+  let totalPnl = 0, winDays = 0, lossDays = 0, totalTrades = 0;
+  days.forEach(d => {
+    totalPnl    += d.net_pnl;
+    totalTrades += d.trade_count;
+    if (d.net_pnl > 0) winDays++;
+    else if (d.net_pnl < 0) lossDays++;
+  });
+  const dayWinRate = (winDays + lossDays) > 0
+    ? Math.round(winDays / (winDays + lossDays) * 100) : 0;
+
+  const fmt = v => {
+    const abs = Math.abs(Math.round(v)).toLocaleString('en-IN');
+    return (v >= 0 ? '+₹' : '-₹') + abs;
+  };
+
+  // Calendar grid
+  const firstDay = new Date(year, mon - 1, 1).getDay();
+  const daysInMonth = new Date(year, mon, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  // Build weeks array
+  const weeks = [];
+  let week = new Array(firstDay).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    week.push(d);
+    if (week.length === 7) { weeks.push(week); week = []; }
+  }
+  if (week.length) { while (week.length < 7) week.push(null); weeks.push(week); }
+
+  // Render week rows
+  const renderWeeks = () => weeks.map(wk => {
+    let wPnl = 0, wTrades = 0;
+    const cells = wk.map(d => {
+      if (!d) return `<div class="jnl-cal-cell jnl-cal-empty"></div>`;
+      const dateStr = `${year}-${String(mon).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const data = dayMap[dateStr];
+      const isToday = dateStr === todayStr;
+      if (!data) {
+        return `<div class="jnl-cal-cell jnl-cal-notrade${isToday?' jnl-cal-today':''}">
+          <span class="jnl-cal-daynum">${d}</span>
+        </div>`;
+      }
+      wPnl += data.net_pnl; wTrades += data.trade_count;
+      const big = Math.abs(data.net_pnl) > 500;
+      const cls = data.net_pnl >= 0
+        ? (big ? 'jnl-cal-win-big' : 'jnl-cal-win')
+        : (big ? 'jnl-cal-loss-big' : 'jnl-cal-loss');
+      const sign = data.net_pnl >= 0 ? '+' : '';
+      const pnlStr = sign + '₹' + Math.abs(Math.round(data.net_pnl)).toLocaleString('en-IN');
+      const pnlCls = data.net_pnl >= 0 ? 'jnl-cal-pnl-pos' : 'jnl-cal-pnl-neg';
+      const tags = (data.setups || []).slice(0,2).map(s =>
+        `<span class="jnl-cal-tag">${s}</span>`).join('');
+      const extraTags = (data.setups||[]).length > 2
+        ? `<span class="jnl-cal-tag">+${data.setups.length-2}</span>` : '';
+      return `<div class="jnl-cal-cell ${cls}${isToday?' jnl-cal-today':''}"
+                   onclick="_jnlCalShowDay('${dateStr}',${JSON.stringify(data).replace(/"/g,'&quot;')})">
+        <span class="jnl-cal-daynum">${d}</span>
+        <span class="jnl-cal-pnl ${pnlCls}">${pnlStr}</span>
+        <span class="jnl-cal-meta">${data.trade_count} trade${data.trade_count!==1?'s':''}</span>
+        <div class="jnl-cal-tags">${tags}${extraTags}</div>
+      </div>`;
+    }).join('');
+
+    const weekSide = wTrades > 0
+      ? `<div class="jnl-cal-week-total">
+           <span class="jnl-cal-week-pnl ${wPnl>=0?'jnl-cal-pnl-pos':'jnl-cal-pnl-neg'}">${fmt(wPnl)}</span>
+           <span class="jnl-cal-week-sub">${wTrades} trades</span>
+         </div>`
+      : `<div class="jnl-cal-week-total"></div>`;
+
+    return `<div class="jnl-cal-row">${cells}${weekSide}</div>`;
+  }).join('');
+
+  // Strategy leaderboard HTML
+  const renderLeaderboard = () => {
+    if (!strategies.length) return `<div style="color:var(--text3);font-size:12px;padding:20px;text-align:center">No closed trades yet — leaderboard will populate as you log trades.</div>`;
+    const rows = strategies.map((s, i) => {
+      const expCls  = s.expectancy >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+      const pnlCls  = s.net_pnl >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+      const medal   = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+      const pf      = s.profit_factor >= 1.5 ? `<span style="color:var(--green)">${s.profit_factor.toFixed(2)}</span>`
+                    : s.profit_factor < 1    ? `<span style="color:var(--red)">${s.profit_factor.toFixed(2)}</span>`
+                    : `<span>${s.profit_factor.toFixed(2)}</span>`;
+      return `<tr>
+        <td style="padding:7px 10px;font-weight:600;font-size:12px">${medal}</td>
+        <td style="padding:7px 10px;font-weight:600;font-size:12px">${s.strategy}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:12px">${s.trades}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:12px">${s.win_rate}%</td>
+        <td style="padding:7px 10px;text-align:center;font-size:12px;${expCls};font-weight:600">${s.avg_r >= 0?'+':''}${s.avg_r.toFixed(2)}R</td>
+        <td style="padding:7px 10px;text-align:center;font-size:12px;${expCls};font-weight:700">${s.expectancy >= 0?'+':''}${s.expectancy.toFixed(3)}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:12px">${pf}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:12px;${pnlCls};font-weight:600">${fmt(s.net_pnl)}</td>
+      </tr>`;
+    }).join('');
+    return `<table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="border-bottom:1px solid var(--card-border)">
+          <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.05em">#</th>
+          <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.05em">STRATEGY</th>
+          <th style="padding:7px 10px;text-align:center;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.05em">TRADES</th>
+          <th style="padding:7px 10px;text-align:center;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.05em">WIN%</th>
+          <th style="padding:7px 10px;text-align:center;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.05em">AVG R</th>
+          <th style="padding:7px 10px;text-align:center;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.05em">EXPECTANCY</th>
+          <th style="padding:7px 10px;text-align:center;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.05em">PROFIT FACTOR</th>
+          <th style="padding:7px 10px;text-align:right;font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.05em">NET P&L</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  };
+
+  const pnlColor = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  container.innerHTML = `
+    <style>
+      .jnl-cal-nav-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+      .jnl-cal-nav-btn{background:var(--card-bg);border:1px solid var(--card-border);border-radius:6px;
+        padding:5px 12px;cursor:pointer;color:var(--text1);font-size:12px;font-family:var(--font-mono)}
+      .jnl-cal-nav-btn:hover{background:var(--hover-bg,rgba(255,255,255,.05))}
+      .jnl-cal-month-title{font-size:16px;font-weight:700;font-family:var(--font-mono);color:var(--text1);min-width:140px}
+      .jnl-cal-month-pnl{font-size:13px;font-weight:700;padding:3px 10px;border-radius:20px;
+        background:var(--card-bg);border:1px solid var(--card-border)}
+      .jnl-cal-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+      .jnl-cal-stat{background:var(--card-bg);border:1px solid var(--card-border);border-radius:8px;padding:8px 12px}
+      .jnl-cal-stat-lbl{font-size:10px;color:var(--text3);font-family:var(--font-mono);margin-bottom:3px;letter-spacing:.05em}
+      .jnl-cal-stat-val{font-size:16px;font-weight:700;font-family:var(--font-mono)}
+      .jnl-cal-hdr-row{display:grid;grid-template-columns:repeat(7,1fr) 68px;gap:3px;margin-bottom:3px}
+      .jnl-cal-hdr{font-size:10px;color:var(--text3);text-align:center;padding:4px 0;font-weight:700;letter-spacing:.08em;font-family:var(--font-mono)}
+      .jnl-cal-row{display:grid;grid-template-columns:repeat(7,1fr) 68px;gap:3px;margin-bottom:3px}
+      .jnl-cal-cell{min-height:88px;border-radius:6px;padding:6px 7px;cursor:pointer;
+        border:1px solid transparent;transition:border-color .15s;display:flex;flex-direction:column;gap:2px}
+      .jnl-cal-cell:hover:not(.jnl-cal-empty):not(.jnl-cal-notrade){border-color:var(--text3)!important}
+      .jnl-cal-empty{background:transparent;cursor:default;min-height:88px}
+      .jnl-cal-notrade{background:var(--card-bg);border:1px solid var(--card-border);cursor:default;opacity:.5}
+      .jnl-cal-win{background:#1a3a1a;border-color:#2d5a2d}
+      .jnl-cal-win-big{background:#1e4d1e;border-color:#3d7a3d}
+      .jnl-cal-loss{background:#3a1a1a;border-color:#5a2d2d}
+      .jnl-cal-loss-big{background:#4d1e1e;border-color:#7a3d3d}
+      .jnl-cal-today{outline:2px solid #4af!important;outline-offset:-2px}
+      .jnl-cal-daynum{font-size:10px;color:var(--text3);font-weight:600;font-family:var(--font-mono)}
+      .jnl-cal-pnl{font-size:12px;font-weight:700;font-family:var(--font-mono)}
+      .jnl-cal-pnl-pos{color:#4ade80}
+      .jnl-cal-pnl-neg{color:#f87171}
+      .jnl-cal-meta{font-size:10px;color:var(--text3)}
+      .jnl-cal-tags{display:flex;flex-wrap:wrap;gap:2px;margin-top:2px}
+      .jnl-cal-tag{font-size:9px;padding:1px 5px;border-radius:3px;
+        background:rgba(100,180,255,.15);color:#7dd3fc;font-weight:600}
+      .jnl-cal-week-total{display:flex;flex-direction:column;align-items:flex-end;
+        justify-content:center;padding:0 4px;min-width:68px}
+      .jnl-cal-week-pnl{font-size:11px;font-weight:700;font-family:var(--font-mono)}
+      .jnl-cal-week-sub{font-size:9px;color:var(--text3)}
+      .jnl-cal-day-panel{margin-top:12px;background:var(--card-bg);border:1px solid var(--card-border);
+        border-radius:10px;padding:14px}
+      .jnl-cal-day-title{font-size:13px;font-weight:700;font-family:var(--font-mono);
+        color:var(--text1);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+      .jnl-cal-close{cursor:pointer;font-size:16px;color:var(--text3);line-height:1}
+      .jnl-cal-close:hover{color:var(--text1)}
+      .jnl-cal-trade-hdr{display:grid;grid-template-columns:55px 1fr 70px 55px 80px 1fr;
+        gap:8px;padding:5px 0;border-bottom:1px solid var(--card-border);
+        font-size:10px;color:var(--text3);font-weight:700;letter-spacing:.06em;font-family:var(--font-mono)}
+      .jnl-cal-trade-row{display:grid;grid-template-columns:55px 1fr 70px 55px 80px 1fr;
+        gap:8px;padding:7px 0;border-bottom:1px solid var(--card-border);font-size:12px;align-items:center}
+      .jnl-cal-trade-row:last-child{border-bottom:none}
+      .jnl-cal-badge{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700}
+      .jnl-cal-badge-l{background:rgba(74,222,128,.15);color:#4ade80}
+      .jnl-cal-badge-s{background:rgba(248,113,113,.15);color:#f87171}
+      .jnl-lb-wrap{margin-top:20px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:10px;overflow:hidden}
+      .jnl-lb-title{padding:12px 16px;font-size:13px;font-weight:700;font-family:var(--font-mono);
+        color:var(--text1);border-bottom:1px solid var(--card-border);display:flex;align-items:center;gap:8px}
+      .jnl-lb-body{overflow-x:auto}
+      tr:hover td{background:rgba(255,255,255,.03)}
+    </style>
+
+    <div class="jnl-cal-nav-bar">
+      <button class="jnl-cal-nav-btn" onclick="_jnlCalChangeMonth(-1)">&#8592;</button>
+      <span class="jnl-cal-month-title">${MONTHS[mon-1]} ${year}</span>
+      <button class="jnl-cal-nav-btn" onclick="_jnlCalChangeMonth(1)">&#8594;</button>
+      <button class="jnl-cal-nav-btn" onclick="_jnlCalGoToday()">Today</button>
+      <span class="jnl-cal-month-pnl" style="color:${pnlColor}">${fmt(totalPnl)}</span>
+    </div>
+
+    <div class="jnl-cal-stats">
+      <div class="jnl-cal-stat">
+        <div class="jnl-cal-stat-lbl">TOTAL P&L</div>
+        <div class="jnl-cal-stat-val" style="color:${pnlColor}">${fmt(totalPnl)}</div>
+      </div>
+      <div class="jnl-cal-stat">
+        <div class="jnl-cal-stat-lbl">WIN DAYS</div>
+        <div class="jnl-cal-stat-val" style="color:var(--green)">${winDays}</div>
+      </div>
+      <div class="jnl-cal-stat">
+        <div class="jnl-cal-stat-lbl">LOSS DAYS</div>
+        <div class="jnl-cal-stat-val" style="color:var(--red)">${lossDays}</div>
+      </div>
+      <div class="jnl-cal-stat">
+        <div class="jnl-cal-stat-lbl">TOTAL TRADES</div>
+        <div class="jnl-cal-stat-val">${totalTrades}</div>
+      </div>
+      <div class="jnl-cal-stat">
+        <div class="jnl-cal-stat-lbl">DAY WIN RATE</div>
+        <div class="jnl-cal-stat-val">${dayWinRate}%</div>
+      </div>
+    </div>
+
+    <div class="jnl-cal-hdr-row">
+      ${DAYS.map(d=>`<div class="jnl-cal-hdr">${d}</div>`).join('')}
+      <div class="jnl-cal-hdr" style="text-align:right;padding-right:6px">WEEK</div>
+    </div>
+
+    ${renderWeeks()}
+
+    <div id="jnl-cal-day-panel" class="jnl-cal-day-panel" style="display:none"></div>
+
+    <div class="jnl-lb-wrap">
+      <div class="jnl-lb-title">
+        <span>Strategy leaderboard</span>
+        <span style="font-size:10px;color:var(--text3);font-weight:400">ranked by expectancy</span>
+      </div>
+      <div class="jnl-lb-body">${renderLeaderboard()}</div>
+    </div>
+  `;
+}
+
+function _jnlCalShowDay(dateStr, data) {
+  const panel = document.getElementById('jnl-cal-day-panel');
+  if (!panel) return;
+
+  // Toggle off if same day clicked again
+  if (panel.dataset.date === dateStr && panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    panel.dataset.date = '';
+    return;
+  }
+  panel.dataset.date = dateStr;
+
+  const [y, m, d] = dateStr.split('-');
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const title = `${d} ${MONTHS[parseInt(m)-1]} ${y}`;
+  const sign = data.net_pnl >= 0 ? '+' : '';
+  const pnlStr = sign + '₹' + Math.abs(Math.round(data.net_pnl)).toLocaleString('en-IN');
+  const pnlColor = data.net_pnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  const tradeRows = (data.trades || []).map(t => {
+    const rColor = t.r_multiple >= 0 ? 'var(--green)' : 'var(--red)';
+    const pColor = t.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const rStr = (t.r_multiple >= 0 ? '+' : '') + t.r_multiple.toFixed(2) + 'R';
+    const pStr = (t.pnl >= 0 ? '+₹' : '-₹') + Math.abs(Math.round(t.pnl)).toLocaleString('en-IN');
+    const badge = t.direction === 'Long'
+      ? `<span class="jnl-cal-badge jnl-cal-badge-l">LONG</span>`
+      : `<span class="jnl-cal-badge jnl-cal-badge-s">SHORT</span>`;
+    return `<div class="jnl-cal-trade-row">
+      <span style="color:var(--text3);font-family:var(--font-mono)">${t.time||'—'}</span>
+      <span style="font-weight:700">${t.ticker}</span>
+      <span>${badge}</span>
+      <span style="color:${rColor};font-weight:700;font-family:var(--font-mono)">${rStr}</span>
+      <span style="color:${pColor};font-weight:700;font-family:var(--font-mono)">${pStr}</span>
+      <span style="color:var(--text3);font-size:11px">${t.setup||'—'}</span>
+    </div>`;
+  }).join('');
+
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="jnl-cal-day-title">
+      <span>${title} &nbsp;<span style="color:${pnlColor}">${pnlStr}</span>&nbsp;
+        <span style="font-size:11px;color:var(--text3);font-weight:400">${data.trade_count} trade${data.trade_count!==1?'s':''}</span>
+      </span>
+      <span class="jnl-cal-close" onclick="document.getElementById('jnl-cal-day-panel').style.display='none'">&#10005;</span>
+    </div>
+    <div class="jnl-cal-trade-hdr">
+      <span>TIME</span><span>SYMBOL</span><span>SIDE</span><span>R</span><span>P&L</span><span>SETUP</span>
+    </div>
+    ${tradeRows || '<div style="color:var(--text3);font-size:12px;padding:10px 0">No trade details available.</div>'}
+  `;
+
+  // Scroll panel into view
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }

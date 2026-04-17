@@ -696,6 +696,7 @@
         </select>
         <button class="jnl-btn" onclick="jnlToggleView('table')" id="jnl-view-table">📋 Table</button>
         <button class="jnl-btn" onclick="jnlToggleView('analytics')" id="jnl-view-analytics">📊 Analytics</button>
+        <button class="jnl-btn" onclick="jnlToggleView('calendar')" id="jnl-view-calendar">📅 Calendar</button>
         <button class="jnl-btn" onclick="jnlToggleView('ai')" id="jnl-view-ai">🤖 AI Coach</button>
         <button class="jnl-btn" onclick="jnlToggleView('settings')" id="jnl-view-settings">⚙ Settings</button>
         <button class="jnl-btn" onclick="jnlExportCSV()">📄 Export</button>
@@ -805,6 +806,11 @@
     </div>
 
     <!-- AI COACH VIEW -->
+    <!-- CALENDAR VIEW -->
+    <div id="jnl-view-calendar-panel" style="display:none">
+      <div id="jnl-calendar-container"></div>
+    </div>
+
     <div id="jnl-view-ai-panel" style="display:none">
       <div id="jnl-ai-content" style="padding:8px 0"></div>
     </div>
