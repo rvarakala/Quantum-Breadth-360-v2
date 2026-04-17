@@ -2121,20 +2121,47 @@ async def api_insider_trades(
     category: str = None,
     symbol: str = None,
     min_value: float = 0,
-    limit: int = 200,
+    limit: int = 500,
+    offset: int = 0,
+    sort: str = "score",  # score | date | value
 ):
-    """Get insider trades with optional filters."""
+    """Get insider trades with optional filters, pagination, and sort mode."""
+    # Cap limit to prevent memory blow-ups
+    limit = max(1, min(limit, 2000))
+    offset = max(0, offset)
+
     trades = get_insider_trades(
         days=days, tx_type=type, category=category,
-        symbol=symbol, min_value=min_value, limit=limit,
+        symbol=symbol, min_value=min_value, limit=limit + offset,
     )
+
     # Add buy score to each trade
     for t in trades:
         t["score"] = compute_buy_score(t)
-    # Sort by score desc for buys, date desc for others
-    trades.sort(key=lambda x: (-x["score"], x.get("transaction_date", "")), reverse=False)
-    trades.sort(key=lambda x: -x["score"])
-    return {"trades": trades, "count": len(trades)}
+
+    # Single deterministic sort — no more double-sort bug
+    if sort == "date":
+        trades.sort(key=lambda x: x.get("transaction_date") or "", reverse=True)
+    elif sort == "value":
+        trades.sort(key=lambda x: x.get("securities_value") or 0, reverse=True)
+    else:  # score (default)
+        trades.sort(key=lambda x: (
+            -(x.get("score") or 0),
+            x.get("transaction_date") or "",
+        ))
+
+    # Apply pagination after sort
+    total_available = len(trades)
+    paged = trades[offset:offset + limit]
+
+    return {
+        "trades": paged,
+        "count": len(paged),
+        "total": total_available,
+        "offset": offset,
+        "limit": limit,
+        "has_more": (offset + len(paged)) < total_available,
+    }
 
 
 @app.get("/api/insider/summary")
@@ -2158,47 +2185,112 @@ async def api_insider_sync(background_tasks: BackgroundTasks, days: int = 30):
 @app.post("/api/insider/repair")
 async def api_insider_repair():
     """
-    Repair: delete all records with transaction_type='Unknown' (bad parse),
-    then re-sync last 90 days with the fixed parser that uses tdpTransactionType.
+    Surgical repair: delete ONLY records that are known-bad, then re-sync
+    last 90 days via the Cloudflare-safe adapter.
+
+    "Bad" = any of:
+      * transaction_type == 'Unknown' (parser failed to categorise)
+      * transaction_date IS NULL or == '' (missing date)
+      * securities_value <= 0 AND securities_count <= 0 (both zero — useless row)
+
+    Valid data — including any CSV imports the user has accumulated — is
+    preserved. Re-sync routes through sync_insider_with_fallback so it
+    works on Cloudflare-blocked machines.
     """
     import sqlite3 as _sq
     db = os.path.join(os.path.dirname(__file__), "breadth_data.db")
     conn = _sq.connect(db, timeout=10)
 
-    unknown_count = conn.execute(
-        "SELECT COUNT(*) FROM insider_trades WHERE transaction_type = 'Unknown'"
-    ).fetchone()[0]
     total_before = conn.execute("SELECT COUNT(*) FROM insider_trades").fetchone()[0]
 
-    # Delete ALL records — re-fetch cleanly with fixed parser
-    conn.execute("DELETE FROM insider_trades")
+    # Count what we'll delete, per category, BEFORE deleting
+    deleted_unknown = conn.execute(
+        "SELECT COUNT(*) FROM insider_trades WHERE transaction_type = 'Unknown'"
+    ).fetchone()[0]
+    deleted_empty_dates = conn.execute(
+        "SELECT COUNT(*) FROM insider_trades "
+        "WHERE transaction_date IS NULL OR transaction_date = ''"
+    ).fetchone()[0]
+    deleted_zero_values = conn.execute(
+        "SELECT COUNT(*) FROM insider_trades "
+        "WHERE COALESCE(securities_value,0) <= 0 "
+        "AND COALESCE(securities_count,0) <= 0"
+    ).fetchone()[0]
+
+    # Union of the three — actual rows to delete (may overlap)
+    cur = conn.execute("""
+        DELETE FROM insider_trades
+        WHERE transaction_type = 'Unknown'
+           OR transaction_date IS NULL
+           OR transaction_date = ''
+           OR (COALESCE(securities_value,0) <= 0
+               AND COALESCE(securities_count,0) <= 0)
+    """)
+    deleted_total = cur.rowcount
     conn.commit()
+
+    total_after_delete = conn.execute("SELECT COUNT(*) FROM insider_trades").fetchone()[0]
     conn.close()
 
-    logger.info(f"Repair: deleted {total_before} records ({unknown_count} were Unknown). Re-syncing 90 days...")
-
-    # Re-sync with fixed parser
-    result = await asyncio.get_event_loop().run_in_executor(
-        executor, lambda: sync_insider_data(days_back=90)
+    logger.info(
+        f"Repair: deleted {deleted_total} bad records "
+        f"(unknown={deleted_unknown}, empty_date={deleted_empty_dates}, "
+        f"zero_value={deleted_zero_values}). "
+        f"Kept {total_after_delete} good records. Re-syncing via fallback..."
     )
+
+    # Re-sync via the Cloudflare-safe fallback path (NOT direct sync_insider_data)
+    result = await asyncio.get_event_loop().run_in_executor(
+        executor, lambda: sync_insider_with_fallback(days_back=90)
+    )
+
     return {
         "status": "ok",
-        "deleted_total": total_before,
-        "deleted_unknown": unknown_count,
-        "resync": result
+        "deleted_total": deleted_total,
+        "deleted_unknown": deleted_unknown,
+        "deleted_empty_dates": deleted_empty_dates,
+        "deleted_zero_values": deleted_zero_values,
+        "kept": total_after_delete,
+        "before": total_before,
+        "resync": result,
     }
 
 
 @app.post("/api/insider/import-csv")
 async def api_insider_import_csv(file: UploadFile):
-    """Import insider trades from uploaded NSE CSV file."""
-    import tempfile, shutil
+    """
+    Import insider trades from uploaded NSE CSV file.
+    Returns accurate counts: new rows inserted + existing rows skipped.
+    """
+    import tempfile, shutil, sqlite3 as _sq
+    db = os.path.join(os.path.dirname(__file__), "breadth_data.db")
+
+    # Capture row count before import
+    conn = _sq.connect(db, timeout=10)
+    rows_before = conn.execute("SELECT COUNT(*) FROM insider_trades").fetchone()[0]
+    conn.close()
+
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
     try:
         shutil.copyfileobj(file.file, tmp)
         tmp.close()
-        count = import_insider_csv(tmp.name)
-        return {"status": "ok", "imported": count, "filename": file.filename}
+        processed = import_insider_csv(tmp.name)
+
+        # Accurate count by diff
+        conn = _sq.connect(db, timeout=10)
+        rows_after = conn.execute("SELECT COUNT(*) FROM insider_trades").fetchone()[0]
+        conn.close()
+        new_rows = rows_after - rows_before
+        duplicates_skipped = processed - new_rows
+
+        return {
+            "status": "ok",
+            "filename": file.filename,
+            "processed": processed,      # rows the CSV parser attempted to insert
+            "imported": new_rows,         # actually NEW rows added to DB
+            "skipped_duplicates": max(0, duplicates_skipped),
+            "total_rows_now": rows_after,
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
     finally:

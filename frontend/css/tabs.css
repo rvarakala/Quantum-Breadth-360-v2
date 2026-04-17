@@ -3352,7 +3352,18 @@ select option:checked {
 /* Insider sortable headers */
 .ins-th-sort { cursor:pointer; user-select:none; white-space:nowrap; }
 .ins-th-sort:hover { color:var(--cyan) !important; }
-.ins-th-sort span { font-size:9px; opacity:0.7; }
+.ins-th-sort span { font-size:10px; opacity:0.9; color:var(--cyan); font-weight:700; }
+
+/* Insider pagination */
+.ins-pager { display:flex; align-items:center; justify-content:center; gap:14px; padding:14px 0 6px; }
+.ins-pager:empty { display:none; }
+.ins-page-btn {
+  padding:6px 14px; border-radius:6px; border:1px solid var(--border); background:transparent;
+  color:var(--text2); font-size:11px; font-family:var(--font-mono); cursor:pointer; transition:all .15s;
+}
+.ins-page-btn:hover:not(:disabled) { border-color:var(--cyan); color:var(--cyan); }
+.ins-page-btn:disabled { opacity:0.35; cursor:not-allowed; }
+.ins-page-info { font-size:11px; font-family:var(--font-mono); color:var(--text3); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    STOCKBEE MARKET MONITOR

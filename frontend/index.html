@@ -1459,6 +1459,7 @@
         </div>
         <div class="ins-filter-group">
           <input class="ins-search" id="ins-search" placeholder="Search ticker, company, insider..." oninput="filterInsiderTable()">
+          <input class="ins-search" id="ins-minval" placeholder="Min value (e.g. 1Cr, 50L, 100K)" style="max-width:200px" oninput="filterInsiderTable()" title="Hide trades below this value. Accepts suffixes: Cr (crore), L (lakh), K (thousand).">
           <select class="ins-select" id="ins-category" onchange="filterInsiderTable()">
             <option value="">All Categories</option>
             <option value="Promoter">Promoter</option>
@@ -1466,15 +1467,15 @@
             <option value="KMP">KMP</option>
             <option value="Immediate Relative">Immediate Relative</option>
           </select>
-          <select class="ins-select" id="ins-mode" onchange="filterInsiderTable()">
+          <select class="ins-select" id="ins-mode" onchange="filterInsiderTable()" title="Filter by Mode of Acquisition (how the transaction was executed)">
             <option value="">All Modes</option>
-            <option value="Buy">Market Purchase</option>
-            <option value="Sell">Market Sale</option>
-            <option value="Pledge">Pledge</option>
-            <option value="Revoke">Pledge Revoke</option>
-            <option value="Off">Off-Market</option>
-            <option value="ESOP">ESOP/ESOSP</option>
-            <option value="Preferential">Preferential</option>
+            <option value="market_buy">Market Purchase</option>
+            <option value="market_sell">Market Sale</option>
+            <option value="pledge">Pledge</option>
+            <option value="revoke">Pledge Revoke</option>
+            <option value="off_market">Off-Market</option>
+            <option value="esop">ESOP/ESOSP</option>
+            <option value="preferential">Preferential</option>
           </select>
           <select class="ins-select" id="ins-period" onchange="loadInsiderData()">
             <option value="1">Today</option>
@@ -1486,12 +1487,15 @@
             <option value="365">1 Year</option>
           </select>
         </div>
-        <!-- CSV import -->
+        <!-- Import / Export -->
         <div class="ins-filter-group">
           <label class="ins-import-btn" id="ins-import-label" title="Import CSV">
             📥 Import CSV
             <input type="file" accept=".csv" onchange="importInsiderCSV(this)" style="display:none">
           </label>
+          <button class="ins-import-btn" onclick="exportInsiderCSV()" title="Export current filtered view to CSV" style="background:none;border:1px solid var(--border);color:var(--text2);cursor:pointer">
+            📤 Export CSV
+          </button>
         </div>
       </div>
 
@@ -1521,6 +1525,9 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Pagination -->
+      <div class="ins-pager" id="ins-pager"></div>
 
       <div class="ins-footer" id="ins-footer">
         <span id="ins-count">0 trades</span>
