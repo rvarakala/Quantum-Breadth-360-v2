@@ -344,13 +344,28 @@ async def api_billing_webhook(request: Request):
 # ── Admin API ─────────────────────────────────────────────────────────────────
 
 def _require_admin(request: Request):
+    """
+    Check admin-level access:
+    - Authenticated admin tier users always pass.
+    - Authenticated non-admin users are rejected even if they pass ?mode=.
+    - Only falls back to ?mode=admin/dev when NO auth token exists at all
+      (for local development convenience).
+    """
+    user = _get_current_user(request)
     mode = request.query_params.get("mode") or request.headers.get("X-CC-Mode", "")
+
+    # Authenticated user — trust only their tier
+    if user:
+        if user.get("tier") == "admin":
+            return user
+        # Authenticated but not admin — block, ignore any mode override
+        return None
+
+    # Unauthenticated — allow mode=admin as local dev convenience
     if mode in ("admin", "dev"):
         return {"uid": 0, "email": "admin@quantumtrade.pro", "tier": "admin"}
-    user = _get_current_user(request)
-    if not user or user.get("tier") != "admin":
-        return None
-    return user
+
+    return None
 
 @app.get("/api/admin/stats")
 def api_admin_stats(request: Request):
@@ -388,25 +403,43 @@ from control_center import (
     log_audit, get_audit_logs,
     get_system_status,
     get_all_configs, update_config, get_config_value,
-    get_feature_flags, toggle_feature_flag,
+    get_feature_flags, toggle_feature_flag, is_feature_enabled,
     get_revenue_analytics, log_revenue_event,
     get_users_detailed, log_pipeline_run,
 )
 
 def _cc_check(request: Request, permission: str = "view"):
-    """Check Control Center access — admin tier, dev mode, or RBAC role with permission."""
-    # Dev/admin mode bypass (matches main app behavior)
+    """
+    Check Control Center access with layered security:
+    1. If a valid user token is present, use it and verify their tier/role.
+       Reject any attempt to escalate via ?mode= when a token exists.
+    2. Only fall back to the ?mode=admin / X-CC-Mode pattern as a LAST
+       resort for local dev (no token at all). This prevents privilege
+       escalation by ordinary users who flip localStorage.qb360_mode.
+    """
+    user = _get_current_user(request)
     mode = request.query_params.get("mode") or request.headers.get("X-CC-Mode", "")
+
+    # Case 1: real authenticated user present
+    if user:
+        # Admin tier always passes
+        if user.get("tier") == "admin":
+            return user
+        # Users with RBAC role + permission
+        if check_permission(user.get("uid", 0), permission):
+            return user
+        # Authenticated but not admin — REJECT even if mode=admin is passed.
+        # This closes the escalation vector where a Pro user could flip
+        # localStorage.qb360_mode to 'admin' and gain access.
+        return None
+
+    # Case 2: no user token at all — dev/local access only.
+    # In this path we accept mode=admin as a convenience for local
+    # development. A real deployment should set a stricter policy
+    # (e.g., gate this behind an environment flag).
     if mode in ("admin", "dev"):
         return {"uid": 0, "email": "admin@quantumtrade.pro", "tier": "admin"}
 
-    user = _get_current_user(request)
-    if not user:
-        return None
-    if user.get("tier") == "admin":
-        return user
-    if check_permission(user.get("uid", 0), permission):
-        return user
     return None
 
 # System Status
@@ -448,6 +481,17 @@ async def cc_feature_flags(request: Request):
     user = _cc_check(request, "config")
     if not user: return {"error": "Access denied"}
     return {"flags": get_feature_flags()}
+
+@app.get("/api/feature-flags")
+async def public_feature_flags():
+    """
+    Public read-only endpoint for the main app frontend to check which
+    features should be visible. Returns a simple {key: enabled} map.
+    Frontend uses this to hide/show tabs and cards. No auth required —
+    flags are not secrets, only the toggle UI is restricted.
+    """
+    flags = get_feature_flags()
+    return {"flags": {f["key"]: bool(f.get("enabled")) for f in flags}}
 
 @app.post("/api/cc/feature-flags")
 async def cc_toggle_flag(request: Request):
@@ -600,6 +644,8 @@ async def cc_revenue_deep(request: Request, days: int = 180):
 
 @app.get("/api/cc/announcements")
 async def cc_announcements(request: Request, active_only: bool = True):
+    user = _cc_check(request, "view")
+    if not user: return {"error": "Access denied"}
     return {"announcements": get_announcements(active_only)}
 
 @app.post("/api/cc/announcements")

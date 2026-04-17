@@ -435,12 +435,70 @@ def toggle_feature_flag(key: str, enabled: bool, updated_by: str = "admin") -> d
                  (1 if enabled else 0, updated_by, datetime.now(timezone.utc).isoformat(), key))
     conn.commit()
     conn.close()
+    # Invalidate cache so the new state takes effect immediately
+    _feature_flag_cache.clear()
     return {"status": "ok", "key": key, "enabled": enabled}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FEATURE FLAG ENFORCEMENT
+# ══════════════════════════════════════════════════════════════════════════════
+
+# 30-second cache so checking flags inside hot paths doesn't hit SQLite
+_feature_flag_cache = {}
+_feature_flag_cache_ts = [0.0]
+
+def _refresh_flag_cache():
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        rows = conn.execute("SELECT key, enabled FROM feature_flags").fetchall()
+        conn.close()
+        _feature_flag_cache.clear()
+        for k, en in rows:
+            _feature_flag_cache[k] = bool(en)
+        _feature_flag_cache_ts[0] = time.time()
+    except Exception as e:
+        logger.debug(f"Flag cache refresh failed: {e}")
+
+
+def is_feature_enabled(key: str, default: bool = True) -> bool:
+    """
+    Check if a feature flag is enabled. Results cached for 30 seconds.
+    Returns `default` if the flag doesn't exist (so new flags don't break
+    existing code). Toggling a flag via the admin UI clears the cache
+    immediately so changes take effect on the next request.
+    """
+    now = time.time()
+    if now - _feature_flag_cache_ts[0] > 30 or not _feature_flag_cache:
+        _refresh_flag_cache()
+    return _feature_flag_cache.get(key, default)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # REVENUE ANALYTICS
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _month_window(offset_months: int):
+    """
+    Return (start_iso, end_iso, label) for a calendar month N months back
+    from today. offset_months=0 = current month, 1 = last month, etc.
+    Respects actual calendar boundaries (28/30/31-day months, Dec→Jan rollover).
+    """
+    today = datetime.now(timezone.utc)
+    # Step back through month boundaries without day-count drift
+    y, m = today.year, today.month
+    for _ in range(offset_months):
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    # Start of target month
+    start = datetime(y, m, 1, tzinfo=timezone.utc)
+    # End = start of next month
+    ny, nm = (y + 1, 1) if m == 12 else (y, m + 1)
+    end = datetime(ny, nm, 1, tzinfo=timezone.utc)
+    return start.isoformat(), end.isoformat(), start.strftime("%Y-%m")
+
 
 def log_revenue_event(user_id: int, event_type: str, tier_from: str = None,
                        tier_to: str = None, amount: float = 0, metadata: dict = None):
@@ -485,16 +543,15 @@ def get_revenue_analytics() -> dict:
     """, (cutoff,)).fetchone()[0]
     conversion_rate = round(conversion_events / max(explorer_count, 1) * 100, 1)
 
-    # Monthly revenue trend (last 6 months)
+    # Monthly revenue trend (last 6 calendar months)
     monthly_trend = []
     for i in range(6):
-        month_start = (datetime.now(timezone.utc).replace(day=1) - timedelta(days=30 * i)).strftime("%Y-%m-01")
-        month_end = (datetime.now(timezone.utc).replace(day=1) - timedelta(days=30 * (i - 1))).strftime("%Y-%m-01")
+        m_start, m_end, m_label = _month_window(i)
         rev = conn.execute("""
             SELECT COALESCE(SUM(amount), 0) FROM revenue_events
             WHERE event_type IN ('payment', 'upgrade') AND timestamp >= ? AND timestamp < ?
-        """, (month_start, month_end)).fetchone()[0]
-        monthly_trend.append({"month": month_start[:7], "revenue": round(rev, 2)})
+        """, (m_start, m_end)).fetchone()[0]
+        monthly_trend.append({"month": m_label, "revenue": round(rev, 2)})
     monthly_trend.reverse()
 
     # Recent events
@@ -878,26 +935,25 @@ def get_revenue_deep(days: int = 180) -> dict:
     conn = sqlite3.connect(DB_PATH, timeout=10)
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
-    # ARPU trend (monthly)
+    # ARPU trend (last 6 calendar months)
     arpu_trend = []
     for i in range(6):
-        month_start = (datetime.now(timezone.utc).replace(day=1) - timedelta(days=30 * i)).strftime("%Y-%m-01")
-        month_end = (datetime.now(timezone.utc).replace(day=1) - timedelta(days=30 * (i - 1))).strftime("%Y-%m-01")
+        m_start, m_end, m_label = _month_window(i)
         total_users_month = conn.execute(
-            "SELECT COUNT(*) FROM users WHERE created_at < ?", (month_end,)
+            "SELECT COUNT(*) FROM users WHERE created_at < ?", (m_end,)
         ).fetchone()[0]
         rev = conn.execute("""
             SELECT COALESCE(SUM(amount), 0) FROM revenue_events
             WHERE event_type IN ('payment', 'upgrade') AND timestamp >= ? AND timestamp < ?
-        """, (month_start, month_end)).fetchone()[0]
+        """, (m_start, m_end)).fetchone()[0]
         arpu = round(rev / max(total_users_month, 1), 2)
-        arpu_trend.append({"month": month_start[:7], "arpu": arpu, "users": total_users_month, "revenue": round(rev, 2)})
+        arpu_trend.append({"month": m_label, "arpu": arpu, "users": total_users_month, "revenue": round(rev, 2)})
     arpu_trend.reverse()
 
     # Cohort analysis (users by signup month → retention)
     cohorts = []
     for i in range(6):
-        cohort_month = (datetime.now(timezone.utc).replace(day=1) - timedelta(days=30 * i)).strftime("%Y-%m")
+        _, _, cohort_month = _month_window(i)
         signed_up = conn.execute(
             "SELECT COUNT(*) FROM users WHERE created_at LIKE ?", (f"{cohort_month}%",)
         ).fetchone()[0]

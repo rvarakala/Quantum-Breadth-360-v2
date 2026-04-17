@@ -458,17 +458,87 @@ async function ccDeleteUser(userId, email) {
 }
 
 async function ccAddUser() {
-  const name = prompt('Full name:');
-  if (!name) return;
-  const email = prompt('Email address:');
-  if (!email) return;
-  const tier = prompt('Tier (explorer / pro):', 'explorer');
-  if (!tier) return;
-  const password = prompt('Password:', 'Welcome@2026');
-  if (!password) return;
-  const r = await ccPost('/api/admin/add-user', {name, email, password, tier});
-  if (r.error) { alert('Error: ' + r.error); return; }
-  alert(`User created: ${email} (${tier})`);
+  ccOpenAddUserModal();
+}
+
+// ── ADD USER MODAL ─────────────────────────────────────────────────────────
+function ccOpenAddUserModal() {
+  let modal = document.getElementById('cc-adduser-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'cc-adduser-modal';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:995;background:rgba(8,12,20,.85);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px';
+    modal.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:32px;width:100%;max-width:460px;box-shadow:0 24px 60px rgba(0,0,0,.6)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-family:var(--mono);font-size:18px;font-weight:800;letter-spacing:-.01em">Add New User</div>
+          <button onclick="ccCloseAddUserModal()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">&times;</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:22px">Create a user account manually — bypasses the trial flow.</div>
+
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">FULL NAME</label>
+          <input id="cc-new-name" type="text" placeholder="Jane Smith" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">EMAIL</label>
+          <input id="cc-new-email" type="email" placeholder="jane@example.com" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">PASSWORD (min 6 chars)</label>
+          <input id="cc-new-pass" type="text" placeholder="Welcome@2026" value="Welcome@2026" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+        </div>
+
+        <div style="margin-bottom:22px">
+          <label style="display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">TIER</label>
+          <select id="cc-new-tier" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+            <option value="explorer">Explorer (Free)</option>
+            <option value="pro">Pro</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        <div id="cc-new-err" style="color:var(--red);font-size:11px;font-family:var(--mono);min-height:16px;margin-bottom:8px"></div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="cc-btn" onclick="ccCloseAddUserModal()">Cancel</button>
+          <button class="cc-btn cc-btn-primary" onclick="ccSubmitAddUser()">Create User</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+  document.getElementById('cc-new-err').textContent = '';
+  document.getElementById('cc-new-name').value = '';
+  document.getElementById('cc-new-email').value = '';
+  document.getElementById('cc-new-pass').value = 'Welcome@2026';
+  document.getElementById('cc-new-tier').value = 'explorer';
+  setTimeout(() => document.getElementById('cc-new-name').focus(), 50);
+}
+
+function ccCloseAddUserModal() {
+  const m = document.getElementById('cc-adduser-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function ccSubmitAddUser() {
+  const name  = document.getElementById('cc-new-name').value.trim();
+  const email = document.getElementById('cc-new-email').value.trim();
+  const pass  = document.getElementById('cc-new-pass').value;
+  const tier  = document.getElementById('cc-new-tier').value;
+  const err   = document.getElementById('cc-new-err');
+  err.textContent = '';
+
+  if (!name || !email) { err.textContent = 'Name and email are required.'; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Invalid email format.'; return; }
+  if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
+
+  const r = await ccPost('/api/admin/add-user', { name, email, password: pass, tier });
+  if (r.error) { err.textContent = 'Error: ' + r.error; return; }
+  ccCloseAddUserModal();
   ccLoadUsers();
 }
 
