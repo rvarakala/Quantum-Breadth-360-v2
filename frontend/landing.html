@@ -1540,6 +1540,252 @@ footer {
   .section-head { grid-template-columns: 50px 1fr; gap: 16px; }
   .how-num { font-size: 64px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   § 01 — THE PROBLEM (incomplete game)
+   ══════════════════════════════════════════════════════════════════════════ */
+.problem { padding: 80px 0 60px; border-bottom: 1px solid var(--rule); }
+.problem-inner { max-width: var(--max-w); margin: 0 auto; padding: 0 var(--gutter); }
+.problem-quote {
+  font-family: var(--f-display);
+  font-size: clamp(28px, 3.2vw, 42px);
+  line-height: 1.3;
+  font-weight: 400;
+  color: var(--ink);
+  max-width: 920px;
+  margin: 40px 0 48px;
+  position: relative;
+  padding-left: 24px;
+  border-left: 3px solid var(--red);
+}
+.problem-quote em { font-style: italic; color: var(--red-dark); font-weight: 500; }
+.problem-quote cite {
+  display: block;
+  margin-top: 14px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: .12em;
+  color: var(--ink-3);
+}
+.problem-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+.problem-card {
+  padding: 28px 24px;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  position: relative;
+  transition: all .2s;
+}
+.problem-card:hover { border-color: var(--ink); transform: translateY(-2px); }
+.problem-card-k {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--ink-3);
+  margin-bottom: 10px;
+}
+.problem-card-h {
+  font-family: var(--f-display);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 12px;
+  line-height: 1.2;
+}
+.problem-card-h em { font-style: italic; color: var(--red-dark); }
+.problem-card-b { font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+@media (max-width: 768px) { .problem-cards { grid-template-columns: 1fr; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   § 02 — THE FOUR PILLARS
+   ══════════════════════════════════════════════════════════════════════════ */
+.pillars {
+  padding: 100px 0;
+  background: linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+  border-bottom: 1px solid var(--rule);
+}
+.pillars-inner { max-width: var(--max-w); margin: 0 auto; padding: 0 var(--gutter); }
+
+.pillars-grid {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 2px solid var(--ink);
+}
+.pillar-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 1.2fr 1.2fr;
+  gap: 32px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--rule);
+  align-items: baseline;
+  transition: background .2s;
+}
+.pillar-row:hover { background: var(--paper-3); }
+
+.pillar-num {
+  font-family: var(--f-mono);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--red);
+  letter-spacing: -.02em;
+}
+.pillar-name {
+  font-family: var(--f-display);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.1;
+  letter-spacing: -.01em;
+}
+.pillar-name em { font-style: italic; color: var(--red-dark); }
+.pillar-name-sub {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.pillar-q {
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+.pillar-a {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.pillar-a strong { color: var(--ink); font-weight: 600; }
+
+.pillars-summary {
+  margin-top: 60px;
+  padding: 36px 40px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--f-display);
+  font-size: clamp(20px, 2.4vw, 28px);
+  line-height: 1.4;
+  text-align: center;
+  border-radius: 0;
+}
+.pillars-summary em { font-style: italic; color: #FBBF24; }
+
+@media (max-width: 960px) {
+  .pillar-row { grid-template-columns: 50px 1fr; gap: 16px; }
+  .pillar-q, .pillar-a { grid-column: 2; }
+  .pillar-num { font-size: 16px; }
+  .pillar-name { font-size: 22px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   § 03 — THE MATRIX (Regime × Tier success map)
+   ══════════════════════════════════════════════════════════════════════════ */
+.matrix-sec { padding: 100px 0; border-bottom: 1px solid var(--rule); }
+.matrix-inner { max-width: var(--max-w); margin: 0 auto; padding: 0 var(--gutter); }
+
+.matrix-board {
+  margin-top: 48px;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 40px;
+  border-radius: 0;
+  position: relative;
+  overflow: hidden;
+}
+.matrix-board-label {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: rgba(245, 241, 234, 0.5);
+  margin-bottom: 6px;
+}
+.matrix-board-title {
+  font-family: var(--f-display);
+  font-size: 26px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  letter-spacing: -.01em;
+}
+.matrix-board-sub {
+  font-size: 13px;
+  color: rgba(245, 241, 234, 0.65);
+  margin-bottom: 28px;
+  max-width: 680px;
+  line-height: 1.55;
+}
+
+.matrix-svg { width: 100%; height: auto; display: block; }
+
+.matrix-legend {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(245, 241, 234, 0.12);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: rgba(245, 241, 234, 0.65);
+}
+.matrix-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.matrix-legend-dot {
+  width: 12px; height: 12px; border-radius: 2px;
+  display: inline-block;
+}
+
+.matrix-footnote {
+  margin-top: 28px;
+  padding: 20px 24px;
+  background: var(--paper-2);
+  border-left: 3px solid var(--red);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.matrix-footnote strong { color: var(--ink); font-weight: 600; }
+
+@media (max-width: 560px) {
+  .matrix-board { padding: 24px 16px; }
+  .matrix-svg text { font-size: 9px !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PILLAR TAGS on module cards
+   ══════════════════════════════════════════════════════════════════════════ */
+.mod-pillar-tag {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 3px 8px;
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  color: var(--red-dark);
+  background: var(--red-soft);
+  border: 1px solid var(--red);
+  border-radius: 0;
+}
+.mod-pillar-tag.p-regime  { color: #7C2D12; background: #FED7AA; border-color: #C2410C; }
+.mod-pillar-tag.p-sector  { color: #14532D; background: #D1FAE5; border-color: #15803D; }
+.mod-pillar-tag.p-stock   { color: #1E3A8A; background: #DBEAFE; border-color: #1D4ED8; }
+.mod-pillar-tag.p-exec    { color: #581C87; background: #EDE9FE; border-color: #6D28D9; }
+.mod-pillar-tag.p-context { color: #78350F; background: #FEF3C7; border-color: #B45309; }
 </style>
 </head>
 <body>
@@ -1578,16 +1824,15 @@ footer {
   <div class="hero-inner">
 
     <div>
-      <div class="hero-kicker fade-up d1">FEATURE · MARKET INTELLIGENCE</div>
+      <div class="hero-kicker fade-up d1">INDIA · REGIME-AWARE MARKET INTELLIGENCE</div>
 
       <h1 class="fade-up d2">
-        The Market Has a <em>Pulse.</em><br>
-        Most Traders Miss It.<br>
-        <span class="underlined">You Don't Have To.</span>
+        Most traders play an <em>incomplete</em> game.<br>
+        <span class="underlined">You don't have to.</span>
       </h1>
 
       <p class="hero-lede fade-up d3">
-        Quantum Breadth 360 is India's first <strong>regime-aware market intelligence platform</strong> — built on 19 years of NSE breadth research, it tells you what kind of market you're in before you make a single trade.
+        Quantum Breadth 360 unifies the four pillars of systematic trading — <strong>Market Regime</strong>, <strong>Sector Rotation</strong>, <strong>Stock Strength</strong>, and <strong>Execution Discipline</strong> — into one decision framework. Backtested on 19 years of NIFTY 500 data. Built for traders who need to know <em>why</em>, not just <em>what</em>.
       </p>
 
       <div class="hero-cta-row fade-up d4">
@@ -1595,7 +1840,7 @@ footer {
           Start My Free Account
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
-        <a href="#how" class="btn btn-outline btn-lg">Read the Story</a>
+        <a href="#framework" class="btn btn-outline btn-lg">See the Framework</a>
       </div>
 
       <div class="hero-trust fade-up d5">
@@ -1670,11 +1915,260 @@ footer {
   </div>
 </section>
 
+<!-- ════════ § 01 — THE PROBLEM ════════ -->
+<section class="problem" id="problem">
+  <div class="problem-inner">
+    <div class="section-head">
+      <div class="section-num">§ 01<span>THE PROBLEM</span></div>
+      <div class="section-title-wrap">
+        <div class="section-eyebrow">The Incomplete Game</div>
+        <h2 class="section-h2">Most traders only see <em>a third</em> of the market.</h2>
+        <p class="section-lede">A screener tells you which stocks moved. A fundamentals site tells you what they earn. Neither tells you whether you should be buying <em>at all</em>.</p>
+      </div>
+    </div>
+
+    <blockquote class="problem-quote">
+      Studies show roughly <em>30%</em> of a stock's move is explained by overall market direction, <em>30%</em> by sector performance, and only <em>40%</em> is stock-specific. That means <strong>60% of what happens to your trade is determined by forces invisible to any stock-level tool.</strong>
+      <cite>— STAGE ANALYSIS RESEARCH · Q-BRAM METHODOLOGY</cite>
+    </blockquote>
+
+    <div class="problem-cards">
+      <div class="problem-card">
+        <div class="problem-card-k">CONVENTIONAL TOOLS</div>
+        <h3 class="problem-card-h">What <em>price</em> tells you</h3>
+        <p class="problem-card-b">The last hour. Where a stock closed versus yesterday. Everything a chart already shows.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-card-k">BREADTH ANALYSIS</div>
+        <h3 class="problem-card-h">What <em>breadth</em> tells you</h3>
+        <p class="problem-card-b">Where the next hour is heading. Whether the rally has conviction, or only ten stocks carrying the index.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-card-k">REGIME INTELLIGENCE</div>
+        <h3 class="problem-card-h">What <em>regime</em> tells you</h3>
+        <p class="problem-card-b">Whether to be in the game at all. The one question no screener answers — the one that determines everything.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ § 02 — THE FOUR PILLARS ════════ -->
+<section class="pillars" id="framework">
+  <div class="pillars-inner">
+    <div class="section-head">
+      <div class="section-num">§ 02<span>THE FRAMEWORK</span></div>
+      <div class="section-title-wrap">
+        <div class="section-eyebrow">The Four Pillars</div>
+        <h2 class="section-h2">Four questions. Four answers. <em>One</em> decision framework.</h2>
+        <p class="section-lede">Every systematic trader's method — Minervini's SEPA, O'Neil's CAN SLIM, Qullamaggie's momentum, Weinstein's Stage Analysis — reduces to these four questions. Most platforms answer one. We answer all four.</p>
+      </div>
+    </div>
+
+    <div class="pillars-grid">
+      <div class="pillar-row">
+        <div class="pillar-num">I.</div>
+        <div>
+          <div class="pillar-name">Market <em>Regime</em>
+            <span class="pillar-name-sub">Q-BRAM ENGINE</span>
+          </div>
+        </div>
+        <div class="pillar-q">"Should I be in the market at all — and at what size?"</div>
+        <div class="pillar-a">5 regimes classified in real time from 50+ breadth metrics. Stage 2 breakouts show a <strong>~70% win rate in Accumulation</strong> vs ~30% in Distribution — same chart, different outcome. The regime sets position sizing before you even look at a chart.</div>
+      </div>
+
+      <div class="pillar-row">
+        <div class="pillar-num">II.</div>
+        <div>
+          <div class="pillar-name">Sector <em>Rotation</em>
+            <span class="pillar-name-sub">RS HEATMAP + FII SECTOR FLOWS</span>
+          </div>
+        </div>
+        <div class="pillar-q">"Where is institutional money flowing — and where is it exiting?"</div>
+        <div class="pillar-a">RRG-style momentum map with sector RS rank, FII sector preference, and breadth concentration. A great stock in a weak sector underperforms a good stock in a strong sector. <strong>Always check sector RS first.</strong></div>
+      </div>
+
+      <div class="pillar-row">
+        <div class="pillar-num">III.</div>
+        <div>
+          <div class="pillar-name">Stock <em>Strength</em>
+            <span class="pillar-name-sub">RS LEADERS + SMART SCREENER</span>
+          </div>
+        </div>
+        <div class="pillar-q">"Which stocks are actually leading — not just rising?"</div>
+        <div class="pillar-a">Two-pass filter surfaces only <strong>RS ≥ 70 leaders</strong> in Stage 2, ranked by composite momentum. Minervini Trend Template and Pocket Pivot built in. Leadership persists — laggards lag.</div>
+      </div>
+
+      <div class="pillar-row">
+        <div class="pillar-num">IV.</div>
+        <div>
+          <div class="pillar-name">Execution <em>Discipline</em>
+            <span class="pillar-name-sub">REGIME-AWARE JOURNAL</span>
+          </div>
+        </div>
+        <div class="pillar-q">"Where does my edge actually live — and where does it die?"</div>
+        <div class="pillar-a">Every trade auto-tagged to its regime. Strategy leaderboard by expectancy. Calendar P&L heatmap. <strong>Discover that you're a great picker in Expansion and terrible in Distribution</strong> — then stop trading the regimes you lose in.</div>
+      </div>
+    </div>
+
+    <div class="pillars-summary">
+      Each element has value alone. <em>Combined, they create systematic edge.</em>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ § 03 — THE MATRIX ════════ -->
+<section class="matrix-sec" id="matrix">
+  <div class="matrix-inner">
+    <div class="section-head">
+      <div class="section-num">§ 03<span>THE PROOF</span></div>
+      <div class="section-title-wrap">
+        <div class="section-eyebrow">The Decision Matrix</div>
+        <h2 class="section-h2">The <em>same setup</em> in different regimes isn't the same trade.</h2>
+        <p class="section-lede">A Stage 2 breakout with RS ≥ 80 looks identical on the chart whether the market is in Accumulation or Distribution. The outcomes are not identical. This is the table nobody else shows you.</p>
+      </div>
+    </div>
+
+    <div class="matrix-board">
+      <div class="matrix-board-label">FIGURE 02 · STAGE 2 BREAKOUT OUTCOMES · BY TIER × REGIME</div>
+      <div class="matrix-board-title">When to press. When to hold. When to exit.</div>
+      <div class="matrix-board-sub">Position-sizing guide derived from regime-conditional outcome distributions. Read across: how the same trade tier plays across the five market regimes. Read down: how each regime treats setups of different quality.</div>
+
+      <svg class="matrix-svg" viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg" aria-label="Decision matrix: Tier × Regime">
+        <!-- Column headers -->
+        <g font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="rgba(245, 241, 234, 0.85)" letter-spacing="0.12em">
+          <text x="155" y="28" text-anchor="middle">PANIC</text>
+          <text x="255" y="28" text-anchor="middle">DISTRIBUTION</text>
+          <text x="355" y="28" text-anchor="middle">TRANSITION</text>
+          <text x="455" y="28" text-anchor="middle">ACCUMULATION</text>
+          <text x="555" y="28" text-anchor="middle">EXPANSION</text>
+        </g>
+        <g font-family="'JetBrains Mono', monospace" font-size="9" fill="rgba(245, 241, 234, 0.45)" letter-spacing="0.08em">
+          <text x="155" y="42" text-anchor="middle">~15% WR</text>
+          <text x="255" y="42" text-anchor="middle">~30% WR</text>
+          <text x="355" y="42" text-anchor="middle">~45% WR</text>
+          <text x="455" y="42" text-anchor="middle">~70% WR</text>
+          <text x="555" y="42" text-anchor="middle">~65% WR</text>
+        </g>
+
+        <!-- Row labels (Tiers) -->
+        <g font-family="'Fraunces', serif" font-size="15" font-weight="500" fill="rgba(245, 241, 234, 0.95)">
+          <text x="96" y="92" text-anchor="end">Tier 1</text>
+          <text x="96" y="182" text-anchor="end">Tier 2</text>
+          <text x="96" y="272" text-anchor="end">Tier 3</text>
+        </g>
+        <g font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(245, 241, 234, 0.45)" letter-spacing="0.08em">
+          <text x="96" y="106" text-anchor="end">RS≥80, SEC≥70</text>
+          <text x="96" y="196" text-anchor="end">RS≥70, SEC≥50</text>
+          <text x="96" y="286" text-anchor="end">RS≥60, IMPROVING</text>
+        </g>
+
+        <!-- Cells: 3 rows × 5 cols. Colours: EXIT=red, AVOID=dark-red, WATCH=amber, BUY=green, STRONG=deep-green -->
+        <!-- Row 1: Tier 1 -->
+        <g>
+          <rect x="110" y="58" width="90" height="70" fill="#7F1D1D" rx="2"/>
+          <text x="155" y="92" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#FCA5A5">EXIT</text>
+          <text x="155" y="108" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(252, 165, 165, 0.65)">close longs</text>
+        </g>
+        <g>
+          <rect x="210" y="58" width="90" height="70" fill="#991B1B" rx="2"/>
+          <text x="255" y="92" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#FECACA">AVOID</text>
+          <text x="255" y="108" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(254, 202, 202, 0.65)">no new entries</text>
+        </g>
+        <g>
+          <rect x="310" y="58" width="90" height="70" fill="#B45309" rx="2"/>
+          <text x="355" y="92" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#FEF3C7">MODERATE</text>
+          <text x="355" y="108" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(254, 243, 199, 0.65)">half size</text>
+        </g>
+        <g>
+          <rect x="410" y="58" width="90" height="70" fill="#15803D" rx="2"/>
+          <text x="455" y="92" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#D1FAE5">STRONG BUY</text>
+          <text x="455" y="108" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(209, 250, 229, 0.65)">full size</text>
+        </g>
+        <g>
+          <rect x="510" y="58" width="90" height="70" fill="#166534" rx="2"/>
+          <text x="555" y="92" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#BBF7D0">STRONG BUY</text>
+          <text x="555" y="108" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(187, 247, 208, 0.65)">full size</text>
+        </g>
+
+        <!-- Row 2: Tier 2 -->
+        <g>
+          <rect x="110" y="148" width="90" height="70" fill="#7F1D1D" rx="2"/>
+          <text x="155" y="182" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#FCA5A5">EXIT</text>
+          <text x="155" y="198" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(252, 165, 165, 0.65)">close longs</text>
+        </g>
+        <g>
+          <rect x="210" y="148" width="90" height="70" fill="#991B1B" rx="2"/>
+          <text x="255" y="182" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#FECACA">AVOID</text>
+          <text x="255" y="198" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(254, 202, 202, 0.65)">no new entries</text>
+        </g>
+        <g>
+          <rect x="310" y="148" width="90" height="70" fill="#92400E" rx="2"/>
+          <text x="355" y="182" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#FDE68A">WATCH</text>
+          <text x="355" y="198" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(253, 230, 138, 0.65)">no entry yet</text>
+        </g>
+        <g>
+          <rect x="410" y="148" width="90" height="70" fill="#16A34A" rx="2"/>
+          <text x="455" y="182" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#DCFCE7">BUY</text>
+          <text x="455" y="198" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(220, 252, 231, 0.65)">standard size</text>
+        </g>
+        <g>
+          <rect x="510" y="148" width="90" height="70" fill="#16A34A" rx="2"/>
+          <text x="555" y="182" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#DCFCE7">BUY</text>
+          <text x="555" y="198" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(220, 252, 231, 0.65)">standard size</text>
+        </g>
+
+        <!-- Row 3: Tier 3 -->
+        <g>
+          <rect x="110" y="238" width="90" height="70" fill="#7F1D1D" rx="2"/>
+          <text x="155" y="272" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#FCA5A5">EXIT</text>
+          <text x="155" y="288" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(252, 165, 165, 0.65)">close longs</text>
+        </g>
+        <g>
+          <rect x="210" y="238" width="90" height="70" fill="#991B1B" rx="2"/>
+          <text x="255" y="272" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#FECACA">AVOID</text>
+          <text x="255" y="288" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(254, 202, 202, 0.65)">no new entries</text>
+        </g>
+        <g>
+          <rect x="310" y="238" width="90" height="70" fill="#991B1B" rx="2"/>
+          <text x="355" y="272" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#FECACA">AVOID</text>
+          <text x="355" y="288" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(254, 202, 202, 0.65)">quality too thin</text>
+        </g>
+        <g>
+          <rect x="410" y="238" width="90" height="70" fill="#22C55E" rx="2"/>
+          <text x="455" y="272" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#14532D">BUY</text>
+          <text x="455" y="288" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(20, 83, 45, 0.75)">small size</text>
+        </g>
+        <g>
+          <rect x="510" y="238" width="90" height="70" fill="#22C55E" rx="2"/>
+          <text x="555" y="272" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="800" fill="#14532D">BUY</text>
+          <text x="555" y="288" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="8" fill="rgba(20, 83, 45, 0.75)">small size</text>
+        </g>
+
+        <!-- Axis labels -->
+        <text x="360" y="330" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="rgba(245, 241, 234, 0.4)" letter-spacing="0.16em">MARKET REGIME →</text>
+        <text x="18" y="182" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="rgba(245, 241, 234, 0.4)" letter-spacing="0.16em" transform="rotate(-90 18 182)">← TIER QUALITY</text>
+      </svg>
+
+      <div class="matrix-legend">
+        <span class="matrix-legend-chip"><span class="matrix-legend-dot" style="background:#166534"></span>STRONG BUY — Full size</span>
+        <span class="matrix-legend-chip"><span class="matrix-legend-dot" style="background:#22C55E"></span>BUY — Standard or small size</span>
+        <span class="matrix-legend-chip"><span class="matrix-legend-dot" style="background:#92400E"></span>WATCH / MODERATE — Half size or wait</span>
+        <span class="matrix-legend-chip"><span class="matrix-legend-dot" style="background:#991B1B"></span>AVOID — No new entries</span>
+        <span class="matrix-legend-chip"><span class="matrix-legend-dot" style="background:#7F1D1D"></span>EXIT — Close longs</span>
+      </div>
+    </div>
+
+    <div class="matrix-footnote">
+      <strong>How to read this:</strong> A Tier 1 setup (RS ≥ 80 in a strong sector) is a STRONG BUY in Accumulation and Expansion — but the <em>exact same setup</em> is an AVOID in Distribution, because Stage 2 breakouts fail roughly 7 out of 10 times in that regime. The chart pattern doesn't change. The probability does. This is what "trade with the regime" actually means.
+    </div>
+  </div>
+</section>
+
 <!-- ════════ HOW IT WORKS ════════ -->
 <section class="how" id="how">
   <div class="how-inner">
     <div class="section-head">
-      <div class="section-num">§ 01<span>THE PROCESS</span></div>
+      <div class="section-num">§ 04<span>THE PROCESS</span></div>
       <div class="section-title-wrap">
         <div class="section-eyebrow">How It Works</div>
         <h2 class="section-h2">Three Steps from Market <em>Noise</em> to Trading <em>Signal</em>.</h2>
@@ -1709,7 +2203,7 @@ footer {
 <section class="modules" id="modules">
   <div class="modules-inner">
     <div class="section-head">
-      <div class="section-num">§ 02<span>THE PLATFORM</span></div>
+      <div class="section-num">§ 05<span>THE PLATFORM</span></div>
       <div class="section-title-wrap">
         <div class="section-eyebrow">Nine Modules</div>
         <h2 class="section-h2">Everything a Systematic Trader <em>Needs.</em></h2>
@@ -1727,6 +2221,7 @@ footer {
         <h3 class="mod-title">Q-BRAM <em>Regime Engine</em></h3>
         <p class="mod-desc">The proprietary 5-regime market classifier at the heart of the platform. Panic, Distribution, Transition, Accumulation, Expansion — backtested across 19 years of NIFTY 500 data. One composite score that tells you the market's true state.</p>
         <div class="mod-hr">Core module · Included on every plan</div>
+        <div class="mod-pillar-tag p-regime">PILLAR I · REGIME</div>
       </div>
 
       <div class="mod w-3">
@@ -1736,7 +2231,8 @@ footer {
         </div>
         <h3 class="mod-title">Sector Rotation Map</h3>
         <p class="mod-desc">RRG-style momentum heatmap updated daily. Spot leadership shifts before price confirms.</p>
-      </div>
+      <div class="mod-pillar-tag p-sector">PILLAR II · SECTOR</div>
+        </div>
 
       <div class="mod w-3">
         <div class="mod-header">
@@ -1745,7 +2241,8 @@ footer {
         </div>
         <h3 class="mod-title">FII/DII Flow Matrix</h3>
         <p class="mod-desc">Streak detection, 60-day dot matrices, velocity scoring — institutional money tracked in real time.</p>
-      </div>
+      <div class="mod-pillar-tag p-context">INSTITUTIONAL CONTEXT</div>
+        </div>
 
       <div class="mod w-4">
         <div class="mod-header">
@@ -1754,7 +2251,8 @@ footer {
         </div>
         <h3 class="mod-title">Insider Activity <em>(SEBI PIT)</em></h3>
         <p class="mod-desc">Real-time SEBI disclosures with smart clustering, value scoring, promoter vs insider segmentation.</p>
-      </div>
+      <div class="mod-pillar-tag p-context">INSTITUTIONAL CONTEXT</div>
+        </div>
 
       <div class="mod w-4">
         <div class="mod-header">
@@ -1763,7 +2261,8 @@ footer {
         </div>
         <h3 class="mod-title">F-Value Screener</h3>
         <p class="mod-desc">7-factor fundamental grades (A→E) with Justified PE fair value. Find quality before the market does.</p>
-      </div>
+      <div class="mod-pillar-tag p-context">INSTITUTIONAL CONTEXT</div>
+        </div>
 
       <div class="mod w-4">
         <div class="mod-header">
@@ -1772,7 +2271,8 @@ footer {
         </div>
         <h3 class="mod-title">Smart Screener</h3>
         <p class="mod-desc">Two-pass filter: breadth + trend + volume, then composite momentum rank. Minervini Trend Template built in.</p>
-      </div>
+      <div class="mod-pillar-tag p-stock">PILLAR III · STOCK</div>
+        </div>
 
       <!-- Second row -->
       <div class="mod w-4">
@@ -1782,7 +2282,8 @@ footer {
         </div>
         <h3 class="mod-title">Breadth Charts</h3>
         <p class="mod-desc">70+ historical chart series — McClellan, Summation, TRIN, VIX crossings, full regime timeline.</p>
-      </div>
+      <div class="mod-pillar-tag p-regime">PILLAR I · REGIME</div>
+        </div>
 
       <div class="mod w-4">
         <div class="mod-header">
@@ -1791,7 +2292,8 @@ footer {
         </div>
         <h3 class="mod-title">AI Market Intelligence</h3>
         <p class="mod-desc">LLM-powered synthesis of breadth, regime, FII, and insider signals into plain-language insight.</p>
-      </div>
+      <div class="mod-pillar-tag p-regime">PILLAR I · REGIME</div>
+        </div>
 
       <div class="mod w-4">
         <div class="mod-header">
@@ -1800,7 +2302,8 @@ footer {
         </div>
         <h3 class="mod-title">Regime-Aware <em>Journal</em></h3>
         <p class="mod-desc">The only journal that tags trades to their market regime. Calendar P&L, strategy leaderboard, R-multiple analytics.</p>
-      </div>
+      <div class="mod-pillar-tag p-exec">PILLAR IV · EXECUTION</div>
+        </div>
     </div>
   </div>
 </section>
@@ -1809,7 +2312,7 @@ footer {
 <section class="regime-sec" id="regimes">
   <div class="regime-inner">
     <div class="section-head">
-      <div class="section-num">§ 03<span>THE MODEL</span></div>
+      <div class="section-num">§ 06<span>THE MODEL</span></div>
       <div class="section-title-wrap">
         <div class="section-eyebrow">The Q-BRAM Framework</div>
         <h2 class="section-h2">Five Regimes.<br>One Decision <em>Framework.</em></h2>
@@ -1892,7 +2395,7 @@ footer {
 <section class="proof">
   <div class="proof-inner">
     <div class="section-head">
-      <div class="section-num">§ 04<span>THE TRADERS</span></div>
+      <div class="section-num">§ 07<span>THE TRADERS</span></div>
       <div class="section-title-wrap">
         <div class="section-eyebrow">Field Reports</div>
         <h2 class="section-h2">Traders Who Found Their <em>Edge.</em></h2>
@@ -1947,7 +2450,7 @@ footer {
 <section class="pricing" id="pricing">
   <div class="pricing-inner">
     <div class="section-head">
-      <div class="section-num">§ 05<span>SUBSCRIPTION</span></div>
+      <div class="section-num">§ 08<span>SUBSCRIPTION</span></div>
       <div class="section-title-wrap">
         <div class="section-eyebrow">Pricing</div>
         <h2 class="section-h2">Start <em>Free.</em> Upgrade When It Pays For Itself.</h2>
@@ -2022,7 +2525,7 @@ footer {
 <section class="faq" id="faq">
   <div class="faq-inner">
     <div class="section-head">
-      <div class="section-num">§ 06<span>THE DETAILS</span></div>
+      <div class="section-num">§ 09<span>THE DETAILS</span></div>
       <div class="section-title-wrap">
         <div class="section-eyebrow">Questions</div>
         <h2 class="section-h2">You Asked. We <em>Answered.</em></h2>
