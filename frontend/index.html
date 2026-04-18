@@ -1753,6 +1753,32 @@
       </div>
     </div>
 
+    <!-- ROW 3: Global Markets + Sector RS + News + Events — 4 cards -->
+    <div class="ov-row3">
+      <div class="gm-card" id="global-markets-card">
+        <div class="gm-hdr">
+          <span>🌐 GLOBAL MARKETS</span>
+          <span class="gm-tone-pill" id="gm-tone-pill">—</span>
+          <button class="ai-card-refresh" onclick="loadGlobalMarkets(true)" style="font-size:10px;padding:2px 6px;margin-left:auto">⟳</button>
+        </div>
+        <div class="gm-body" id="gm-body">
+          <div style="text-align:center;padding:12px;color:var(--text3);font-size:10px">Loading…</div>
+        </div>
+      </div>
+      <div class="sr-card" id="sector-rs-card">
+        <div class="gm-hdr"><span>📊 SECTOR LEADERSHIP</span></div>
+        <div class="gm-body" style="text-align:center;padding:12px;color:var(--text3);font-size:10px">Coming next</div>
+      </div>
+      <div class="nw-card" id="news-card">
+        <div class="gm-hdr"><span>📰 MARKET NEWS</span></div>
+        <div class="gm-body" style="text-align:center;padding:12px;color:var(--text3);font-size:10px">Coming next</div>
+      </div>
+      <div class="ev-card" id="events-card">
+        <div class="gm-hdr"><span>📅 EARNINGS &amp; EVENTS</span></div>
+        <div class="gm-body" style="text-align:center;padding:12px;color:var(--text3);font-size:10px">Coming next</div>
+      </div>
+    </div>
+
   </div><!-- /tab-overview -->
 
   <!-- BREADTH CHARTS TAB -->
@@ -2563,6 +2589,7 @@
 <!-- Boot scripts: globals, breadth engine, overview rendering, app shell -->
 <script src="/static/js/charts.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/overview.js?v=__ASSET_VERSION__"></script>
+<script src="/static/js/overview-global.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/data.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/autocomplete.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/app.js?v=__ASSET_VERSION__"></script>

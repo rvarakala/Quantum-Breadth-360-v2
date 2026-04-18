@@ -3598,6 +3598,19 @@ async def api_peep_into_past(date: str = "2020-03-23", market: str = "India"):
         return {"error": str(e), "target_date": date}
 
 
+from global_markets import get_global_markets
+
+@app.get("/api/overview/global-markets")
+async def api_global_markets():
+    try:
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(executor, get_global_markets)
+        return data
+    except Exception as e:
+        logger.error(f"global-markets error: {e}", exc_info=True)
+        return {"error": str(e), "markets": [], "tone": "MIXED", "tone_score": 0}
+
+
 if __name__=="__main__":
     import uvicorn
     print("\n🚀  Market Breadth Engine v2.0")
