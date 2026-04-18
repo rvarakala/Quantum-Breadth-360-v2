@@ -17,3 +17,4 @@ xlrd
 bcrypt
 PyJWT
 razorpay>=1.4.1
+feedparser>=6.0.10

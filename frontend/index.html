@@ -1770,8 +1770,19 @@
         <div class="gm-body" style="text-align:center;padding:12px;color:var(--text3);font-size:10px">Coming next</div>
       </div>
       <div class="nw-card" id="news-card">
-        <div class="gm-hdr"><span>📰 MARKET NEWS</span></div>
-        <div class="gm-body" style="text-align:center;padding:12px;color:var(--text3);font-size:10px">Coming next</div>
+        <div class="gm-hdr">
+          <span>📰 MARKET NEWS</span>
+          <span class="nw-senti-badge" id="nw-senti-badge" style="display:none"></span>
+          <button class="ai-card-refresh" onclick="loadMarketNews(true)" style="font-size:10px;padding:2px 6px;margin-left:auto">⟳</button>
+        </div>
+        <div class="nw-filters" id="nw-filters">
+          <button class="nw-chip active" data-cat="all"    onclick="setNewsCategory('all')">All</button>
+          <button class="nw-chip"        data-cat="stocks" onclick="setNewsCategory('stocks')">Stocks</button>
+          <button class="nw-chip"        data-cat="macro"  onclick="setNewsCategory('macro')">Macro</button>
+        </div>
+        <div class="nw-body" id="nw-body">
+          <div style="text-align:center;padding:12px;color:var(--text3);font-size:10px">Loading…</div>
+        </div>
       </div>
       <div class="ev-card" id="events-card">
         <div class="gm-hdr"><span>📅 EARNINGS &amp; EVENTS</span></div>
@@ -2590,6 +2601,7 @@
 <script src="/static/js/charts.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/overview.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/overview-global.js?v=__ASSET_VERSION__"></script>
+<script src="/static/js/overview-news.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/data.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/autocomplete.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/app.js?v=__ASSET_VERSION__"></script>
