@@ -3600,6 +3600,7 @@ async def api_peep_into_past(date: str = "2020-03-23", market: str = "India"):
 
 from global_markets import get_global_markets
 from market_news import get_market_news
+from sector_rs import get_sector_rs
 
 @app.get("/api/overview/global-markets")
 async def api_global_markets():
@@ -3623,6 +3624,17 @@ async def api_market_news(category: str = "all", sentiment: int = 1):
     except Exception as e:
         logger.error(f"news error: {e}", exc_info=True)
         return {"error": str(e), "items": [], "count": 0, "sentiment_enabled": False}
+
+
+@app.get("/api/overview/sector-rs")
+async def api_sector_rs():
+    try:
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(executor, get_sector_rs)
+        return data
+    except Exception as e:
+        logger.error(f"sector-rs error: {e}", exc_info=True)
+        return {"error": str(e), "leaders": [], "laggards": []}
 
 
 if __name__=="__main__":

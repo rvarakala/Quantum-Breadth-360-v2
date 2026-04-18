@@ -3730,3 +3730,42 @@ select option:checked {
   letter-spacing: .05em; font-family: var(--font-mono);
 }
 
+/* ─── SECTOR RS CARD (Row 3, Card 2) ────────────────────────────────────── */
+.sr-bench {
+  font-size: 9px; padding: 2px 8px; border-radius: 10px;
+  background: var(--bg3); color: var(--text3); border: 1px solid var(--border2);
+  font-family: var(--font-mono); letter-spacing: .04em;
+}
+.sr-body {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  font-family: var(--font-mono);
+}
+.sr-rows {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px;
+  scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+}
+.sr-rows::-webkit-scrollbar { width: 3px; }
+.sr-rows::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.sr-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto 22px;
+  gap: 6px; align-items: center;
+  padding: 5px 8px; border-radius: 6px; background: var(--bg3);
+  font-size: 11px;
+}
+.sr-marker { text-align: center; font-weight: 700; font-size: 9px; }
+.sr-sector { color: var(--text); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-rs { font-weight: 700; text-align: right; min-width: 48px; }
+.sr-chg { font-weight: 700; text-align: right; min-width: 56px; }
+.sr-arrow { text-align: center; font-weight: 700; font-size: 10px; }
+.sr-divider {
+  height: 1px; background: var(--border2); margin: 6px 4px;
+  opacity: .6;
+}
+.sr-footer {
+  font-size: 9px; color: var(--text3); text-align: right;
+  margin-top: 6px; flex-shrink: 0;
+}
+
