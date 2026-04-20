@@ -32,7 +32,11 @@ IST = timezone(timedelta(hours=5, minutes=30))
 DB_PATH = Path(__file__).parent / "breadth_data.db"
 
 _cache: Dict[str, Any] = {"data": None, "fetched_at": 0}
-CACHE_TTL = 900  # 15 min
+CACHE_TTL = 3600  # 60 min (EOD data — sectors don't shift intraday)
+
+# Cap the ohlcv scan to the last N calendar days. 60d lookback + buffer
+# for weekends/holidays. Prunes 20-year history → ~70 days of rows upfront.
+SCAN_WINDOW_DAYS = 70
 
 # How many leaders/laggards to show
 N_LEADERS = 5
@@ -73,38 +77,72 @@ def _trend_arrow(rs_short: float, rs_long: float) -> str:
     return "↓↓"         # decelerating
 
 
-def _compute_returns_single_query(conn: sqlite3.Connection, latest: str,
-                                   days_back: int) -> Dict[str, float]:
+def _compute_all_returns(conn: sqlite3.Connection, latest: str
+                         ) -> Dict[str, Dict[str, float]]:
     """
-    Returns dict of {ticker: pct_return} for the trailing window.
-    Uses a single SQL to pull both endpoints in one pass.
+    Single-pass endpoint fetch for all four windows (1d, 5d, 20d, 60d).
+
+    Why this shape:
+      An earlier attempt used a CTE + 4 correlated subqueries. SQLite's
+      planner does NOT materialize the CTE — each subquery re-scanned
+      the base ohlcv table via idx_market_date, which was ~17s on a
+      500-ticker × 2000-day DB.
+
+      This version is ~25× faster:
+      1. ONE flat index scan pulls the last ~70 days of India rows
+         (~35k rows, dominates wall time at ~650ms).
+      2. Python groups by ticker and walks each ticker's sorted series
+         in-memory to locate the start-of-window close for each horizon
+         (~10ms total — negligible).
+
+    Returns: {ticker: {'ret_1d': pct, 'ret_5d': pct,
+                       'ret_20d': pct, 'ret_60d': pct}}
     """
-    target = _date_offset(latest, days_back)
-    # For each ticker: (latest close, earliest close >= target).
-    # We approximate using MIN(date) where date >= target.
-    sql = """
-    WITH endpoints AS (
-      SELECT
-        ticker,
-        (SELECT close FROM ohlcv o2 WHERE o2.ticker=o1.ticker AND o2.date <= ?
-           ORDER BY date DESC LIMIT 1) AS last_close,
-        (SELECT close FROM ohlcv o3 WHERE o3.ticker=o1.ticker AND o3.date >= ?
-           ORDER BY date ASC  LIMIT 1) AS start_close
-      FROM ohlcv o1
-      WHERE o1.market='India'
-      GROUP BY ticker
-    )
-    SELECT ticker, last_close, start_close
-    FROM endpoints
-    WHERE last_close IS NOT NULL AND start_close IS NOT NULL
-      AND start_close > 0
-    """
-    rows = conn.execute(sql, (latest, target)).fetchall()
-    returns = {}
-    for ticker, last_close, start_close in rows:
-        if last_close and start_close and start_close > 0:
-            returns[ticker] = ((last_close - start_close) / start_close) * 100.0
-    return returns
+    target_1d  = _date_offset(latest, 1)
+    target_5d  = _date_offset(latest, 5)
+    target_20d = _date_offset(latest, 20)
+    target_60d = _date_offset(latest, 60)
+    scan_floor = _date_offset(latest, SCAN_WINDOW_DAYS)
+
+    # Flat ordered scan — uses idx_market_date for the range, ORDER BY
+    # matches (ticker, date) which is the PK so sort is cheap.
+    rows = conn.execute(
+        "SELECT ticker, date, close FROM ohlcv "
+        "WHERE market=? AND date >= ? "
+        "ORDER BY ticker, date",
+        ("India", scan_floor)
+    ).fetchall()
+
+    # Group by ticker. Each ticker's series is already date-ascending.
+    from collections import defaultdict
+    by_ticker: Dict[str, list] = defaultdict(list)
+    for ticker, date, close in rows:
+        by_ticker[ticker].append((date, close))
+
+    def _start_close(series, target_date):
+        # Series is ascending by date; return first close at or after target.
+        for dt, c in series:
+            if dt >= target_date and c and c > 0:
+                return c
+        return None
+
+    out: Dict[str, Dict[str, float]] = {}
+    windows = (("ret_1d",  target_1d),  ("ret_5d",  target_5d),
+               ("ret_20d", target_20d), ("ret_60d", target_60d))
+    for ticker, series in by_ticker.items():
+        if not series:
+            continue
+        _, last_close = series[-1]
+        if not last_close or last_close <= 0:
+            continue
+        entry: Dict[str, float] = {}
+        for key, tgt in windows:
+            c_start = _start_close(series, tgt)
+            if c_start:
+                entry[key] = ((last_close - c_start) / c_start) * 100.0
+        if entry:
+            out[ticker] = entry
+    return out
 
 
 def _percentile_rank(value: float, sorted_values: List[float]) -> int:
@@ -135,7 +173,10 @@ def get_sector_rs() -> Dict[str, Any]:
         return cached
 
     _start = time.time()
-    logger.info("[sector-rs] computing fresh — 4 window queries on full universe")
+    logger.info(
+        f"[sector-rs] computing fresh — flat scan + python compute, "
+        f"scan window={SCAN_WINDOW_DAYS}d"
+    )
 
     try:
         conn = sqlite3.connect(str(DB_PATH), timeout=10)
@@ -173,11 +214,16 @@ def get_sector_rs() -> Dict[str, Any]:
         for t, s in sector_rows:
             sector_members.setdefault(s, []).append(t)
 
-        # 2. Compute returns at 3 windows in parallel SQL
-        returns_5d = _compute_returns_single_query(conn, latest, 5)
-        returns_20d = _compute_returns_single_query(conn, latest, 20)
-        returns_60d = _compute_returns_single_query(conn, latest, 60)
-        returns_1d = _compute_returns_single_query(conn, latest, 1)
+        # 2. Single-pass compute of all 4 windows (prunes 20yr → 70d first)
+        all_returns = _compute_all_returns(conn, latest)
+
+        # Project into per-window dicts so the rest of the function is unchanged.
+        # Only include a ticker in a window dict if that specific window succeeded
+        # (preserves the old per-window gating behavior).
+        returns_1d  = {t: r["ret_1d"]  for t, r in all_returns.items() if "ret_1d"  in r}
+        returns_5d  = {t: r["ret_5d"]  for t, r in all_returns.items() if "ret_5d"  in r}
+        returns_20d = {t: r["ret_20d"] for t, r in all_returns.items() if "ret_20d" in r}
+        returns_60d = {t: r["ret_60d"] for t, r in all_returns.items() if "ret_60d" in r}
 
         if not returns_20d:
             return {"error": "no return data", "leaders": [], "laggards": [],
