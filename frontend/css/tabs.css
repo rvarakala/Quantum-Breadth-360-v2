@@ -2970,8 +2970,11 @@ select option:checked {
    OVERVIEW — COMMAND CENTER LAYOUT (minimal scroll, single-glance)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Overview tab: fill viewport height as flex column (3 rows) */
-#tab-overview {
+/* Overview tab: fill viewport height as flex column (3 rows).
+   MUST be scoped to .active — otherwise ID specificity overrides
+   .tab-content { display: none; } and the Overview cards leak into
+   every other tab. */
+#tab-overview.active {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 110px);
