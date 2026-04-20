@@ -131,7 +131,11 @@ def get_sector_rs() -> Dict[str, Any]:
     """
     cached = _cache.get("data")
     if cached and (time.time() - _cache.get("fetched_at", 0)) < CACHE_TTL:
+        logger.info("[sector-rs] serving cached result")
         return cached
+
+    _start = time.time()
+    logger.info("[sector-rs] computing fresh — 4 window queries on full universe")
 
     try:
         conn = sqlite3.connect(str(DB_PATH), timeout=10)
@@ -251,6 +255,10 @@ def get_sector_rs() -> Dict[str, Any]:
         }
         _cache["data"] = payload
         _cache["fetched_at"] = time.time()
+        logger.info(
+            f"[sector-rs] done in {time.time()-_start:.2f}s — "
+            f"{len(sector_rs_list)} sectors, universe={len(universe)}"
+        )
         return payload
 
     finally:

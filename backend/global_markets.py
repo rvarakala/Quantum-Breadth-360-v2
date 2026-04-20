@@ -61,23 +61,42 @@ def _set_cache(key: str, data: Dict[str, Any]) -> None:
 
 
 def _fetch_yfinance(ticker: str) -> Optional[Dict[str, Any]]:
-    """Fetch last price + previous close via yfinance. Returns None on failure."""
+    """Fetch last price + previous close via yfinance. Returns None on failure.
+
+    Uses attribute access on fast_info (yfinance 0.2.x removed dict-like .get()).
+    Falls through to history() whenever fast_info yields incomplete data.
+    """
     try:
         import yfinance as yf
         t = yf.Ticker(ticker)
-        # fast_info is much faster than .info for lightweight price fetches
-        fi = t.fast_info
-        price = float(fi.get("last_price") or fi.get("lastPrice") or 0)
-        prev_close = float(fi.get("previous_close") or fi.get("previousClose") or 0)
-        if price == 0 or prev_close == 0:
-            # Fallback to history if fast_info is empty
+        price, prev_close = None, None
+
+        # Try fast_info via attribute access — robust across 0.2.x versions
+        try:
+            fi = t.fast_info
+            _last = getattr(fi, "last_price", None)
+            _prev = getattr(fi, "previous_close", None)
+            if _last is not None:
+                price = float(_last)
+            if _prev is not None:
+                prev_close = float(_prev)
+        except Exception as e:
+            logger.debug(f"fast_info unavailable for {ticker}: {e}")
+
+        # Fall back to history() if either value missing or zero
+        if not price or not prev_close:
             hist = t.history(period="5d", interval="1d")
             if hist.empty or len(hist) < 2:
+                logger.warning(f"yfinance history empty for {ticker}")
                 return None
             price = float(hist["Close"].iloc[-1])
             prev_close = float(hist["Close"].iloc[-2])
+
+        if not price or not prev_close or prev_close == 0:
+            return None
+
         change = price - prev_close
-        change_pct = (change / prev_close) * 100 if prev_close else 0
+        change_pct = (change / prev_close) * 100
         return {
             "price": round(price, 2),
             "prev_close": round(prev_close, 2),
