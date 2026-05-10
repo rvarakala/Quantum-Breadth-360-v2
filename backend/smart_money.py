@@ -266,8 +266,15 @@ def enrich_smart_money(sm_data: dict, rs_cache: dict = None, insider_days: int =
                     "fair_value": s.get("fair_value"),
                     "upside_pct": s.get("upside_pct"),
                 }
+        else:
+            # Cache miss — F-VALUE column will be blank for every ticker
+            # and any F-Value filter ('A'/'B'/'C') will return zero rows.
+            # The /api/smart-money endpoint warms this cache on miss; if
+            # you see this in logs, the warm step itself failed.
+            logger.warning("F-Value cache empty — F-VALUE column will be blank. "
+                           "Run F-Value screener or check tv_fundamentals sync.")
     except Exception as e:
-        logger.debug(f"F-Value lookup failed: {e}")
+        logger.warning(f"F-Value lookup failed: {e}")
 
     # Enrich each ticker
     for t in tickers:

@@ -915,6 +915,14 @@ async def get_smart_money(days: int = 10):
     """
     Smart Money Intelligence: per-ticker IV/PPV/BS signals enriched with
     RS, Stage, Sector, IV Range, FVG, Insider Buys, F-Value.
+
+    Cache warm-on-miss:
+      enrich_smart_money is a pure consumer of two caches —
+      _rs_cache["rs_India"] and get_cache("fvalue_India"). If either is
+      cold (e.g., user lands on Smart Money before visiting RS or F-Value
+      tabs), the corresponding columns silently render blank and any
+      filter that keys off them returns zero rows. To prevent this, we
+      pre-warm both caches here before calling enrich_smart_money.
     """
     from smart_money import compute_smart_money_signals, enrich_smart_money
     loop = asyncio.get_event_loop()
@@ -922,6 +930,39 @@ async def get_smart_money(days: int = 10):
         sm_data = await loop.run_in_executor(executor, compute_smart_money_signals, "India", days)
         if sm_data.get("error"):
             return sm_data
+
+        # ── Warm RS cache if cold ────────────────────────────────────────────
+        rs_key = _rs_cache_key("India")
+        if rs_key not in _rs_cache:
+            logger.info("[smart-money] RS cache cold — warming")
+            try:
+                rs_result = await loop.run_in_executor(executor, _compute_rs_rankings, "India")
+                if "error" not in rs_result:
+                    _enrich_stocks_mcap(rs_result.get("stocks", []))
+                    rs_result.pop("_stock_data", None)
+                    _rs_cache[rs_key] = {"data": rs_result, "ts": datetime.now(timezone.utc)}
+                    logger.info(f"[smart-money] RS cache warmed: {len(rs_result.get('stocks', []))} stocks")
+                else:
+                    logger.warning(f"[smart-money] RS warm returned error: {rs_result.get('error')}")
+            except Exception as _e:
+                logger.warning(f"[smart-money] RS warm failed: {_e}")
+
+        # ── Warm F-Value cache if cold ───────────────────────────────────────
+        fv_cache_key = "fvalue_India"
+        if not get_cache(fv_cache_key):
+            logger.info("[smart-money] F-Value cache cold — warming")
+            try:
+                from fvalue import run_fvalue_screener
+                fv_result = await loop.run_in_executor(
+                    executor, lambda: run_fvalue_screener(market="India")
+                )
+                if fv_result.get("stocks"):
+                    set_cache(fv_cache_key, fv_result)
+                    logger.info(f"[smart-money] F-Value cache warmed: {len(fv_result.get('stocks', []))} stocks")
+                else:
+                    logger.warning("[smart-money] F-Value warm returned no stocks — F-VALUE column will be blank. Run /api/fundamentals/tv-sync to refresh tv_fundamentals table.")
+            except Exception as _e:
+                logger.warning(f"[smart-money] F-Value warm failed: {_e}")
 
         # Enrich with RS rankings + insider data + F-Value
         rs_cache_data = _rs_cache.get(_rs_cache_key("India"), {})
