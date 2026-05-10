@@ -946,19 +946,34 @@ def run_smart_screener(
     import threading as _threading
     _results_lock = _threading.Lock()
 
+    # Track Pass 2 failures for diagnostic logging at the end
+    _pass2_failures = []          # list of (ticker, error_str)
+    _pass2_failures_lock = _threading.Lock()
+
     def _score_one(cand):
         """Score a single candidate — pure DB reads, no network.
         Fundamentals: TV batch DB (tv_fundamentals table) — instant
         Technicals:   OHLCV DB computation — no network
+
+        Robustness:
+          On any exception, we no longer silently drop the candidate
+          (the previous behavior caused "15 candidates → 0 scored"
+          black-holes when fundamentals data was missing). Instead we
+          return a stub row with technicals-only data and tag it
+          score_status='partial', so the user still sees Pass 1
+          winners even when fundamentals scoring breaks.
         """
         ticker = cand["ticker"]
+        screener_data = None
+        om = None
+        tech = None
         try:
             # ── Fundamentals: TV batch DB — instant, no network ───────────────
             try:
                 from tv_fundamentals import get_screener_data_fast
                 screener_data = get_screener_data_fast(ticker)
-            except ImportError:
-                screener_data = {"error": "tv_fundamentals not available", "ticker": ticker}
+            except Exception as _fe:
+                screener_data = {"error": f"tv_fundamentals: {_fe}", "ticker": ticker}
             om    = compute_om_score(screener_data)
             tech  = compute_technicals(ticker)
             smart = compute_smart_score(om, tech)
@@ -974,7 +989,8 @@ def run_smart_screener(
                 "company":       screener_data.get("company_name", ticker),
                 "price":         cand["price"],
                 "smart_score":   score,
-                "passed":        score >= min_smart,  # Flag: meets threshold
+                "passed":        score >= min_smart,
+                "score_status":  "full",
                 "verdict":       smart["verdict"],
                 "verdict_color": smart["verdict_color"],
                 "fund_score":    smart["components"]["fund"]["score"],
@@ -997,8 +1013,57 @@ def run_smart_screener(
                 "sector":        screener_data.get("sector", ""),
             }
         except Exception as e:
-            logger.debug(f"SMART score failed {ticker}: {e}")
-            return None
+            # Visible logging (was logger.debug — silent in production)
+            import traceback
+            tb = traceback.format_exc()
+            logger.warning(f"SMART score failed {ticker}: {e}")
+            logger.debug(f"SMART score traceback for {ticker}:\n{tb}")
+            with _pass2_failures_lock:
+                _pass2_failures.append((ticker, str(e)))
+
+            # ── Fallback stub: technicals-only row, NEVER drop the candidate
+            # The user filtered for it; show it even if scoring partially failed.
+            try:
+                tech_safe = tech if tech is not None else compute_technicals(ticker)
+            except Exception:
+                tech_safe = {}
+            try:
+                mcap_data = get_mcap_for_ticker(ticker) or {}
+                mcap_cr = mcap_data.get("mcap_cr", 0) or 0
+            except Exception:
+                mcap_data = {}
+                mcap_cr = 0
+
+            return {
+                "ticker":        ticker,
+                "company":       (screener_data or {}).get("company_name", ticker)
+                                  if isinstance(screener_data, dict) else ticker,
+                "price":         cand["price"],
+                "smart_score":   None,
+                "passed":        False,
+                "score_status":  "partial",
+                "score_error":   str(e)[:200],
+                "verdict":       "Partial",
+                "verdict_color": "grey",
+                "fund_score":    None,
+                "tech_score":    tech_safe.get("tech_health", 0) if tech_safe else 0,
+                "rs_score":      tech_safe.get("rs_rank", 0) if tech_safe else 0,
+                "stage_score":   None,
+                "tpr_score":     tech_safe.get("tpr", 0) if tech_safe else 0,
+                "stage":         tech_safe.get("stage", "") if tech_safe else "",
+                "stage_num":     tech_safe.get("stage_num", 0) if tech_safe else 0,
+                "rs_rank":       tech_safe.get("rs_rank", 0) if tech_safe else 0,
+                "ad_rating":     tech_safe.get("ad_rating", "N/A") if tech_safe else "N/A",
+                "tpr":           tech_safe.get("tpr", 0) if tech_safe else 0,
+                "pct_from_high": cand["pct_from_high"],
+                "om_grade":      "N/A",
+                "om_pass_count": 0,
+                "mcap_cr":       mcap_cr,
+                "mcap_tier":     mcap_data.get("mcap_tier", ""),
+                "mcap_fmt":      format_mcap(mcap_cr),
+                "tags":          ["Scoring Partial"],
+                "sector":        "",
+            }
 
     # 8 parallel workers — pure DB reads, safe to parallelise
     total_cands = len(candidates)
@@ -1021,18 +1086,111 @@ def run_smart_screener(
                 with _results_lock:
                     results.append(res)
 
-    # Sort by smart score descending
-    results.sort(key=lambda x: x["smart_score"], reverse=True)
+    # Sort by smart score descending — None last (partial rows)
+    results.sort(key=lambda x: (x.get("smart_score") is None, -(x.get("smart_score") or 0)))
 
     elapsed = round(_time.time() - t0, 2)
     total_screened = len(candidates)
 
     passed = [r for r in results if r.get("passed")]
+    full_scored = [r for r in results if r.get("score_status") == "full"]
+    partial = [r for r in results if r.get("score_status") == "partial"]
+
+    # ── Pass 2 failure diagnostics ─────────────────────────────────────────────
+    if _pass2_failures:
+        logger.warning(
+            f"SMART Screener Pass 2: {len(_pass2_failures)}/{total_screened} candidates "
+            f"failed scoring — most common error pattern below"
+        )
+        # Group by error message prefix (first 80 chars)
+        from collections import Counter
+        err_counts = Counter(err[:80] for _, err in _pass2_failures)
+        for err_msg, count in err_counts.most_common(3):
+            logger.warning(f"  [{count}×] {err_msg}")
+
+    # ── Pass-1-only fallback ───────────────────────────────────────────────────
+    # If Pass 2 produced ZERO full scores but Pass 1 found candidates, we
+    # fall back to displaying the Pass 1 candidate list directly.
+    # This prevents the user from seeing a confusing "0 stocks SMART ≥X |
+    # 15 candidates" result with an empty table.
+    pass1_only = False
+    if not full_scored and candidates:
+        pass1_only = True
+        logger.warning(
+            f"SMART Screener: Pass 2 produced 0 full scores from {len(candidates)} "
+            f"candidates — falling back to Pass-1 candidate list"
+        )
+        # Rebuild results from Pass 1 candidates with technicals-only.
+        # Reuse partial rows we already computed where possible.
+        existing_by_ticker = {r["ticker"]: r for r in results}
+        results = []
+        for c in candidates:
+            t = c["ticker"]
+            if t in existing_by_ticker:
+                # Already have a partial row with technicals — reuse
+                results.append(existing_by_ticker[t])
+            else:
+                # Build a minimal technical-only row from Pass 1 data
+                try:
+                    tech_safe = compute_technicals(t)
+                except Exception:
+                    tech_safe = {}
+                try:
+                    mcap_data = get_mcap_for_ticker(t) or {}
+                    mcap_cr = mcap_data.get("mcap_cr", 0) or 0
+                except Exception:
+                    mcap_data = {}
+                    mcap_cr = 0
+                results.append({
+                    "ticker":        t,
+                    "company":       t,
+                    "price":         c["price"],
+                    "smart_score":   None,
+                    "passed":        False,
+                    "score_status":  "pass1_only",
+                    "verdict":       "Pass 1",
+                    "verdict_color": "grey",
+                    "fund_score":    None,
+                    "tech_score":    tech_safe.get("tech_health", 0),
+                    "rs_score":      tech_safe.get("rs_rank", 0),
+                    "stage_score":   None,
+                    "tpr_score":     tech_safe.get("tpr", 0),
+                    "stage":         tech_safe.get("stage", ""),
+                    "stage_num":     tech_safe.get("stage_num", 0),
+                    "rs_rank":       tech_safe.get("rs_rank", 0),
+                    "ad_rating":     tech_safe.get("ad_rating", "N/A"),
+                    "tpr":           tech_safe.get("tpr", 0),
+                    "pct_from_high": c["pct_from_high"],
+                    "om_grade":      "N/A",
+                    "om_pass_count": 0,
+                    "mcap_cr":       mcap_cr,
+                    "mcap_tier":     mcap_data.get("mcap_tier", ""),
+                    "mcap_fmt":      format_mcap(mcap_cr),
+                    "tags":          ["Pass 1 Only"],
+                    "sector":        "",
+                })
+        # Sort fallback list by RS proxy (best candidates first)
+        results.sort(key=lambda x: -(x.get("rs_score") or 0))
+
+    # Build user-facing message
+    if pass1_only:
+        message = (
+            f"⚠ Showing {len(results)} Pass-1 candidates (Stage 2 + RS≥{min_rs}). "
+            f"Pass 2 (SMART scoring) failed for all candidates — "
+            f"check backend log for details. tv_fundamentals may need re-sync."
+        )
+    else:
+        message = (
+            f"✅ {len(passed)} stocks SMART ≥{min_smart} | "
+            f"{len(full_scored)} fully scored"
+            + (f" | {len(partial)} partial" if partial else "")
+            + f" | {total_screened} candidates | {len(tickers_with_data)} universe"
+        )
 
     result = {
         "stocks":          results,
-        "total":           len(passed),
-        "total_scored":    len(results),
+        "total":           len(passed) if not pass1_only else len(results),
+        "total_scored":    len(full_scored),
         "screened":        total_screened,
         "pre_filter_total": len(tickers_with_data),
         "min_smart":       min_smart,
@@ -1040,10 +1198,10 @@ def run_smart_screener(
         "require_stage2":  require_stage2,
         "elapsed":         elapsed,
         "cached":          False,
-        "message": (
-            f"✅ {len(passed)} stocks SMART ≥{min_smart} | "
-            f"{len(results)} scored | {total_screened} candidates | {len(tickers_with_data)} universe"
-        ),
+        "pass1_only":      pass1_only,
+        "partial_count":   len(partial),
+        "failure_count":   len(_pass2_failures),
+        "message":         message,
     }
 
     # Cache result

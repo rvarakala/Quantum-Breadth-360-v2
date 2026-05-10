@@ -81,9 +81,18 @@ function _renderSmartScrTable(stocks) {
   }).join('');
 
   const tbody = page.map((s, i) => {
-    // SMART pill
-    const pillCls = s.smart_score >= 70 ? 'strong' : s.smart_score >= 60 ? 'good' : 'avoid';
-    const smartPill = `<span class="smart-score-pill ${pillCls}">${s.smart_score}</span>`;
+    // SMART pill — handle null scores (partial / pass1-only rows)
+    let smartPill;
+    if (s.smart_score === null || s.smart_score === undefined) {
+      const lbl = s.score_status === 'pass1_only' ? 'P1' : '—';
+      const tip = s.score_error
+        ? `Scoring failed: ${s.score_error}`
+        : 'Pass-1 candidate — full scoring not available';
+      smartPill = `<span class="smart-score-pill" style="background:#475569;color:#cbd5e1" title="${tip}">${lbl}</span>`;
+    } else {
+      const pillCls = s.smart_score >= 70 ? 'strong' : s.smart_score >= 60 ? 'good' : 'avoid';
+      smartPill = `<span class="smart-score-pill ${pillCls}">${s.smart_score}</span>`;
+    }
 
     // Stage badge
     const stageColor = s.stage_num === 2 ? '#22c55e' : s.stage_num === 1 ? '#60a5fa' :
@@ -149,7 +158,28 @@ function _renderSmartScrTable(stocks) {
         ${_smartScrPage===totalPages?'disabled':''}>Next →</button>
     </div>`;
 
+  // Pass-1-only banner: rendered when SMART scoring failed for all candidates
+  // and the screener fell back to displaying Stage-2/RS pre-filter winners.
+  const banner = (_smartScrData && _smartScrData.pass1_only) ? `
+    <div style="background:#3a2a0a;border:1px solid #d97706;border-radius:6px;
+      padding:10px 14px;margin-bottom:12px;font-family:var(--font-mono);font-size:11px;
+      color:#fde68a;line-height:1.6">
+      <strong style="color:#fbbf24">⚠ Pass-1 fallback mode</strong> —
+      ${_smartScrData.failure_count || sorted.length} candidates failed full SMART scoring.
+      Showing technical pre-filter winners (Stage 2 + RS≥${_smartScrData.min_rs}).
+      <span style="color:var(--text3)">Re-run after refreshing tv_fundamentals; check backend log for the specific error.</span>
+    </div>` : '';
+
+  // Partial-rows note: at least some rows were fully scored, but a few failed
+  const partialNote = (_smartScrData && _smartScrData.partial_count > 0 && !_smartScrData.pass1_only) ? `
+    <div style="background:#1e293b;border:1px solid #475569;border-radius:4px;
+      padding:6px 10px;margin-bottom:8px;font-family:var(--font-mono);font-size:10px;
+      color:#94a3b8">
+      ℹ ${_smartScrData.partial_count} candidate(s) scored partially (fundamentals data unavailable) — shown with "—" pill.
+    </div>` : '';
+
   wrap.innerHTML = `
+    ${banner}${partialNote}
     <table class="smart-scr-tbl">
       <thead><tr>${thead}</tr></thead>
       <tbody>${tbody}</tbody>
