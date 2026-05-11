@@ -35,24 +35,47 @@ _sentiment_cache: Dict[str, Dict[str, Any]] = {}  # headline_hash -> {label, cac
 NEWS_CACHE_TTL = 600           # 10 min
 SENTIMENT_CACHE_TTL = 1800     # 30 min
 
-# Category → RSS feeds. Multiple per category for coverage.
+# Category → RSS feeds. India-native sources for NSE/Indian-market focus.
+# Order: Moneycontrol (most reliable for Indian equities) → Livemint → ET → BS.
+# Each tuple: (source_label, url). source_label appears in the UI.
 FEED_CATALOG = {
     "all": [
-        ("Stock Market", "https://in.investing.com/rss/news_25.rss"),
-        ("Economy",      "https://in.investing.com/rss/news_14.rss"),
-        ("Commodities",  "https://in.investing.com/rss/news_11.rss"),
-        ("Latest",       "https://in.investing.com/rss/news_477.rss"),
+        ("Moneycontrol Markets", "https://www.moneycontrol.com/rss/marketsnews.xml"),
+        ("Moneycontrol Business","https://www.moneycontrol.com/rss/business.xml"),
+        ("Livemint Markets",     "https://www.livemint.com/rss/markets"),
+        ("ET Markets",           "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"),
+        ("BS Markets",           "https://www.business-standard.com/rss/markets-106.rss"),
     ],
     "stocks": [
-        ("Stock Market", "https://in.investing.com/rss/news_25.rss"),
-        ("Earnings",     "https://in.investing.com/rss/news_1062.rss"),
+        ("Moneycontrol Reports", "https://www.moneycontrol.com/rss/marketreports.xml"),
+        ("Livemint Companies",   "https://www.livemint.com/rss/companies"),
+        ("BS Companies",         "https://www.business-standard.com/rss/companies-101.rss"),
+        ("ET Stocks",            "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms"),
     ],
     "macro": [
-        ("Economy",      "https://in.investing.com/rss/news_14.rss"),
-        ("Indicators",   "https://in.investing.com/rss/news_95.rss"),
-        ("Commodities",  "https://in.investing.com/rss/news_11.rss"),
+        ("Moneycontrol Economy", "https://www.moneycontrol.com/rss/economy.xml"),
+        ("Livemint Economy",     "https://www.livemint.com/rss/economy"),
+        ("ET Economy",           "https://economictimes.indiatimes.com/news/economy/rssfeeds/1373380680.cms"),
+        ("BS Economy",           "https://www.business-standard.com/rss/economy-policy-103.rss"),
     ],
 }
+
+# Relevance filter — backstop in case an India-native feed leaks global news.
+# An item passes if its title OR summary contains any of these keywords
+# OR mentions a known NSE ticker symbol from the ticker_universe table.
+_INDIA_KEYWORDS = {
+    # Markets and regulators
+    "nifty", "sensex", "nse", "bse", "rbi", "sebi", "irdai",
+    # Geography
+    "india", "indian", "mumbai", "delhi", "bengaluru", "bangalore",
+    "hyderabad", "chennai", "kolkata", "pune", "ahmedabad",
+    # Currency
+    "rupee", "₹", "lakh", "crore", "cr ",
+    # Big Indian themes that don't mention "India"
+    "modi", "nirmala", "sitharaman", "gst", "fii", "dii",
+}
+MIN_RELEVANT_RATIO = 0.0   # currently any single match suffices. Tune up to
+                            # require multiple matches if false positives appear.
 
 MAX_ITEMS_PER_FEED = 8
 MAX_ITEMS_RETURNED = 12
@@ -131,6 +154,69 @@ def _dedupe_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         seen.add(url)
         out.append(it)
     return out
+
+
+# Cache of NSE ticker symbols loaded from ticker_universe table.
+# Loaded lazily on first filter call; reset only on backend restart.
+_nse_tickers_cache: Optional[set] = None
+
+def _get_nse_tickers() -> set:
+    """Return uppercase set of NSE tickers for relevance matching. Cached."""
+    global _nse_tickers_cache
+    if _nse_tickers_cache is not None:
+        return _nse_tickers_cache
+    try:
+        import sqlite3
+        conn = sqlite3.connect(str(DB_PATH), timeout=10)
+        rows = conn.execute(
+            "SELECT ticker FROM ticker_universe WHERE market='India'"
+        ).fetchall()
+        conn.close()
+        # Strip common suffixes like .NS that might appear in some pipelines
+        _nse_tickers_cache = {r[0].upper().replace(".NS", "") for r in rows if r[0]}
+        logger.info(f"[news] loaded {len(_nse_tickers_cache)} NSE tickers for relevance filter")
+    except Exception as e:
+        logger.warning(f"[news] ticker_universe load failed: {e} — filter falls back to keywords only")
+        _nse_tickers_cache = set()
+    return _nse_tickers_cache
+
+
+def _is_india_relevant(item: Dict[str, Any]) -> bool:
+    """
+    Returns True if the news item is relevant to Indian markets.
+    Item passes if title or summary contains:
+      1. Any keyword from _INDIA_KEYWORDS (Nifty, RBI, India, rupee, etc.), OR
+      2. Any NSE ticker symbol (whole-word match, case-insensitive).
+    """
+    blob = f"{item.get('title','')} {item.get('summary','')}".lower()
+    if not blob.strip():
+        return False
+
+    # Fast path: keyword check (set membership in tokenized text)
+    for kw in _INDIA_KEYWORDS:
+        if kw in blob:
+            return True
+
+    # Slower path: check for NSE ticker symbols. Use whole-word boundaries
+    # so "RELIANCE" doesn't match "appliance".
+    tickers = _get_nse_tickers()
+    if not tickers:
+        return False
+    # Tokenize on word boundaries; intersect with ticker set
+    tokens = set(re.findall(r"\b[A-Z]{2,15}\b", item.get("title", "")))
+    tokens |= set(re.findall(r"\b[A-Z]{2,15}\b", item.get("summary", "")))
+    return bool(tokens & tickers)
+
+
+def _filter_relevance(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Drop items that don't look India-relevant. Logs how many filtered."""
+    if not items:
+        return items
+    kept = [it for it in items if _is_india_relevant(it)]
+    dropped = len(items) - len(kept)
+    if dropped:
+        logger.info(f"[news] relevance filter: kept {len(kept)}/{len(items)} (dropped {dropped} non-India)")
+    return kept
 
 
 def _time_ago(epoch: int) -> str:
@@ -295,8 +381,10 @@ def get_market_news(category: str = "all", enable_sentiment: bool = True) -> Dic
             items = fut.result()
             all_items.extend(items)
 
-    # Dedupe + sort by recency
+    # Dedupe + apply India-relevance filter (backstop for any global news
+    # leaking through India-native feeds) + sort by recency.
     all_items = _dedupe_items(all_items)
+    all_items = _filter_relevance(all_items)
     all_items.sort(key=lambda x: x["published_epoch"], reverse=True)
     all_items = all_items[:MAX_ITEMS_RETURNED]
 
