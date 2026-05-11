@@ -60,6 +60,18 @@ def _set_cache(key: str, data: Dict[str, Any]) -> None:
     _cache[key] = {"data": data, "fetched_at": time.time()}
 
 
+# Short-TTL cache for negative results: stored with a timestamp 60 seconds
+# in the past so it expires from the normal _get_cached lookup quickly.
+# This means: incomplete payload → next request retries within 60s instead
+# of waiting the full 5–30 min TTL.
+NEGATIVE_CACHE_TTL = 60
+
+def _set_cache_short(key: str, data: Dict[str, Any]) -> None:
+    # Trick: backdate fetched_at so age = ttl - 60s, giving us a 60s effective TTL
+    fake_age = max(0, _cache_ttl() - NEGATIVE_CACHE_TTL)
+    _cache[key] = {"data": data, "fetched_at": time.time() - fake_age}
+
+
 def _fetch_yfinance(ticker: str) -> Optional[Dict[str, Any]]:
     """Fetch last price + previous close via yfinance. Returns None on failure.
 
@@ -87,7 +99,7 @@ def _fetch_yfinance(ticker: str) -> Optional[Dict[str, Any]]:
         if not price or not prev_close:
             hist = t.history(period="5d", interval="1d")
             if hist.empty or len(hist) < 2:
-                logger.warning(f"yfinance history empty for {ticker}")
+                logger.warning(f"yfinance history empty source=yfinance ticker={ticker}")
                 return None
             price = float(hist["Close"].iloc[-1])
             prev_close = float(hist["Close"].iloc[-2])
@@ -103,10 +115,171 @@ def _fetch_yfinance(ticker: str) -> Optional[Dict[str, Any]]:
             "change": round(change, 2),
             "change_pct": round(change_pct, 2),
             "status": "OK",
+            "source": "yfinance",
         }
     except Exception as e:
-        logger.warning(f"yfinance fetch failed for {ticker}: {e}")
+        logger.warning(f"fetch failed source=yfinance ticker={ticker} error={e}")
         return None
+
+
+# yfinance ticker → Stooq symbol mapping. Stooq has different conventions:
+#   ^GSPC (S&P 500) → ^spx
+#   ^IXIC (Nasdaq)  → ^ndq
+#   ^N225 (Nikkei)  → ^nkx
+#   ^HSI  (Hang Seng) → ^hsi
+#   ^NSEI (Nifty 50) → ^nsei (works too — for GIFT NIFTY fallback chain)
+_STOOQ_MAP = {
+    "^GSPC": "^spx",
+    "^IXIC": "^ndq",
+    "^N225": "^nkx",
+    "^HSI":  "^hsi",
+    "^NSEI": "^nsei",
+}
+
+
+def _fetch_stooq(ticker: str) -> Optional[Dict[str, Any]]:
+    """Fallback: fetch last 2 daily closes from Stooq CSV. Free, no auth, no
+    rate limits. Returns None on failure (caller falls through to next source).
+
+    Endpoint: https://stooq.com/q/d/l/?s=<symbol>&i=d
+    Returns CSV: Date,Open,High,Low,Close,Volume
+    We need the last 2 rows to compute change vs previous close.
+
+    Note: Stooq blocks data-center IPs (AWS/GCP/Azure). On residential or
+    business ISPs it works reliably. If you see 403 in logs, fall-through
+    to Yahoo direct chart API will handle it.
+    """
+    stooq_symbol = _STOOQ_MAP.get(ticker)
+    if not stooq_symbol:
+        logger.debug(f"no Stooq mapping for {ticker}")
+        return None
+    url = f"https://stooq.com/q/d/l/?s={stooq_symbol}&i=d"
+    try:
+        r = requests.get(url, timeout=8, headers={
+            "User-Agent": "Mozilla/5.0 QB360/1.0",
+        })
+        if r.status_code != 200:
+            logger.warning(f"fetch failed source=stooq ticker={ticker} http={r.status_code}")
+            return None
+        text = r.text.strip()
+        # Stooq returns "No data" or empty body when symbol is invalid
+        if not text or text.lower().startswith("no data") or "<html" in text.lower():
+            logger.warning(f"fetch failed source=stooq ticker={ticker} reason=no_data")
+            return None
+        lines = text.splitlines()
+        if len(lines) < 3:   # header + at least 2 data rows
+            logger.warning(f"fetch failed source=stooq ticker={ticker} reason=insufficient_rows")
+            return None
+        # Header: Date,Open,High,Low,Close,Volume
+        # Take last 2 data rows (latest is last line)
+        last_row = lines[-1].split(",")
+        prev_row = lines[-2].split(",")
+        if len(last_row) < 5 or len(prev_row) < 5:
+            logger.warning(f"fetch failed source=stooq ticker={ticker} reason=malformed_csv")
+            return None
+        price = float(last_row[4])
+        prev_close = float(prev_row[4])
+        if not price or not prev_close or prev_close == 0:
+            return None
+        change = price - prev_close
+        change_pct = (change / prev_close) * 100
+        return {
+            "price": round(price, 2),
+            "prev_close": round(prev_close, 2),
+            "change": round(change, 2),
+            "change_pct": round(change_pct, 2),
+            "status": "OK",
+            "source": "stooq",
+        }
+    except Exception as e:
+        logger.warning(f"fetch failed source=stooq ticker={ticker} error={e}")
+        return None
+
+
+def _fetch_yahoo_direct(ticker: str) -> Optional[Dict[str, Any]]:
+    """Third-tier fallback: call Yahoo Finance's chart JSON API directly,
+    bypassing the yfinance Python wrapper entirely.
+
+    Why this works when yfinance fails:
+      - yfinance maintains its own session state, cookies, and crumb tokens
+        that occasionally break or get stuck mid-day. The raw chart API
+        has no such state — every call is independent.
+      - Useful when yfinance's fast_info or .history() returns empty due to
+        the wrapper, not Yahoo's actual data.
+
+    Endpoint returns JSON with timestamps and close prices for the last N
+    intervals. We need the last 2 daily closes.
+    """
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+    params = {"range": "5d", "interval": "1d"}
+    try:
+        r = requests.get(url, params=params, timeout=8, headers={
+            "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) "
+                           "Chrome/120.0.0.0 Safari/537.36"),
+        })
+        if r.status_code != 200:
+            logger.warning(f"fetch failed source=yahoo_direct ticker={ticker} http={r.status_code}")
+            return None
+        data = r.json()
+        chart = data.get("chart", {})
+        if chart.get("error"):
+            logger.warning(f"fetch failed source=yahoo_direct ticker={ticker} api_error={chart['error']}")
+            return None
+        results = chart.get("result", [])
+        if not results:
+            return None
+        result = results[0]
+        closes = result.get("indicators", {}).get("quote", [{}])[0].get("close", [])
+        # Strip None values that Yahoo sometimes returns for incomplete bars
+        valid = [c for c in closes if c is not None]
+        if len(valid) < 2:
+            logger.warning(f"fetch failed source=yahoo_direct ticker={ticker} reason=insufficient_closes")
+            return None
+        price = float(valid[-1])
+        prev_close = float(valid[-2])
+        if not price or not prev_close or prev_close == 0:
+            return None
+        change = price - prev_close
+        change_pct = (change / prev_close) * 100
+        return {
+            "price": round(price, 2),
+            "prev_close": round(prev_close, 2),
+            "change": round(change, 2),
+            "change_pct": round(change_pct, 2),
+            "status": "OK",
+            "source": "yahoo_direct",
+        }
+    except Exception as e:
+        logger.warning(f"fetch failed source=yahoo_direct ticker={ticker} error={e}")
+        return None
+
+
+def _fetch_with_fallback(ticker: str) -> Optional[Dict[str, Any]]:
+    """
+    Try yfinance → Stooq → Yahoo direct chart API. Returns the first
+    successful payload, or None if all three sources fail.
+
+    Three independent sources give high resilience:
+      - yfinance: well-tested library, can hit rate limits or wrapper bugs
+      - Stooq: simple CSV, no auth, blocks data-center IPs
+      - Yahoo direct: bypasses yfinance wrapper, works when yfinance is stuck
+    """
+    data = _fetch_yfinance(ticker)
+    if data:
+        return data
+    logger.info(f"[global-markets] yfinance miss for {ticker} — trying Stooq")
+    data = _fetch_stooq(ticker)
+    if data:
+        logger.info(f"[global-markets] ✅ Stooq served {ticker}")
+        return data
+    logger.info(f"[global-markets] Stooq miss for {ticker} — trying Yahoo direct")
+    data = _fetch_yahoo_direct(ticker)
+    if data:
+        logger.info(f"[global-markets] ✅ Yahoo direct served {ticker}")
+        return data
+    logger.warning(f"[global-markets] ❌ all 3 sources failed for {ticker}")
+    return None
 
 
 def _fetch_gift_nifty() -> Optional[Dict[str, Any]]:
@@ -156,9 +329,9 @@ def _fetch_gift_nifty() -> Optional[Dict[str, Any]]:
             "status": "OK",
         }
     except Exception as e:
-        logger.warning(f"GIFT NIFTY scrape failed: {e} — falling back to ^NSEI")
-        # Fallback: spot NIFTY from yfinance
-        fallback = _fetch_yfinance("^NSEI")
+        logger.warning(f"GIFT NIFTY scrape failed: {e} — falling back to ^NSEI via yfinance/Stooq")
+        # Fallback: spot NIFTY from yfinance, then Stooq
+        fallback = _fetch_with_fallback("^NSEI")
         if fallback:
             fallback["status"] = "FALLBACK_SPOT"
         return fallback
@@ -188,7 +361,12 @@ def _compute_tone(markets: List[Dict[str, Any]]) -> Dict[str, Any]:
 def get_global_markets() -> Dict[str, Any]:
     """
     Main entry. Returns dict with tone + per-market details.
-    Individual fetch failures degrade gracefully.
+    Individual fetch failures degrade gracefully through yfinance → Stooq.
+
+    Negative-caching guard:
+      If the resulting payload is incomplete (any market UNAVAILABLE), cache
+      it for only 60s instead of the normal 5–30 min. This prevents a single
+      transient outage from poisoning the cache for half an hour.
     """
     cached = _get_cached("global_markets_payload")
     if cached:
@@ -207,7 +385,8 @@ def get_global_markets() -> Dict[str, Any]:
             if cfg["source"] == "investing":
                 data = _fetch_gift_nifty()
             else:
-                data = _fetch_yfinance(cfg["ticker"])
+                # Two-tier fetch: yfinance → Stooq
+                data = _fetch_with_fallback(cfg["ticker"])
             if data:
                 entry.update(data)
         except Exception as e:
@@ -221,5 +400,15 @@ def get_global_markets() -> Dict[str, Any]:
         "updated_at": datetime.now(IST).isoformat(),
         "markets": markets,
     }
-    _set_cache("global_markets_payload", payload)
+
+    # Adaptive cache TTL — only commit failed payload to short cache,
+    # so the next request retries quickly. Complete payloads use normal TTL.
+    has_failures = any(m.get("status") == "UNAVAILABLE" for m in markets)
+    if has_failures:
+        _set_cache_short("global_markets_payload", payload)
+        failed_keys = [m["key"] for m in markets if m["status"] == "UNAVAILABLE"]
+        logger.warning(f"[global-markets] incomplete payload — {failed_keys} unavailable, short cache (60s)")
+    else:
+        _set_cache("global_markets_payload", payload)
+
     return payload
