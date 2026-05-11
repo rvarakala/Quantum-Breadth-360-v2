@@ -3971,6 +3971,22 @@ async def api_sector_rs():
         return {"error": str(e), "leaders": [], "laggards": []}
 
 
+@app.get("/api/overview/earnings")
+async def api_earnings_calendar():
+    """Card 4: companies reporting earnings in the next 7 trading days.
+    Source priority: NSE corporate event-calendar → Moneycontrol scrape.
+    Filtered to NIFTY 500 universe. 4-hour SQLite cache.
+    """
+    try:
+        from earnings_calendar import get_earnings_calendar
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(executor, get_earnings_calendar)
+        return data
+    except Exception as e:
+        logger.error(f"earnings calendar error: {e}", exc_info=True)
+        return {"error": str(e), "items": [], "count": 0}
+
+
 if __name__=="__main__":
     import uvicorn
     print("\n🚀  Market Breadth Engine v2.0")
