@@ -291,6 +291,10 @@ async function runSmartScreener() {
         }
 
         _renderSmartScrTable(s.result.stocks || []);
+
+        // Reveal export bar (PNG/PDF/Excel/CSV) — only when we have rows
+        const bar = document.getElementById('smart-scr-export-bar');
+        if (bar) bar.style.display = (s.result.stocks && s.result.stocks.length) ? 'flex' : 'none';
       }
     } catch(e) { /* ignore polling errors */ }
   }, 2000);
@@ -298,3 +302,138 @@ async function runSmartScreener() {
 
 // ── Click ticker → go to Smart Metrics ───────────────────────────────────────
 // loadSmartMetrics is defined in smart-metrics.js — ticker-link opens it
+
+// ── Export: PNG / PDF / Excel / CSV ──────────────────────────────────────────
+// Reuses existing libraries already loaded in index.html:
+//   html2canvas (PNG), jsPDF + autotable (PDF), XLSX/SheetJS (Excel + CSV)
+// Filename pattern matches other tabs: smart_screener_YYYY-MM-DD.<ext>
+function _smartScrFilename(ext) {
+  const d = new Date().toISOString().slice(0, 10);
+  return `smart_screener_${d}.${ext}`;
+}
+
+// Build a clean row array from _smartScrData for tabular exports.
+// Drops UI-only fields (tags, colors), uses readable column names,
+// handles null SMART scores (partial / pass1-only rows) gracefully.
+function _smartScrRows() {
+  if (!_smartScrData || !_smartScrData.stocks) return [];
+  return _smartScrData.stocks.map((s, i) => ({
+    '#':           i + 1,
+    'Ticker':      s.ticker || '',
+    'Company':     s.company || '',
+    'Price':       s.price ?? '',
+    'SMART':       s.smart_score === null || s.smart_score === undefined
+                     ? (s.score_status === 'pass1_only' ? 'P1' : '—')
+                     : s.smart_score,
+    'Verdict':     s.verdict || '',
+    'Fund':        s.fund_score ?? '',
+    'Tech':        s.tech_score ?? '',
+    'Stage':       s.stage || '',
+    'RS':          s.rs_rank ?? '',
+    'A/D':         s.ad_rating || '',
+    'OM Grade':    s.om_grade || '',
+    'TPR':         s.tpr ?? '',
+    '%FromHigh':   s.pct_from_high != null ? Number(s.pct_from_high).toFixed(1) : '',
+    'MCap (Cr)':   s.mcap_cr ?? '',
+    'MCap Tier':   s.mcap_tier || '',
+    'Sector':      s.sector || '',
+    'Tags':        (s.tags || []).join(' | '),
+  }));
+}
+
+function exportSmartScrPNG() {
+  const el = document.querySelector('#smart-scr-tbl-wrap .smart-scr-tbl');
+  if (!el) { alert('No results to export — run the screener first'); return; }
+  if (typeof html2canvas !== 'function') { alert('html2canvas not loaded'); return; }
+  const bg = (window._exportBg ? window._exportBg() : '#0a0e17');
+  html2canvas(el, { backgroundColor: bg, scale: 2 }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = _smartScrFilename('png');
+    a.click();
+  }).catch(err => alert('PNG export failed: ' + err.message));
+}
+
+function exportSmartScrPDF() {
+  const tbl = document.querySelector('#smart-scr-tbl-wrap .smart-scr-tbl');
+  if (!tbl) { alert('No results to export — run the screener first'); return; }
+  if (typeof window.jspdf === 'undefined') { alert('jsPDF not loaded'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l', 'pt', 'a4');
+  const t = document.documentElement.getAttribute('data-theme');
+  const headFill = t === 'editorial' ? [230, 57, 70]      // signal red
+                  : t === 'light'     ? [1, 105, 111]      // teal
+                  : [15, 12, 41];                          // dark
+
+  // Header text on first page
+  const subtitle = _smartScrData
+    ? `${_smartScrData.total || 0} stocks · ${_smartScrData.total_scored || 0} scored · ${_smartScrData.pre_filter_total || 0} universe · SMART ≥${_smartScrData.min_smart || 50} · ${new Date().toISOString().slice(0,10)}`
+    : new Date().toISOString().slice(0,10);
+  doc.setFontSize(14).text('SMART Screener — Quantum Breadth 360', 40, 30);
+  doc.setFontSize(9).setTextColor(120).text(subtitle, 40, 46);
+  doc.setTextColor(0);
+
+  doc.autoTable({
+    html: tbl,
+    startY: 58,
+    styles: { fontSize: 7, cellPadding: 3 },
+    headStyles: { fillColor: headFill, fontSize: 8 },
+    margin: { top: 58, left: 30, right: 30 },
+  });
+  doc.save(_smartScrFilename('pdf'));
+}
+
+function exportSmartScrExcel() {
+  const rows = _smartScrRows();
+  if (!rows.length) { alert('No results to export — run the screener first'); return; }
+  if (typeof XLSX === 'undefined') { alert('SheetJS (XLSX) not loaded'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'SMART Screener');
+
+  // Optional metadata sheet for traceability
+  if (_smartScrData) {
+    const meta = [
+      ['Quantum Breadth 360 — SMART Screener Export'],
+      ['Generated', new Date().toISOString()],
+      ['Total passed', _smartScrData.total || 0],
+      ['Total scored', _smartScrData.total_scored || 0],
+      ['Universe',     _smartScrData.pre_filter_total || 0],
+      ['Min SMART',    _smartScrData.min_smart || ''],
+      ['Min RS',       _smartScrData.min_rs || ''],
+      ['Stage 2 only', _smartScrData.require_stage2 ? 'Yes' : 'No'],
+      ['Pass-1 only?', _smartScrData.pass1_only ? 'Yes (Pass 2 failed)' : 'No'],
+    ];
+    const metaWs = XLSX.utils.aoa_to_sheet(meta);
+    XLSX.utils.book_append_sheet(wb, metaWs, 'Info');
+  }
+
+  XLSX.writeFile(wb, _smartScrFilename('xlsx'));
+}
+
+function exportSmartScrCSV() {
+  const rows = _smartScrRows();
+  if (!rows.length) { alert('No results to export — run the screener first'); return; }
+  // Manual CSV build (preserves column order; safer than relying on SheetJS CSV writer)
+  const cols = Object.keys(rows[0]);
+  const esc = v => {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const csv = [cols.join(',')]
+    .concat(rows.map(r => cols.map(c => esc(r[c])).join(',')))
+    .join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  // BOM prefix → Excel opens UTF-8 CSVs without mangling rupee/em-dash characters
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = _smartScrFilename('csv');
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// Expose for inline onclick handlers
+window.exportSmartScrPNG   = exportSmartScrPNG;
+window.exportSmartScrPDF   = exportSmartScrPDF;
+window.exportSmartScrExcel = exportSmartScrExcel;
+window.exportSmartScrCSV   = exportSmartScrCSV;

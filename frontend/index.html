@@ -2416,6 +2416,32 @@
         <span id="sss-cached" style="color:#7c3aed;display:none">⚡ Cached</span>
       </div>
 
+      <!-- Export bar (revealed after a successful run) -->
+      <div id="smart-scr-export-bar" style="display:none;align-items:center;gap:8px;
+        padding:8px 0;margin-bottom:6px;font-family:var(--font-mono);font-size:11px">
+        <span style="color:var(--text3)">Export:</span>
+        <button class="smart-scr-export-btn" onclick="exportSmartScrPNG()"
+          title="Screenshot of results table"
+          style="padding:5px 12px;background:var(--bg2);border:1px solid var(--border2);
+          border-radius:4px;color:var(--text2);cursor:pointer;font-size:11px;
+          font-family:var(--font-mono)">📷 PNG</button>
+        <button class="smart-scr-export-btn" onclick="exportSmartScrPDF()"
+          title="PDF report (landscape A4)"
+          style="padding:5px 12px;background:var(--bg2);border:1px solid var(--border2);
+          border-radius:4px;color:var(--text2);cursor:pointer;font-size:11px;
+          font-family:var(--font-mono)">📄 PDF</button>
+        <button class="smart-scr-export-btn" onclick="exportSmartScrExcel()"
+          title="Excel workbook (.xlsx)"
+          style="padding:5px 12px;background:var(--bg2);border:1px solid var(--border2);
+          border-radius:4px;color:var(--text2);cursor:pointer;font-size:11px;
+          font-family:var(--font-mono)">📊 Excel</button>
+        <button class="smart-scr-export-btn" onclick="exportSmartScrCSV()"
+          title="Plain CSV (.csv)"
+          style="padding:5px 12px;background:var(--bg2);border:1px solid var(--border2);
+          border-radius:4px;color:var(--text2);cursor:pointer;font-size:11px;
+          font-family:var(--font-mono)">📋 CSV</button>
+      </div>
+
       <!-- Results table -->
       <div class="smart-scr-tbl-wrap" id="smart-scr-tbl-wrap">
         <div class="smart-empty-state" id="smart-scr-empty">
