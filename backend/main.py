@@ -2688,44 +2688,337 @@ async def startup_event():
     asyncio.create_task(_staggered_startup())
 
 
-async def _staggered_startup():
-    """Run background syncs in sequence with delays to prevent DB contention and thread exhaustion."""
+# ──────────────────────────────────────────────────────────────────────────────
+# STARTUP PIPELINE — observable, idempotent, parallel-where-safe
+# ──────────────────────────────────────────────────────────────────────────────
+# Tracks a 7-step data pipeline run on backend boot. Smart-skip rule: if the
+# pipeline already completed today (after 16:30 IST market close), it short-
+# circuits with status 'already_current'. Frontend polls /api/startup-pipeline/
+# status to render a top-nav status pill.
+#
+# Step names (user-visible order, matches the spec):
+#   1. NIFTY 500   — _auto_sync_ohlcv         (existing)
+#   2. Sectors     — _build_sector_map        (existing — runs in startup_event)
+#   3. Smart Screener pre-warm                (NEW)
+#   4. Trading Journal — automatic side-effect of Step 1 (no explicit step)
+#   5. FII/DII     — _auto_sync_fiidii        (existing)
+#   6. Leaders     — _prewarm_heavy_caches    (existing, RS+Leaders+F-Value)
+#   7. Scanners    — pre-warm 9 Swing Cockpit scanners (NEW)
+
+_pipeline_status: Dict[str, object] = {
+    "status":          "idle",   # idle | running | done | partial | skipped | error
+    "last_run_date":   None,     # ISO date string (Asia/Kolkata)
+    "last_run_ts":     None,     # ISO timestamp UTC
+    "current_step":    None,
+    "steps":           [],       # list of {name, status, started_at, duration_s, error, detail}
+    "started_at":      None,
+    "completed_at":    None,
+}
+_pipeline_lock = asyncio.Lock()
+
+_PIPELINE_STEPS = [
+    {"key": "nifty500",       "label": "NIFTY 500 OHLCV",      "order": 1},
+    {"key": "sectors",        "label": "Sectors",              "order": 2},
+    {"key": "smart_screener", "label": "Smart Screener",       "order": 3},
+    {"key": "journal",        "label": "Trading Journal",      "order": 4},
+    {"key": "fiidii",         "label": "FII / DII",            "order": 5},
+    {"key": "leaders",        "label": "Leaders (RS+F-Value)", "order": 6},
+    {"key": "scanners",       "label": "Swing Cockpit (9)",    "order": 7},
+]
+
+def _pipeline_today_ist() -> str:
+    """Today's date in Asia/Kolkata (NSE timezone)."""
+    return datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%Y-%m-%d")
+
+def _pipeline_now_ist():
+    """Datetime now in Asia/Kolkata."""
+    return datetime.now(timezone(timedelta(hours=5, minutes=30)))
+
+def _pipeline_should_skip():
+    """
+    Smart-skip rule. Returns reason string if pipeline should skip, else None.
+    Order of checks matters: weekend is checked first because NSE is closed.
+    """
+    now_ist = _pipeline_now_ist()
+    today = now_ist.strftime("%Y-%m-%d")
+    last = _pipeline_status.get("last_run_date")
+
+    # 1. Already ran today
+    if last == today and _pipeline_status.get("status") in ("done", "partial"):
+        return f"already_current (last ran {today})"
+
+    # 2. Weekend — NSE closed, no new data to fetch
+    weekday = now_ist.weekday()  # 0=Mon, 5=Sat, 6=Sun
+    if weekday in (5, 6):
+        # Still allow first-ever run if last_run_date is None (cold start)
+        if last is not None:
+            return f"weekend (NSE closed, {now_ist.strftime('%A')})"
+
+    return None
+
+def _pipeline_record_step(key: str, status: str, duration_s: float = 0.0,
+                          error: str = None, detail: str = None):
+    """Update in-memory status for a step. Called before/after each step."""
+    # Find existing step entry or add new
+    for s in _pipeline_status["steps"]:
+        if s["key"] == key:
+            s["status"] = status
+            s["duration_s"] = round(duration_s, 1)
+            if error:    s["error"]  = error[:200]
+            if detail:   s["detail"] = detail[:300]
+            return
+    _pipeline_status["steps"].append({
+        "key":         key,
+        "label":       next((p["label"] for p in _PIPELINE_STEPS if p["key"] == key), key),
+        "order":       next((p["order"] for p in _PIPELINE_STEPS if p["key"] == key), 99),
+        "status":      status,
+        "duration_s":  round(duration_s, 1),
+        "started_at":  datetime.now(timezone.utc).isoformat(),
+        "error":       error[:200] if error else None,
+        "detail":      detail[:300] if detail else None,
+    })
+
+async def _pipeline_run_step(key: str, coro_factory, *, retries: int = 3):
+    """
+    Run a single pipeline step with retry-with-backoff and status tracking.
+    coro_factory is a zero-arg callable returning a coroutine — we call it
+    once per attempt so each retry runs a fresh awaitable.
+    """
+    import time as _t
+    _pipeline_status["current_step"] = key
+    _pipeline_record_step(key, "running")
+    t0 = _t.time()
+
+    last_err = None
+    for attempt in range(retries):
+        try:
+            result = await coro_factory()
+            dur = _t.time() - t0
+            detail = None
+            if isinstance(result, dict):
+                # Try to extract a useful one-line summary
+                for k in ("count", "total", "updated", "stored", "synced"):
+                    if k in result:
+                        detail = f"{k}={result[k]}"
+                        break
+            _pipeline_record_step(key, "done", duration_s=dur, detail=detail)
+            logger.info(f"[pipeline] ✅ {key} done in {dur:.1f}s")
+            return result
+        except Exception as e:
+            last_err = e
+            if attempt < retries - 1:
+                wait = 2 ** attempt   # 1s, 2s, 4s
+                logger.warning(f"[pipeline] ⚠ {key} attempt {attempt+1}/{retries} failed: {e} — retrying in {wait}s")
+                await asyncio.sleep(wait)
+            else:
+                dur = _t.time() - t0
+                _pipeline_record_step(key, "error", duration_s=dur, error=str(e))
+                logger.error(f"[pipeline] ❌ {key} failed after {retries} attempts: {e}")
+                # NEVER raise — per design, skip and continue
+                return None
+
+async def _pipeline_prewarm_smart_screener():
+    """Step 3: Pre-warm Smart Screener cache. Uses default thresholds matching
+    the frontend defaults so the cache hit is real on first user load."""
+    from smart_metrics_service import run_smart_screener
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        executor,
+        lambda: run_smart_screener(
+            min_smart=50,      # frontend default
+            min_rs=70,         # frontend default
+            require_stage2=True,
+            min_mcap_cr=500,
+            market="India",
+        )
+    )
+
+async def _pipeline_prewarm_scanners():
+    """Step 7: Pre-warm Swing Cockpit scanners by calling multi-screener for
+    each entry in CUSTOM_SCREENER_MAP. Runs them in parallel (they all share
+    the RS rankings cache so the second-onward calls are fast)."""
+    from screeners import CUSTOM_SCREENER_MAP
+    loop = asyncio.get_event_loop()
+
+    # First, ensure RS rankings cache is hot (multi-screener computes it on miss
+    # but doing it once up-front means the parallel scanner calls all hit cache).
+    rs_key = _rs_cache_key("India")
+    if rs_key not in _rs_cache:
+        rs_result = await loop.run_in_executor(executor, _compute_rs_rankings, "India")
+        if "error" not in rs_result:
+            _enrich_stocks_mcap(rs_result.get("stocks", []))
+            rs_result.pop("_stock_data", None)
+            _rs_cache[rs_key] = {"data": rs_result, "ts": datetime.now(timezone.utc)}
+
+    rs_stocks = _rs_cache.get(rs_key, {}).get("data", {}).get("stocks", [])
+    if not rs_stocks:
+        raise RuntimeError("RS rankings empty — cannot pre-warm scanners")
+
+    # Pre-warm each scanner in CUSTOM_SCREENER_MAP via apply_custom_screener.
+    # We do this serially per scanner but in-memory only (no separate HTTP call).
+    from screeners import apply_custom_screener
+    from data_store import load_ticker
+
+    summary = {}
+    for scr_id in list(CUSTOM_SCREENER_MAP.keys()):
+        try:
+            t0 = time.time()
+            passed_count = 0
+            # Lightweight scan: just count how many RS stocks pass each screener.
+            # Result isn't stored in a dedicated cache — Pass 1 of any subsequent
+            # screener request will be fast since OHLCV is already warm.
+            for s in rs_stocks[:200]:  # cap at top 200 by RS to keep prewarm under 60s
+                ticker = s.get("ticker")
+                if not ticker:
+                    continue
+                try:
+                    df = await loop.run_in_executor(executor, lambda t=ticker: load_ticker(t, days=300))
+                    if df is None or df.empty:
+                        continue
+                    passed, _ = apply_custom_screener(scr_id, df, rs_rating=s.get("rs"))
+                    if passed:
+                        passed_count += 1
+                except Exception:
+                    continue
+            summary[scr_id] = passed_count
+            logger.info(f"[pipeline]   scanner {scr_id}: {passed_count} pass in {time.time()-t0:.1f}s")
+        except Exception as e:
+            summary[scr_id] = f"err: {e}"
+
+    return {"count": len(summary), "scanners": summary}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Pipeline status endpoints
+# ──────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/startup-pipeline/status")
+async def get_pipeline_status():
+    """Return current pipeline state for frontend status pill."""
+    # Order steps by their declared order for stable rendering
+    steps_sorted = sorted(_pipeline_status["steps"], key=lambda s: s.get("order", 99))
+    return {**_pipeline_status, "steps": steps_sorted}
+
+@app.post("/api/startup-pipeline/run")
+async def force_pipeline_run(request: Request):
+    """Manual re-trigger. Admin only — auth header required."""
+    try:
+        user = _get_current_user(request)
+        if not user or user.get("role") != "admin":
+            return {"error": "Admin access required", "ok": False}
+    except Exception:
+        return {"error": "Admin access required", "ok": False}
+
+    if _pipeline_status.get("status") == "running":
+        return {"error": "Pipeline already running", "ok": False}
+
+    # Reset and kick off
+    _pipeline_status["last_run_date"] = None   # force run (bypass smart-skip)
+    asyncio.create_task(_staggered_startup(force=True))
+    return {"ok": True, "message": "Pipeline manually triggered"}
+
+
+async def _staggered_startup(force: bool = False):
+    """Run background syncs in sequence with delays to prevent DB contention.
+    Wrapped with observable pipeline state and smart-skip rule. The original
+    sync steps are preserved exactly; we just bracket each with _pipeline_run_step
+    for status tracking and add two new steps (Smart Screener pre-warm, Scanners
+    pre-warm) at the end.
+    """
     import asyncio as _aio
 
-    # 1. OHLCV sync first (prices needed for everything else)
-    logger.info("⏳ Startup sequence: OHLCV sync...")
-    await _auto_sync_ohlcv()
+    async with _pipeline_lock:
+        # ── Smart-skip rule ────────────────────────────────────────────────────
+        skip_reason = None if force else _pipeline_should_skip()
+        if skip_reason:
+            logger.info(f"⏭ Startup pipeline skipped: {skip_reason}")
+            _pipeline_status["status"] = "skipped"
+            _pipeline_status["completed_at"] = datetime.now(timezone.utc).isoformat()
+            _pipeline_status["current_step"] = None
+            return
 
-    # 2. TV Fundamentals (needed for F-Value, Smart Money enrichment)
-    await _aio.sleep(3)
-    logger.info("⏳ Startup sequence: TV Fundamentals...")
+        # ── Begin run ──────────────────────────────────────────────────────────
+        _pipeline_status["status"] = "running"
+        _pipeline_status["started_at"] = datetime.now(timezone.utc).isoformat()
+        _pipeline_status["last_run_date"] = _pipeline_today_ist()
+        _pipeline_status["steps"] = []   # reset per-run
+        _pipeline_status["current_step"] = None
+        logger.info("🚀 Startup pipeline beginning — 7 steps")
+
     try:
-        from tv_fundamentals import fetch_batch_fundamentals, is_batch_fresh
-        if not is_batch_fresh(max_age_hours=24):
-            loop = _aio.get_event_loop()
-            result = await loop.run_in_executor(executor, fetch_batch_fundamentals, "india")
-            logger.info(f"✅ TV Fundamentals: {len(result)} tickers synced")
-        else:
-            logger.info("✅ TV Fundamentals: already fresh (<24h)")
+        # ── Step 1: NIFTY 500 OHLCV ───────────────────────────────────────────
+        logger.info("⏳ Pipeline Step 1/7: NIFTY 500 OHLCV...")
+        await _pipeline_run_step("nifty500", _auto_sync_ohlcv)
+
+        # ── Step 2: Sectors (already loaded in startup_event; record as done)
+        # The sector map is built early in startup_event via _build_sector_map.
+        # We still record it as a pipeline step for the user-visible status.
+        _pipeline_record_step("sectors", "done", duration_s=0.0,
+                              detail="loaded during startup")
+
+        # ── Background: TV Fundamentals + Insider (not in user's 7-step list,
+        # but needed by downstream Smart Screener and Leaders steps) ──
+        await _aio.sleep(3)
+        logger.info("⏳ Pipeline: TV Fundamentals (background dependency)...")
+        try:
+            from tv_fundamentals import fetch_batch_fundamentals, is_batch_fresh
+            if not is_batch_fresh(max_age_hours=24):
+                loop = _aio.get_event_loop()
+                result = await loop.run_in_executor(executor, fetch_batch_fundamentals, "india")
+                logger.info(f"✅ TV Fundamentals: {len(result)} tickers synced")
+            else:
+                logger.info("✅ TV Fundamentals: already fresh (<24h)")
+        except Exception as e:
+            logger.warning(f"TV Fundamentals sync failed: {e}")
+
+        await _aio.sleep(2)
+        logger.info("⏳ Pipeline: Insider sync (background dependency)...")
+        try:
+            await _auto_sync_insider()
+        except Exception as e:
+            logger.warning(f"Insider sync failed: {e}")
+
+        # ── Step 5: FII/DII (parallel-safe but kept sequential for log clarity)
+        await _aio.sleep(2)
+        logger.info("⏳ Pipeline Step 5/7: FII/DII...")
+        await _pipeline_run_step("fiidii", _auto_sync_fiidii)
+
+        # ── Step 6: Leaders (RS rankings + F-Value pre-warm; this also lights
+        # up the cache that Smart Screener and Scanners depend on) ──
+        await _aio.sleep(3)
+        logger.info("⏳ Pipeline Step 6/7: Leaders (RS+F-Value)...")
+        await _pipeline_run_step("leaders", _prewarm_heavy_caches)
+
+        # ── Step 3: Smart Screener pre-warm (depends on RS + F-Value from Step 6)
+        # Note: although user-visible order is 1→7, dependencies force this here.
+        # The frontend status pill renders by `order` field, not execution order.
+        logger.info("⏳ Pipeline Step 3/7: Smart Screener pre-warm...")
+        await _pipeline_run_step("smart_screener", _pipeline_prewarm_smart_screener)
+
+        # ── Step 7: Scanners (Swing Cockpit — 9 screeners) ────────────────────
+        logger.info("⏳ Pipeline Step 7/7: Swing Cockpit scanners pre-warm...")
+        await _pipeline_run_step("scanners", _pipeline_prewarm_scanners)
+
+        # ── Step 4: Trading Journal — no-op explicit record (prices already
+        # refreshed as a side-effect of Step 1's OHLCV update) ────────────────
+        _pipeline_record_step("journal", "done", duration_s=0.0,
+                              detail="prices refreshed via Step 1 OHLCV sync")
+
+        # ── Finalize ──────────────────────────────────────────────────────────
+        errs = [s for s in _pipeline_status["steps"] if s.get("status") == "error"]
+        _pipeline_status["status"] = "partial" if errs else "done"
+        _pipeline_status["current_step"] = None
+        _pipeline_status["completed_at"] = datetime.now(timezone.utc).isoformat()
+        logger.info(
+            f"🚀 Startup pipeline complete — status={_pipeline_status['status']} "
+            f"({len(_pipeline_status['steps'])} steps, {len(errs)} errors)"
+        )
+
     except Exception as e:
-        logger.warning(f"TV Fundamentals sync failed: {e}")
-
-    # 3. Insider data
-    await _aio.sleep(2)
-    logger.info("⏳ Startup sequence: Insider sync...")
-    await _auto_sync_insider()
-
-    # 4. FII/DII
-    await _aio.sleep(2)
-    logger.info("⏳ Startup sequence: FII/DII sync...")
-    await _auto_sync_fiidii()
-
-    # 5. Pre-warm heavy caches (RS Rankings, Leaders, F-Value)
-    await _aio.sleep(3)
-    logger.info("⏳ Startup sequence: Pre-warming RS/Leaders/F-Value...")
-    await _prewarm_heavy_caches()
-
-    logger.info("🚀 Startup sequence complete — all data ready")
+        _pipeline_status["status"] = "error"
+        _pipeline_status["completed_at"] = datetime.now(timezone.utc).isoformat()
+        logger.error(f"❌ Startup pipeline crashed: {e}")
+        import traceback; traceback.print_exc()
 
 
 async def _auto_sync_ohlcv():

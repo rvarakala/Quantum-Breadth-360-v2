@@ -75,6 +75,36 @@
 
   <div class="nav-spacer"></div>
 
+  <!-- Startup pipeline status pill — polls /api/startup-pipeline/status -->
+  <div id="pipeline-pill" onclick="togglePipelinePanel()" title="Auto-pipeline status — click for details"
+    style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(71,85,105,.15);
+    border:1px solid rgba(71,85,105,.4);border-radius:14px;cursor:pointer;font-family:var(--font-mono);
+    font-size:10px;color:#94a3b8;user-select:none;margin-right:8px;transition:background .15s">
+    <span id="pipeline-pill-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;
+      background:#64748b"></span>
+    <span id="pipeline-pill-text">Idle</span>
+  </div>
+
+  <!-- Pipeline detail panel (hidden by default; toggled by pill) -->
+  <div id="pipeline-panel" style="display:none;position:absolute;top:48px;right:140px;
+    width:340px;background:var(--bg1,#0f172a);border:1px solid var(--border2,#334155);
+    border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.45);padding:14px;z-index:1500;
+    font-family:var(--font-mono);font-size:11px;color:var(--text2,#cbd5e1)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-size:11px;font-weight:700;color:var(--text1,#e2e8f0)">📡 Auto-Pipeline</span>
+      <span id="pipeline-panel-meta" style="font-size:9px;color:var(--text3,#64748b)">—</span>
+    </div>
+    <div id="pipeline-panel-steps" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2,#334155);
+      display:flex;gap:8px;align-items:center;justify-content:space-between">
+      <span style="font-size:9px;color:var(--text3,#64748b)" id="pipeline-panel-footer">—</span>
+      <button id="pipeline-force-btn" onclick="forcePipelineRun()" style="padding:4px 10px;
+        background:var(--bg2,#1e293b);border:1px solid var(--border2,#334155);
+        border-radius:4px;color:var(--text2,#cbd5e1);cursor:pointer;font-size:9px;
+        font-family:var(--font-mono)" title="Admin only">⟳ Force Re-Run</button>
+    </div>
+  </div>
+
   <div class="freshness" id="freshness-indicator">
     <div class="freshness-dot stale"></div>
     <span id="freshness-text">Not loaded</span>
@@ -2637,6 +2667,7 @@
 <script src="/static/js/overview-sector-rs.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/data.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/autocomplete.js?v=__ASSET_VERSION__"></script>
+<script src="/static/js/pipeline-status.js?v=__ASSET_VERSION__"></script>
 <script src="/static/js/app.js?v=__ASSET_VERSION__"></script>
 <!-- Tab scripts loaded lazily by app.js _loadTabScript() on first open -->
 
