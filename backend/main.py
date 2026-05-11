@@ -3971,20 +3971,21 @@ async def api_sector_rs():
         return {"error": str(e), "leaders": [], "laggards": []}
 
 
-@app.get("/api/overview/earnings")
-async def api_earnings_calendar():
-    """Card 4: companies reporting earnings in the next 7 trading days.
-    Source priority: NSE corporate event-calendar → Moneycontrol scrape.
-    Filtered to NIFTY 500 universe. 4-hour SQLite cache.
+@app.get("/api/overview/growth-leaders")
+async def api_growth_leaders():
+    """Card 4: NIFTY 500 stocks with YoY sales AND profit growth ≥50%
+    in the latest reported quarter. Reads from tv_fundamentals_detail.
+    12hr SQLite cache. Strict AND filter — see growth_screener module
+    for design rationale.
     """
     try:
-        from earnings_calendar import get_earnings_calendar
+        from growth_screener import compute_growth_leaders
         loop = asyncio.get_event_loop()
-        data = await loop.run_in_executor(executor, get_earnings_calendar)
+        data = await loop.run_in_executor(executor, compute_growth_leaders)
         return data
     except Exception as e:
-        logger.error(f"earnings calendar error: {e}", exc_info=True)
-        return {"error": str(e), "items": [], "count": 0}
+        logger.error(f"growth-leaders error: {e}", exc_info=True)
+        return {"error": str(e), "leaders": [], "count": 0}
 
 
 if __name__=="__main__":
