@@ -3988,6 +3988,28 @@ async def api_growth_leaders():
         return {"error": str(e), "leaders": [], "count": 0}
 
 
+@app.get("/api/breadth/chart-detail")
+async def api_chart_detail(card_id: str, market: str = "INDIA",
+                           refresh: bool = False):
+    """Drill-in detail for Breadth Charts cards. Returns 90D series +
+    deterministic stats + Groq AI analysis (per-day cached).
+
+    card_id must be one of:
+      ad_line, pct_above_50, nh_nl, qbram_score, iv_footprint,
+      liquidity_stress, regime_timeline, score_gauge
+    """
+    try:
+        from breadth_chart_detail import get_chart_detail
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(
+            executor, get_chart_detail, card_id, market, refresh
+        )
+        return data
+    except Exception as e:
+        logger.error(f"chart-detail error: {e}", exc_info=True)
+        return {"error": str(e), "card_id": card_id}
+
+
 if __name__=="__main__":
     import uvicorn
     print("\n🚀  Market Breadth Engine v2.0")

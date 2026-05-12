@@ -1843,21 +1843,21 @@
   <!-- BREADTH CHARTS TAB -->
   <div class="tab-content" id="tab-breadth">
     <div class="charts-row">
-      <div class="chart-card fade-in">
+      <div class="chart-card fade-in breadth-detail-card" data-card-id="ad_line" title="Click to expand to 90 days + AI analysis">
         <div class="chart-card-header">
           <span class="chart-title">A-D LINE (CUMULATIVE)</span>
           <span class="chart-badge" id="ad-badge" style="background:var(--blue-dim);color:var(--blue)">25D</span>
         </div>
         <div class="chart-wrap"><canvas id="chart-ad"></canvas></div>
       </div>
-      <div class="chart-card fade-in stagger-1">
+      <div class="chart-card fade-in stagger-1 breadth-detail-card" data-card-id="pct_above_50" title="Click to expand to 90 days + AI analysis">
         <div class="chart-card-header">
           <span class="chart-title">% ABOVE 50 DMA TREND</span>
           <span class="chart-badge" id="dma-badge" style="background:var(--purple)22;color:var(--purple)">25D</span>
         </div>
         <div class="chart-wrap"><canvas id="chart-dma"></canvas></div>
       </div>
-      <div class="chart-card fade-in stagger-2">
+      <div class="chart-card fade-in stagger-2 breadth-detail-card" data-card-id="nh_nl" title="Click to expand to 90 days + AI analysis">
         <div class="chart-card-header">
           <span class="chart-title">NEW HIGH vs NEW LOW</span>
           <span class="chart-badge" id="nh-badge" style="background:var(--green-dim);color:var(--green)">25D</span>
@@ -1867,7 +1867,7 @@
     </div>
 
     <!-- Score gauge full -->
-    <div class="chart-card fade-in" style="margin-bottom:8px;padding:10px 16px">
+    <div class="chart-card fade-in breadth-detail-card" data-card-id="score_gauge" style="margin-bottom:8px;padding:10px 16px" title="Click for component breakdown + AI analysis">
       <div class="chart-card-header">
         <span class="chart-title">BREADTH SCORE INTERPRETATION</span>
       </div>
@@ -1886,25 +1886,25 @@
     </div>
 
     <!-- Regime Timeline (full width) -->
-    <div id="regime-timeline-card" class="chart-card fade-in rt-card" style="margin-bottom:8px"></div>
+    <div id="regime-timeline-card" class="chart-card fade-in rt-card breadth-detail-card" data-card-id="regime_timeline" style="margin-bottom:8px" title="Click for 90-day regime analysis + AI"></div>
 
     <!-- Score History + IV Footprint + Liquidity Stress (3-col) -->
     <div class="bc-three-col">
-      <div class="chart-card fade-in">
+      <div class="chart-card fade-in breadth-detail-card" data-card-id="qbram_score" title="Click to expand to 90 days + AI analysis">
         <div class="chart-card-header">
           <span class="chart-title">Q-BRAM SCORE HISTORY (25 SESSIONS)</span>
           <span class="chart-badge" style="background:var(--purple)22;color:var(--purple)">25D</span>
         </div>
         <div class="chart-wrap"><canvas id="chart-score-history"></canvas></div>
       </div>
-      <div class="chart-card fade-in">
+      <div class="chart-card fade-in breadth-detail-card" data-card-id="iv_footprint" title="Click to expand to 90 days + AI analysis">
         <div class="chart-card-header">
           <span class="chart-title">IV FOOTPRINT — SMART MONEY</span>
           <span class="chart-badge" style="background:var(--green-dim);color:var(--green)">25D</span>
         </div>
         <div class="chart-wrap"><canvas id="chart-iv-footprint"></canvas></div>
       </div>
-      <div class="chart-card fade-in">
+      <div class="chart-card fade-in breadth-detail-card" data-card-id="liquidity_stress" title="Click to expand to 90 days + AI analysis">
         <div class="chart-card-header">
           <span class="chart-title">LIQUIDITY STRESS SCORE</span>
           <span class="chart-badge" style="background:rgba(239,68,68,.15);color:var(--red)">25D</span>
@@ -2763,6 +2763,67 @@ function qb360Logout() {
     </div>
   </div>
 </div>
+
+<!-- ── Breadth Charts Drill-In Modal ─────────────────────────────────────── -->
+<div id="breadth-detail-overlay" style="display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.65);z-index:9000;backdrop-filter:blur(3px);
+  animation:bd-fade .15s ease-out">
+  <div id="breadth-detail-modal" role="dialog" aria-modal="true" style="
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:92vw;max-width:1100px;max-height:90vh;overflow:hidden;
+    background:var(--bg1,#0f172a);border:1px solid var(--border2,#334155);
+    border-radius:12px;box-shadow:0 25px 60px rgba(0,0,0,.6);
+    display:flex;flex-direction:column;font-family:var(--font-mono)">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      padding:14px 20px;border-bottom:1px solid var(--border2,#334155)">
+      <div style="display:flex;align-items:baseline;gap:12px">
+        <span id="bd-title" style="font-size:13px;font-weight:700;
+          color:var(--text1,#e2e8f0);letter-spacing:.05em">Loading…</span>
+        <span id="bd-subtitle" style="font-size:10px;color:var(--text3,#64748b)"></span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:9px;color:var(--text3,#64748b)">Press ESC to close</span>
+        <button onclick="closeBreadthDetail()" style="padding:4px 10px;
+          background:transparent;border:1px solid var(--border2,#334155);
+          border-radius:4px;color:var(--text2,#cbd5e1);cursor:pointer;
+          font-family:var(--font-mono);font-size:11px">✕</button>
+      </div>
+    </div>
+
+    <!-- Body (scrollable) -->
+    <div id="bd-body" style="flex:1;overflow-y:auto;padding:18px 20px">
+      <div style="text-align:center;padding:48px;color:var(--text3,#64748b);font-size:11px">
+        Loading 90-day analysis…
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      padding:8px 20px;border-top:1px solid var(--border2,#334155);
+      font-size:9px;color:var(--text3,#64748b)">
+      <span id="bd-footer-left">—</span>
+      <span id="bd-footer-right">—</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes bd-fade {
+    from { opacity: 0; } to { opacity: 1; }
+  }
+  .breadth-detail-card {
+    cursor: pointer;
+    transition: transform .12s ease-out, box-shadow .12s ease-out;
+  }
+  .breadth-detail-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, .15);
+  }
+</style>
+
+<script src="/static/js/breadth-detail-modal.js?v=__ASSET_VERSION__"></script>
 
 </body>
 </html>
