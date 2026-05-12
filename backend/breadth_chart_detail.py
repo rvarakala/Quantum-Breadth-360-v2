@@ -109,14 +109,15 @@ def _store_analysis(card_id: str, market: str, analysis: str):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _series_stats(values: List[float]) -> Dict[str, Any]:
-    """Generic time-series stats: current, high/low, 20D slope, position-in-range."""
+    """Generic time-series stats: current, high/low, 20D slope, position-in-range.
+    Always returns the same key set so callers can format-string safely."""
+    EMPTY = {"current": None, "high": None, "low": None,
+             "slope_20d": 0.0, "trend": "n/a", "position_pct": None}
     if not values:
-        return {"current": None, "high": None, "low": None, "trend": "n/a",
-                "position_pct": None}
+        return dict(EMPTY)
     vals = [v for v in values if v is not None]
     if not vals:
-        return {"current": None, "high": None, "low": None, "trend": "n/a",
-                "position_pct": None}
+        return dict(EMPTY)
     current = vals[-1]
     hi, lo  = max(vals), min(vals)
     # 20D slope: simple last-20 endpoint slope

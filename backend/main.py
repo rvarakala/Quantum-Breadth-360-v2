@@ -1192,6 +1192,80 @@ async def api_journal_import_csv(request: Request):
     return {"imported": imported, "errors": errors, "total": len(parsed)}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# IMPORTANT: Specific /api/breadth/<word> routes MUST be registered BEFORE
+# the catch-all /api/breadth/{market} below. FastAPI matches routes in
+# REGISTRATION ORDER, not by specificity. A path param will shadow any
+# later-registered specific path.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/breadth/chart-detail")
+async def api_chart_detail(card_id: str, market: str = "INDIA",
+                           refresh: bool = False):
+    """Drill-in detail for Breadth Charts cards. Returns 90D series +
+    deterministic stats + Groq AI analysis (per-day cached).
+
+    card_id must be one of:
+      ad_line, pct_above_50, nh_nl, qbram_score, iv_footprint,
+      liquidity_stress, regime_timeline, score_gauge
+    """
+    try:
+        from breadth_chart_detail import get_chart_detail
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(
+            executor, get_chart_detail, card_id, market, refresh
+        )
+        return data
+    except Exception as e:
+        logger.error(f"chart-detail error: {e}", exc_info=True)
+        return {"error": str(e), "card_id": card_id}
+
+
+@app.get("/api/breadth/score-history")
+async def get_score_history(market: str = "INDIA", days: int = 30):
+    """
+    Return actual stored Q-BRAM v2 scores from qbram_score_history table.
+    Used by Overview Breadth Charts tab for accurate score history.
+    """
+    import sqlite3
+    db_path = pathlib.Path(__file__).parent / "breadth_data.db"
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=10)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS qbram_score_history (
+                date TEXT NOT NULL, market TEXT NOT NULL,
+                score INTEGER, regime TEXT,
+                pct_above_50 REAL, nh_nl INTEGER,
+                breadth_thrust REAL, csd REAL,
+                qbram_version TEXT DEFAULT 'v2',
+                PRIMARY KEY (date, market)
+            )
+        """)
+        # Add new columns if upgrading from v1 schema
+        for col, ctype in [("breadth_thrust", "REAL"), ("csd", "REAL"), ("qbram_version", "TEXT")]:
+            try:
+                conn.execute(f"ALTER TABLE qbram_score_history ADD COLUMN {col} {ctype}")
+            except:
+                pass  # Column already exists
+        rows = conn.execute("""
+            SELECT date, score, regime, pct_above_50, nh_nl, breadth_thrust, csd, qbram_version
+            FROM qbram_score_history
+            WHERE market = ?
+            ORDER BY date DESC LIMIT ?
+        """, (market.upper(), days)).fetchall()
+        conn.close()
+        history = [
+            {"date": r[0], "score": r[1], "regime": r[2],
+             "pct_above_50": r[3], "nh_nl": r[4],
+             "breadth_thrust": r[5], "csd": r[6],
+             "qbram_version": r[7] or "v1"}
+            for r in reversed(rows)
+        ]
+        return {"market": market, "days": len(history), "history": history}
+    except Exception as e:
+        return {"error": str(e), "history": []}
+
+
 @app.get("/api/breadth/{market}")
 async def get_breadth(market: str, refresh: bool = False):
     market=market.upper()
@@ -2106,51 +2180,6 @@ def smart_screener_results():
         return _smart_scr_state["result"]
     return {"error": "No results yet — run /api/screener/smart/run first",
             "stocks": [], "total": 0}
-
-
-@app.get("/api/breadth/score-history")
-async def get_score_history(market: str = "INDIA", days: int = 30):
-    """
-    Return actual stored Q-BRAM v2 scores from qbram_score_history table.
-    Used by Overview Breadth Charts tab for accurate score history.
-    """
-    import sqlite3
-    db_path = pathlib.Path(__file__).parent / "breadth_data.db"
-    try:
-        conn = sqlite3.connect(str(db_path), timeout=10)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS qbram_score_history (
-                date TEXT NOT NULL, market TEXT NOT NULL,
-                score INTEGER, regime TEXT,
-                pct_above_50 REAL, nh_nl INTEGER,
-                breadth_thrust REAL, csd REAL,
-                qbram_version TEXT DEFAULT 'v2',
-                PRIMARY KEY (date, market)
-            )
-        """)
-        # Add new columns if upgrading from v1 schema
-        for col, ctype in [("breadth_thrust", "REAL"), ("csd", "REAL"), ("qbram_version", "TEXT")]:
-            try:
-                conn.execute(f"ALTER TABLE qbram_score_history ADD COLUMN {col} {ctype}")
-            except:
-                pass  # Column already exists
-        rows = conn.execute("""
-            SELECT date, score, regime, pct_above_50, nh_nl, breadth_thrust, csd, qbram_version
-            FROM qbram_score_history
-            WHERE market = ?
-            ORDER BY date DESC LIMIT ?
-        """, (market.upper(), days)).fetchall()
-        conn.close()
-        history = [
-            {"date": r[0], "score": r[1], "regime": r[2],
-             "pct_above_50": r[3], "nh_nl": r[4],
-             "breadth_thrust": r[5], "csd": r[6],
-             "qbram_version": r[7] or "v1"}
-            for r in reversed(rows)
-        ]
-        return {"market": market, "days": len(history), "history": history}
-    except Exception as e:
-        return {"error": str(e), "history": []}
 
 
 # ── Insider Trading Endpoints ────────────────────────────────────────────────
@@ -3988,26 +4017,8 @@ async def api_growth_leaders():
         return {"error": str(e), "leaders": [], "count": 0}
 
 
-@app.get("/api/breadth/chart-detail")
-async def api_chart_detail(card_id: str, market: str = "INDIA",
-                           refresh: bool = False):
-    """Drill-in detail for Breadth Charts cards. Returns 90D series +
-    deterministic stats + Groq AI analysis (per-day cached).
-
-    card_id must be one of:
-      ad_line, pct_above_50, nh_nl, qbram_score, iv_footprint,
-      liquidity_stress, regime_timeline, score_gauge
-    """
-    try:
-        from breadth_chart_detail import get_chart_detail
-        loop = asyncio.get_event_loop()
-        data = await loop.run_in_executor(
-            executor, get_chart_detail, card_id, market, refresh
-        )
-        return data
-    except Exception as e:
-        logger.error(f"chart-detail error: {e}", exc_info=True)
-        return {"error": str(e), "card_id": card_id}
+# Note: /api/breadth/chart-detail is registered earlier (before the
+# /api/breadth/{market} catch-all) to avoid route shadowing. See line ~1190.
 
 
 if __name__=="__main__":
