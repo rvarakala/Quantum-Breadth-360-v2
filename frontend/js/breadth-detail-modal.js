@@ -58,6 +58,13 @@
   function open(cardId) {
     if (_isOpen) return;
     if (!CARD_META[cardId]) { console.warn('Unknown card_id', cardId); return; }
+
+    // Defensive: kill any leftover chart from a previous open that wasn't cleaned up
+    if (_activeChart) {
+      try { _activeChart.destroy(); } catch (e) {}
+      _activeChart = null;
+    }
+
     _isOpen = true;
     const overlay = _$('breadth-detail-overlay');
     overlay.style.display = 'block';
@@ -66,7 +73,7 @@
     _$('bd-title').textContent = meta.title;
     _$('bd-subtitle').textContent = '90 days · loading…';
     _$('bd-body').innerHTML = `
-      <div style="text-align:center;padding:48px;color:var(--text3,#64748b);font-size:11px">
+      <div style="text-align:center;padding:48px;color:#64748b;font-size:11px">
         Loading 90-day analysis…
       </div>`;
     _$('bd-footer-left').textContent = '—';
@@ -135,11 +142,26 @@
 
   // ─── Renderer dispatcher ──────────────────────────────────────────────────
   function _render(cardId, data) {
+    // Always destroy any existing chart BEFORE replacing innerHTML.
+    // If we don't, Chart.js keeps a reference to the destroyed canvas
+    // element and can re-render onto the new modal incorrectly.
+    if (_activeChart) {
+      try { _activeChart.destroy(); } catch (e) { /* swallow */ }
+      _activeChart = null;
+    }
+
     const meta = CARD_META[cardId];
     _$('bd-subtitle').textContent = `${data.days || 90} days · ${data.market || 'INDIA'}`;
 
+    const series = data.series || [];
+    const hasData = series.length > 0 ||
+                     (meta.variant === 'gauge' && data.stats && Object.keys(data.stats.components || {}).length > 0);
+
     let chartHtml = '';
-    if (meta.variant === 'regime') {
+    if (!hasData) {
+      // No data to chart — show a helpful diagnostic instead of an empty canvas
+      chartHtml = _renderEmptyDataPanel(cardId);
+    } else if (meta.variant === 'regime') {
       chartHtml = _renderRegimeStrip(data);
     } else if (meta.variant === 'gauge') {
       chartHtml = _renderScoreGauge(data);
@@ -149,20 +171,46 @@
       </div>`;
     }
 
-    const statsHtml = _renderStats(cardId, data);
+    const statsHtml = hasData ? _renderStats(cardId, data) : '';
     const aiHtml = _renderAI(data);
 
     _$('bd-body').innerHTML = chartHtml + statsHtml + aiHtml;
 
-    // Now render the actual chart for variants that use canvas
-    if (meta.variant === 'line') _renderLineChart(data, meta.color);
-    else if (meta.variant === 'bar') _renderBarChart(data, meta.color);
-    else if (meta.variant === 'stack') _renderStackChart(data);
+    // Now render the actual chart for variants that use canvas (only if we have data)
+    if (hasData) {
+      if (meta.variant === 'line') _renderLineChart(data, meta.color);
+      else if (meta.variant === 'bar') _renderBarChart(data, meta.color);
+      else if (meta.variant === 'stack') _renderStackChart(data);
+    }
 
     // Footer
     const aiStatus = data.ai_cached ? 'AI cached (today)' : 'AI fresh';
     _$('bd-footer-left').textContent = aiStatus;
     _$('bd-footer-right').textContent = `Generated ${(data.generated_at || '').slice(0, 19).replace('T', ' ')}`;
+  }
+
+  function _renderEmptyDataPanel(cardId) {
+    // Card-specific guidance on what's likely missing
+    const hints = {
+      qbram_score:     'qbram_score_history table has no rows yet. Q-BRAM scores are persisted automatically when the breadth computation runs. Trigger a refresh from Control Center → Re-run Pipeline, or wait for the next EOD sync.',
+      regime_timeline: 'qbram_score_history table has no rows yet. Same fix as Q-BRAM Score — trigger a pipeline run.',
+      iv_footprint:    'IV Footprint requires OHLCV data with volume + IV signals. If you just restarted, the data may not have been computed yet. Re-run Data Sync.',
+      ad_line:         'breadth_INDIA cache is empty. The Breadth Charts page itself needs to load successfully first — close this modal, ensure the dashboard charts are populated, then re-open.',
+      pct_above_50:    'breadth_INDIA cache is empty. Close, ensure dashboard loads, re-open.',
+      nh_nl:           'breadth_INDIA cache is empty. Close, ensure dashboard loads, re-open.',
+      liquidity_stress:'LSS is computed from DMA + A/D + NH/NL data — all three need to be present. Re-run breadth compute.',
+      score_gauge:     'No live score_components in breadth_INDIA cache. Re-run breadth compute.',
+    };
+    const hint = hints[cardId] || 'No data available for this card.';
+    return `
+      <div style="padding:32px 24px;text-align:center;background:rgba(245,158,11,.05);
+        border:1px solid rgba(245,158,11,.25);border-radius:8px;margin-bottom:16px">
+        <div style="font-size:24px;margin-bottom:8px">📭</div>
+        <div style="color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:6px;
+          text-transform:uppercase;letter-spacing:.06em">No data yet</div>
+        <div style="color:#cbd5e1;font-size:11px;line-height:1.6;max-width:600px;
+          margin:0 auto;font-family:'Inter',sans-serif">${_esc(hint)}</div>
+      </div>`;
   }
 
   // ─── Variant: line chart (5 cards) ────────────────────────────────────────
