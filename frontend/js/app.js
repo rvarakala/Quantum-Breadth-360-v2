@@ -504,7 +504,7 @@ window.fetch = function(url, options = {}) {
 const _TAB_SCRIPTS = {
   'importer':       ['importer.js'],
   'screeners':      ['screeners.js'],
-  'leaders':        ['leaders.js'],
+  'leaders':        ['screeners.js', 'leaders.js'],
   'stockbee':       ['stockbee.js', 'stockbee-monitor.js'],
   'charts':         ['charts-tab.js', 'chart-drawing.js', 'smart-chart.js'],
   'sectors':        ['heatmap.js'],
