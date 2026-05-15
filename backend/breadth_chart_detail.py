@@ -363,16 +363,26 @@ def _handle_qbram_score(market: str) -> Dict[str, Any]:
 
 def _handle_iv_footprint(market: str) -> Dict[str, Any]:
     rows = _fetch_iv_footprint(market, DEFAULT_DAYS)
-    series = rows  # already shaped as list of {date, iv_buy, ppv, bull_snort}
-    # Aggregate
-    iv_total  = sum((r.get("iv_buy", 0)    or 0) for r in rows)
-    ppv_total = sum((r.get("ppv", 0)       or 0) for r in rows)
-    bs_total  = sum((r.get("bull_snort", 0) or 0) for r in rows)
-    last7 = rows[-7:] if len(rows) >= 7 else rows
-    last7_total = sum((r.get("iv_buy", 0) or 0) + (r.get("ppv", 0) or 0) +
-                       (r.get("bull_snort", 0) or 0) for r in last7)
+    # compute_iv_footprint returns list of {date, iv_count, ppv_count, bs_count}
+    # Normalise field names so the chart frontend (which expects iv_buy/ppv/
+    # bull_snort) gets consistent data — single source of truth here.
+    series = [
+        {
+            "date":       r.get("date"),
+            "iv_buy":     r.get("iv_count", 0)  or 0,
+            "ppv":        r.get("ppv_count", 0) or 0,
+            "bull_snort": r.get("bs_count", 0)  or 0,
+        }
+        for r in rows
+    ]
+    # Aggregate from normalised series
+    iv_total  = sum(r["iv_buy"]     for r in series)
+    ppv_total = sum(r["ppv"]        for r in series)
+    bs_total  = sum(r["bull_snort"] for r in series)
+    last7 = series[-7:] if len(series) >= 7 else series
+    last7_total = sum(r["iv_buy"] + r["ppv"] + r["bull_snort"] for r in last7)
     last7_avg = last7_total / max(len(last7), 1)
-    avg_90 = (iv_total + ppv_total + bs_total) / max(len(rows), 1)
+    avg_90 = (iv_total + ppv_total + bs_total) / max(len(series), 1)
     direction = "rising" if last7_avg > avg_90 * 1.1 else (
                  "falling" if last7_avg < avg_90 * 0.9 else "flat")
     stats = {

@@ -119,7 +119,10 @@
   // ─── Fetch + dispatch ─────────────────────────────────────────────────────
   async function _fetchAndRender(cardId) {
     try {
-      const market = (window._currentMarket || 'INDIA').toUpperCase();
+      // Global `currentMarket` is set by charts.js (let currentMarket = 'INDIA')
+      // and updated by data.js when user clicks the India/US toggle.
+      // typeof guard handles the rare race where charts.js hasn't loaded yet.
+      const market = (typeof currentMarket !== 'undefined' ? currentMarket : 'INDIA').toUpperCase();
       const r = await fetch(`${ENDPOINT}?card_id=${encodeURIComponent(cardId)}&market=${market}`);
       if (!r.ok) {
         _renderError(`HTTP ${r.status}`);
