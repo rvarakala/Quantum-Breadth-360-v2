@@ -1969,6 +1969,123 @@ def nse_index_constituents(index_name: str = "NIFTY 500"):
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/api/nse-indices/diagnose")
+def nse_indices_diagnose(index_name: str = ""):
+    """
+    DIAGNOSTIC: probe niftyindices.com URLs for failing indices.
+
+    If index_name is empty, probes all indices currently marked 'failed'
+    in nse_index_registry. Otherwise probes the named index only.
+
+    For each probe returns:
+      - the URL hit
+      - HTTP status code
+      - response length
+      - first 300 bytes (so we can see if it's HTML/404/CSV/blocked)
+
+    Use this output to find correct filenames. Read-only — does NOT
+    modify any data.
+    """
+    import urllib.request, urllib.error, http.cookiejar, gzip, sqlite3, pathlib
+    from nse_indices import NSE_INDEX_REGISTRY, BASE_URL
+
+    # Determine which indices to probe
+    if index_name:
+        if index_name not in NSE_INDEX_REGISTRY:
+            return {"error": f"Unknown index: {index_name}",
+                    "available": sorted(NSE_INDEX_REGISTRY.keys())}
+        to_probe = [(index_name, NSE_INDEX_REGISTRY[index_name])]
+    else:
+        # Pull failing ones from registry
+        db_path = pathlib.Path(__file__).parent / "breadth_data.db"
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=10)
+            failed_names = [r[0] for r in conn.execute(
+                "SELECT index_name FROM nse_index_registry WHERE status='failed'"
+            ).fetchall()]
+            conn.close()
+        except Exception as e:
+            return {"error": f"DB read failed: {e}", "results": []}
+
+        if not failed_names:
+            return {"message": "No failed indices to probe",
+                    "hint": "Try ?index_name=NIFTY+LargeMidcap+250 to probe a specific one"}
+
+        to_probe = [(n, NSE_INDEX_REGISTRY[n]) for n in failed_names
+                    if n in NSE_INDEX_REGISTRY]
+
+    # Warm session with homepage (same as production code)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept":          "text/csv,application/csv,text/plain,*/*;q=0.9",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate",
+        "Referer":         "https://www.niftyindices.com/",
+        "Origin":          "https://www.niftyindices.com",
+    }
+    cookie_jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
+
+    try:
+        home_req = urllib.request.Request("https://www.niftyindices.com/", headers=headers)
+        with opener.open(home_req, timeout=10) as _: pass
+    except Exception:
+        pass  # continue anyway
+
+    results = []
+    for name, (category, csv_file) in to_probe:
+        url = BASE_URL + csv_file
+        entry = {
+            "index_name":  name,
+            "category":    category,
+            "expected_csv": csv_file,
+            "url":         url,
+        }
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with opener.open(req, timeout=15) as resp:
+                status_code = resp.status
+                content = resp.read()
+                # Try gzip decode
+                try:
+                    content = gzip.decompress(content)
+                except Exception:
+                    pass
+                try:
+                    body_preview = content.decode("utf-8-sig", errors="replace")[:300]
+                except Exception:
+                    body_preview = "(non-text response)"
+                entry["status"]         = status_code
+                entry["response_len"]   = len(content)
+                entry["preview"]        = body_preview
+                # Heuristics
+                lower = body_preview.lower().lstrip()
+                if lower.startswith(("<!doctype", "<html", "<!-")):
+                    entry["diagnosis"] = "HTML page returned (CSV path likely wrong)"
+                elif len(content) < 30:
+                    entry["diagnosis"] = "Response too small to be a CSV"
+                elif "," in body_preview and "\n" in body_preview:
+                    entry["diagnosis"] = "Looks like valid CSV — sync may have a different issue"
+                else:
+                    entry["diagnosis"] = "Unknown response shape"
+        except urllib.error.HTTPError as e:
+            entry["status"]    = e.code
+            entry["diagnosis"] = f"HTTP {e.code}: {e.reason}"
+            entry["preview"]   = ""
+        except Exception as e:
+            entry["status"]    = "exception"
+            entry["diagnosis"] = f"Network error: {str(e)[:200]}"
+            entry["preview"]   = ""
+        results.append(entry)
+
+    return {
+        "probed_count": len(results),
+        "base_url":     BASE_URL,
+        "results":      results,
+        "next_step":    ("Paste this JSON back so we can identify the correct "
+                          "filenames for failing indices."),
+    }
+
 @app.get("/api/nse-indices/ticker")
 def nse_ticker_indices(ticker: str):
     """Get all indices a ticker belongs to."""
