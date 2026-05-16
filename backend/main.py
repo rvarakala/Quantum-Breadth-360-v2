@@ -1969,6 +1969,103 @@ def nse_index_constituents(index_name: str = "NIFTY 500"):
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/api/nse-indices/probe-variants")
+def nse_indices_probe_variants(stem: str):
+    """
+    DIAGNOSTIC: try common filename variants for a given stem.
+
+    Pass the central part of the index name as `stem` (lowercase, no spaces).
+    The endpoint tries multiple filename patterns niftyindices.com uses,
+    reports HTTP status + first 200 bytes of each.
+
+    Examples:
+      GET /api/nse-indices/probe-variants?stem=pharma
+      GET /api/nse-indices/probe-variants?stem=it
+      GET /api/nse-indices/probe-variants?stem=largemidcap250
+
+    Use this to find which pattern niftyindices currently serves for
+    a failing index, then we update the registry accordingly.
+    """
+    import urllib.request, urllib.error, http.cookiejar, gzip
+    from nse_indices import BASE_URL
+
+    stem = stem.strip().lower()
+    if not stem:
+        return {"error": "stem parameter required"}
+
+    # Variants worth trying — covers known historical naming conventions
+    variants = [
+        f"ind_nifty{stem}list.csv",
+        f"ind_nifty{stem}_list.csv",
+        f"ind_nifty_{stem}_list.csv",
+        f"ind_nifty_{stem}list.csv",
+        f"ind_nifty{stem}List.csv",
+        f"ind_nifty{stem}_List.csv",
+    ]
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept":          "text/csv,application/csv,text/plain,*/*;q=0.9",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate",
+        "Referer":         "https://www.niftyindices.com/",
+        "Origin":          "https://www.niftyindices.com",
+    }
+    cookie_jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
+    try:
+        with opener.open(urllib.request.Request("https://www.niftyindices.com/", headers=headers), timeout=10):
+            pass
+    except Exception:
+        pass
+
+    results = []
+    winner = None
+    for variant in variants:
+        url = BASE_URL + variant
+        entry = {"variant": variant, "url": url}
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with opener.open(req, timeout=15) as resp:
+                content = resp.read()
+                try:
+                    content = gzip.decompress(content)
+                except Exception:
+                    pass
+                body = content.decode("utf-8-sig", errors="replace")
+                entry["status"]       = resp.status
+                entry["response_len"] = len(content)
+                stripped = body.strip().lower()
+                if stripped.startswith(("<!doctype", "<html")):
+                    entry["verdict"] = "❌ HTML page"
+                elif "company name" in body.lower() and ("," in body and "\n" in body):
+                    entry["verdict"] = "✅ VALID CSV"
+                    entry["sample"] = body.split("\n")[1][:200] if "\n" in body else ""
+                    if not winner:
+                        winner = variant
+                elif len(content) < 100:
+                    entry["verdict"] = f"⚠ Tiny response ({len(content)}b)"
+                else:
+                    entry["verdict"] = "❓ Unknown format"
+                    entry["preview"] = body[:200]
+        except urllib.error.HTTPError as e:
+            entry["status"]  = e.code
+            entry["verdict"] = f"❌ HTTP {e.code}"
+        except Exception as e:
+            entry["verdict"] = f"❌ {str(e)[:100]}"
+        results.append(entry)
+
+    return {
+        "stem":     stem,
+        "winner":   winner,
+        "variants": results,
+        "tip":      ("Pass `winner` value to me — that's the correct CSV name for "
+                      "this index. If winner is null, no standard variant worked "
+                      "and the index needs different probing.") if not winner else
+                     f"Found correct filename: {winner}",
+    }
+
+
 @app.get("/api/nse-indices/diagnose")
 def nse_indices_diagnose(index_name: str = ""):
     """
